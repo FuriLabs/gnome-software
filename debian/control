@@ -6,8 +6,7 @@ Source: gnome-software
 Section: gnome
 Priority: optional
 Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Matthias Klumpp <mak@debian.org>,
-           Iain Lane <laney@debian.org>, Laurent Bigonville <bigon@debian.org>, Michael Biebl <biebl@debian.org>
+Uploaders: Iain Lane <laney@debian.org>, Jeremy Bicha <jbicha@debian.org>, Laurent Bigonville <bigon@debian.org>, Matthias Klumpp <mak@debian.org>
 Build-Depends: appstream,
                appstream-util,
                debhelper (>= 10.4),
@@ -35,9 +34,9 @@ Build-Depends: appstream,
                libxml2-utils,
                meson (>= 0.37),
                pkg-config,
-               valgrind,
+               valgrind [amd64 arm64 armhf i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el s390x],
                xsltproc
-Standards-Version: 3.9.8
+Standards-Version: 4.1.0
 Homepage: https://wiki.gnome.org/Apps/Software
 Vcs-Svn: svn://anonscm.debian.org/pkg-gnome/desktop/experimental/gnome-software/
 Vcs-Browser: https://anonscm.debian.org/viewvc/pkg-gnome/desktop/experimental/gnome-software/
