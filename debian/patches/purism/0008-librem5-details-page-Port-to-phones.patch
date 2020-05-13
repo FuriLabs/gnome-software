@@ -1,0 +1,40 @@
+From fd7e55d03f286b475e76f94dc8132410f906c5ed Mon Sep 17 00:00:00 2001
+From: Adrien Plazas <kekun.plazas@laposte.net>
+Date: Mon, 9 Sep 2019 17:10:51 +0200
+Subject: [PATCH 08/27] librem5: details-page: Port to phones
+
+---
+ src/gs-details-page.ui | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
+index 3a79a656..ba4ca7fd 100644
+--- a/src/gs-details-page.ui
++++ b/src/gs-details-page.ui
+@@ -54,7 +54,6 @@
+                     <property name="preferred-width">860</property>
+                     <child>
+                       <object class="GtkBox" id="box_details">
+-                        <property name="width_request">752</property>
+                         <property name="orientation">vertical</property>
+                         <property name="visible">True</property>
+                         <property name="halign">fill</property>
+@@ -235,7 +234,6 @@
+                                     <property name="fraction">0.5</property>
+                                     <property name="valign">center</property>
+                                     <property name="vexpand">True</property>
+-                                    <property name="width_request">624</property>
+                                     <style>
+                                       <class name="upgrade-progressbar"/>
+                                     </style>
+@@ -452,6 +450,7 @@
+                           <object class="GtkBox" id="box_details_details">
+                             <property name="visible">True</property>
+                             <property name="margin_bottom">26</property>
++                            <property name="orientation">vertical</property>
+                             <property name="spacing">30</property>
+                             <child>
+                               <object class="GtkGrid" id="grid_details_kudo">
+-- 
+2.26.2
+

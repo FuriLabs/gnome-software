@@ -1,0 +1,42 @@
+From 50af640aefb5287d2d2a1d073e4b8f337f6b94ed Mon Sep 17 00:00:00 2001
+From: Adrien Plazas <kekun.plazas@laposte.net>
+Date: Tue, 3 Sep 2019 15:40:38 +0200
+Subject: [PATCH 03/27] shell: Give a title and an icon to the main stack pages
+
+---
+ src/gnome-software.ui | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/gnome-software.ui b/src/gnome-software.ui
+index 5a3b60d7..4c27bc06 100644
+--- a/src/gnome-software.ui
++++ b/src/gnome-software.ui
+@@ -454,6 +454,8 @@
+                       </object>
+                       <packing>
+                         <property name="name">overview</property>
++                        <property name="title" translatable="yes" comments="Translators: A label for a button to show all available software.">All</property>
++                        <property name="icon-name">system-software-install-symbolic</property>
+                       </packing>
+                     </child>
+                     <child>
+@@ -462,6 +464,8 @@
+                       </object>
+                       <packing>
+                         <property name="name">installed</property>
++                        <property name="title" translatable="yes" comments="Translators: A label for a button to show only software which is already installed.">Installed</property>
++                        <property name="icon-name">software-installed-symbolic</property>
+                       </packing>
+                     </child>
+                     <child>
+@@ -494,6 +498,8 @@
+                       </object>
+                       <packing>
+                         <property name="name">updates</property>
++                        <property name="title" translatable="yes" comments="Translators: A label for a button to show only updates which are available to install.">Updates</property>
++                        <property name="icon-name">software-update-available-symbolic</property>
+                       </packing>
+                     </child>
+ 
+-- 
+2.26.2

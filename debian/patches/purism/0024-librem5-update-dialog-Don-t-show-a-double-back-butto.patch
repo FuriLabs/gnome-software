@@ -1,0 +1,26 @@
+From 3d97726d5f352ca40546c4464719615856f1e498 Mon Sep 17 00:00:00 2001
+From: Adrien Plazas <kekun.plazas@laposte.net>
+Date: Mon, 21 Oct 2019 13:26:51 +0200
+Subject: [PATCH 24/27] librem5: update-dialog: Don't show a double back button
+
+Make the headerbar not show its "close" back button when the additional
+back button is visible.
+---
+ src/gs-update-dialog.ui | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/gs-update-dialog.ui b/src/gs-update-dialog.ui
+index a83b0260..e120535a 100644
+--- a/src/gs-update-dialog.ui
++++ b/src/gs-update-dialog.ui
+@@ -10,6 +10,7 @@
+     <property name="use_header_bar">1</property>
+     <child internal-child="headerbar">
+       <object class="GtkHeaderBar">
++        <property name="show_close_button" bind-source="button_back" bind-property="visible" bind-flags="sync-create|invert-boolean"/>
+         <child>
+           <object class="GtkButton" id="button_back">
+             <property name="visible">True</property>
+-- 
+2.26.2
+

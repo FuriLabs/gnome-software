@@ -1,0 +1,48 @@
+From a645d5a36a0724736004c7d3e0fab6dbe20558c0 Mon Sep 17 00:00:00 2001
+From: Adrien Plazas <kekun.plazas@laposte.net>
+Date: Tue, 3 Sep 2019 15:42:25 +0200
+Subject: [PATCH 09/27] librem5: Drop the custom .needs-attention style class
+
+This conflicts with the one from the view switcher.
+---
+ src/gtk-style-hc.css | 6 ------
+ src/gtk-style.css    | 6 ------
+ 2 files changed, 12 deletions(-)
+
+diff --git a/src/gtk-style-hc.css b/src/gtk-style-hc.css
+index a51c05e7..05107fa6 100644
+--- a/src/gtk-style-hc.css
++++ b/src/gtk-style-hc.css
+@@ -22,12 +22,6 @@
+ 	font-size: 125%;
+ }
+ 
+-.needs-attention {
+-	background-image: none;
+-	background-color: shade(@theme_selected_bg_color, 1.1);
+-	border-radius: 1px;
+-}
+-
+ .screenshot-image, .screenshot-image-thumb {
+ 	background-image: none;
+ 	background-color: shade(@theme_bg_color, 0.9);
+diff --git a/src/gtk-style.css b/src/gtk-style.css
+index 4ae2b173..eb3b2f9e 100644
+--- a/src/gtk-style.css
++++ b/src/gtk-style.css
+@@ -38,12 +38,6 @@
+ 	font-size: x-small;
+ }
+ 
+-.needs-attention {
+-	background-image: none;
+-	background-color: shade(@theme_selected_bg_color, 1.1);
+-	border-radius: 1px;
+-}
+-
+ .toolbar-primary-buttons-software {
+ 	padding-left: 26px;
+ 	padding-right: 26px;
+-- 
+2.26.2
+
