@@ -1993,12 +1993,17 @@ gs_app_get_icon_for_size (GsApp       *app,
 			}
 		}
 
-		/* Ignore icons with unknown width and skip over ones which
-		 * are too small. */
-		if (icon_width == 0 || icon_width * icon_scale < size * scale)
+		/* Ignore icons whose scale doesn't match, as GtkImage will fail
+		 * loading them. */
+		if (icon_scale != scale)
 			continue;
 
-		if (icon_width * icon_scale >= size * scale)
+		/* Ignore icons with unknown width and skip over ones which
+		 * are too small. */
+		if (icon_width == 0 || icon_width < size)
+			continue;
+
+		if (icon_width >= size)
 			return g_object_ref (icon);
 	}
 
