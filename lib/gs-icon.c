@@ -159,6 +159,9 @@ gs_icon_load_local (AsIcon *icon)
 		return NULL;
 
 	file = g_file_new_for_path (filename);
+	if (!g_file_query_exists (file, NULL))
+		return NULL;
+
 	return g_file_icon_new (file);
 }
 
@@ -184,6 +187,9 @@ gs_icon_load_remote (AsIcon *icon)
 	/* Load local files directly. */
 	if (g_str_has_prefix (url, "file:")) {
 		g_autoptr(GFile) file = g_file_new_for_path (url + strlen ("file:"));
+		if (!g_file_query_exists (file, NULL))
+			return NULL;
+
 		return g_file_icon_new (file);
 	}
 
@@ -237,6 +243,9 @@ gs_icon_load_cached (AsIcon *icon)
 	}
 
 	file = g_file_new_for_path (filename);
+	if (!g_file_query_exists (file, NULL))
+		return NULL;
+
 	return g_file_icon_new (file);
 }
 
