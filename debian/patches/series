@@ -1,2 +1,4 @@
 01_details-Use-custom-icon-for-verified-developers.patch
 packagekit-Update-package-installed-check-to-use-new-manu.patch
+
+purism/0001-Revert-Launch-software-properties-gtk-in-place-of-the-sources-dialog.patch
