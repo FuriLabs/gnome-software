@@ -12,6 +12,7 @@
           <object class="GtkStackPage">
             <property name="child">
               <object class="GtkLabel" id="label">
+                <property name="ellipsize">end</property>
                 <property name="label" bind-source="GsProgressButton" bind-property="label" bind-flags="sync-create"/>
                 <property name="use-underline" bind-source="GsProgressButton" bind-property="use-underline" bind-flags="sync-create"/>
               </object>
