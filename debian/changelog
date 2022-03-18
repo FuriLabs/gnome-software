@@ -1,3 +1,16 @@
+gnome-software (41.5-1mobian1) unstable; urgency=medium
+
+  [ Adrien Plazas ]
+  * debian: Drop the dependency on software-properties-gtk.
+
+  [ Arnaud Ferraris ]
+  * d/patches: don't launch software-properties-gtk
+
+  [ Evangelos Ribeiro Tzaras ]
+  * d/gbp.conf: Update for mobian
+
+ -- Arnaud Ferraris <arnaud.ferraris@gmail.com>  Sat, 19 Mar 2022 00:04:07 +0100
+
 gnome-software (41.5-1) unstable; urgency=medium
 
   * New upstream release
