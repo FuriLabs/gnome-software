@@ -2,12 +2,12 @@ gnome-software (41.5-2ubuntu1) jammy; urgency=medium
 
   * Bug-fix release
     Use manual & auto install statuses to allow a deb package to be
-    uninstalled (LP:#1969303)
+    uninstalled (LP: #1969303)
     02_check_to_use_manual_auto_statuses.patch
   * Packaging changes
     d/control update maintainers
 
- -- David Mohammed <fossfreedom@ubuntu.com>  Thu, 14 Jul 2022 12:54:04 +0100
+ -- David Mohammed <fossfreedom@ubuntu.com>  Wed, 20 Jul 2022 13:59:04 +0100
 
 gnome-software (41.5-2) unstable; urgency=medium
 
