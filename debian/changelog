@@ -1,4 +1,4 @@
-gnome-software (41.5-2ubuntu1) jammy; urgency=medium
+gnome-software (41.5-2ubuntu2) jammy; urgency=medium
 
   * Bug-fix release
     Use manual & auto install statuses to allow a deb package to be
