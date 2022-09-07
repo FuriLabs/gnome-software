@@ -1,3 +1,19 @@
+gnome-software (43~rc-2mobian1) unstable; urgency=medium
+
+  [ Adrien Plazas ]
+  * debian: Drop the dependency on software-properties-gtk.
+    This will let GNOME Software use its own software repository management
+    dialog instead of software-properties-gtk.
+    Fixes https://source.puri.sm/Librem5/gnome-software/issues/3.
+
+  [ Arnaud Ferraris ]
+  * d/patches: don't launch software-properties-gtk
+
+  [ Evangelos Ribeiro Tzaras ]
+  * d/gbp.conf: Update for mobian
+
+ -- Arnaud Ferraris <aferraris@debian.org>  Wed, 07 Sep 2022 18:14:14 +0200
+
 gnome-software (43~rc-2) unstable; urgency=medium
 
   * debian/control.in: Explicitly Build-Depend on libsoup
