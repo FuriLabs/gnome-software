@@ -1,0 +1,39 @@
+From: Nathan Pratta Teodosio <nathan.teodosio@canonical.com>
+Date: Tue, 27 Sep 2022 09:42:31 -0300
+Subject: [PATCH] Disable offline updates
+
+---
+ plugins/packagekit/gs-plugin-packagekit.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/plugins/packagekit/gs-plugin-packagekit.c b/plugins/packagekit/gs-plugin-packagekit.c
+index 35cc786e8..b83040431 100644
+--- a/plugins/packagekit/gs-plugin-packagekit.c
++++ b/plugins/packagekit/gs-plugin-packagekit.c
+@@ -755,6 +755,8 @@ gs_plugin_packagekit_add_updates (GsPlugin *plugin,
+ 				  GCancellable *cancellable,
+ 				  GError **error)
+ {
++	return TRUE; //using unattended-upgrades in Debian and Ubuntu
++
+ 	g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
+ 	g_autoptr(PkTask) task_updates = NULL;
+ 	g_autoptr(PkResults) results = NULL;
+@@ -3683,6 +3685,8 @@ gs_plugin_packagekit_download (GsPlugin *plugin,
+ 			       GCancellable *cancellable,
+ 			       GError **error)
+ {
++	return TRUE; //using unattended-upgrades in Debian and Ubuntu
++
+ 	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (plugin);
+ 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
+ 	g_autoptr(GError) error_local = NULL;
+@@ -3977,6 +3981,8 @@ gs_plugin_update (GsPlugin *plugin,
+ 		  GCancellable *cancellable,
+ 		  GError **error)
+ {
++	return TRUE; //using unattended-upgrades in Debian and Ubuntu
++
+ 	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (plugin);
+ 
+ 	/* any are us? */
