@@ -1,3 +1,26 @@
+gnome-software (43.1-1mobian1) unstable; urgency=medium
+
+  [ Simon McVittie ]
+  * d/control.in: Replace transitional policykit-1 with polkitd
+    pkexec is used in a couple of places, but neither is relevant to Debian:
+    we don't enable support for external AppStream metadata, and we don't
+    install a Fedora-specific plugin.
+  * Standards-Version: 4.6.1 (no changes required)
+
+  [ Evangelos Ribeiro Tzaras ]
+  * d/gbp.conf: Update for mobian
+
+  [ Adrien Plazas ]
+  * debian: Drop the dependency on software-properties-gtk.
+    This will let GNOME Software use its own software repository management
+    dialog instead of software-properties-gtk.
+    Fixes https://source.puri.sm/Librem5/gnome-software/issues/3.
+
+  [ Arnaud Ferraris ]
+  * d/patches: don't launch software-properties-gtk
+
+ -- Arnaud Ferraris <aferraris@debian.org>  Mon, 21 Nov 2022 16:10:42 +0100
+
 gnome-software (43.1-1) unstable; urgency=medium
 
   * New upstream release
