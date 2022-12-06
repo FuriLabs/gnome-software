@@ -1,3 +1,9 @@
+gnome-software (43.2-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 06 Dec 2022 08:48:10 -0500
+
 gnome-software (43.1-2ubuntu1) lunar; urgency=medium
 
   * Merge with Debian. Remaining changes:
