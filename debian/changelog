@@ -1,3 +1,10 @@
+gnome-software (43.2-2ubuntu1) lunar; urgency=medium
+
+  * Merge with Debian. Remaining changes:
+    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Thu, 08 Dec 2022 18:12:55 -0500
+
 gnome-software (43.2-2) unstable; urgency=medium
 
   * Build against snapd-glib 1.63 using libsoup3
