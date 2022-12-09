@@ -1,3 +1,10 @@
+gnome-software (43.2-3ubuntu1) lunar; urgency=medium
+
+  * Merge with Debian. Remaining changes:
+    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Thu, 08 Dec 2022 19:03:22 -0500
+
 gnome-software (43.2-3) unstable; urgency=medium
 
   * Restore explicit Build-Depends on libsoup-3.0-dev
