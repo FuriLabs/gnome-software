@@ -7,7 +7,7 @@ Subject: [PATCH] Disable offline updates
  1 file changed, 6 insertions(+)
 
 diff --git a/plugins/packagekit/gs-plugin-packagekit.c b/plugins/packagekit/gs-plugin-packagekit.c
-index 35cc786e8..b83040431 100644
+index 95eace3..e64fe6a 100644
 --- a/plugins/packagekit/gs-plugin-packagekit.c
 +++ b/plugins/packagekit/gs-plugin-packagekit.c
 @@ -755,6 +755,8 @@ gs_plugin_packagekit_add_updates (GsPlugin *plugin,
@@ -19,21 +19,21 @@ index 35cc786e8..b83040431 100644
  	g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
  	g_autoptr(PkTask) task_updates = NULL;
  	g_autoptr(PkResults) results = NULL;
-@@ -3683,6 +3685,8 @@ gs_plugin_packagekit_download (GsPlugin *plugin,
- 			       GCancellable *cancellable,
- 			       GError **error)
+@@ -3654,6 +3656,8 @@ gs_plugin_packagekit_download_async (GsPluginPackagekit  *self,
+                                      GAsyncReadyCallback  callback,
+                                      gpointer             user_data)
  {
 +	return TRUE; //using unattended-upgrades in Debian and Ubuntu
 +
- 	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (plugin);
- 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
- 	g_autoptr(GError) error_local = NULL;
-@@ -3977,6 +3981,8 @@ gs_plugin_update (GsPlugin *plugin,
- 		  GCancellable *cancellable,
- 		  GError **error)
- {
-+	return TRUE; //using unattended-upgrades in Debian and Ubuntu
-+
- 	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (plugin);
+ 	GsPlugin *plugin = GS_PLUGIN (self);
+ 	g_autoptr(GTask) task = NULL;
+ 	g_autoptr(DownloadData) data_owned = NULL;
+@@ -3919,6 +3923,8 @@ update_apps_download_cb (GObject      *source_object,
+ 	if (!(data->flags & GS_PLUGIN_UPDATE_APPS_FLAGS_NO_APPLY)) {
+ 		gboolean trigger_update = FALSE;
  
- 	/* any are us? */
++		return TRUE; //using unattended-upgrades in Debian and Ubuntu
++
+ 		/* Are any of these apps from PackageKit, and suitable for offline
+ 		 * updates? If any of them can be processed offline, trigger an offline
+ 		 * update. If all of them are updatable online, don’t. */
