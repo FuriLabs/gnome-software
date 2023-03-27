@@ -1,3 +1,10 @@
+gnome-software (44.0-1ubuntu1) lunar; urgency=medium
+
+  * Merge with Debian. Remaining changes:
+    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 27 Mar 2023 15:00:11 -0400
+
 gnome-software (44.0-1) experimental; urgency=medium
 
   * New upstream release
