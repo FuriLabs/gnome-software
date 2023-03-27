@@ -4,7 +4,7 @@
  * Copyright (C) 2013-2017 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2015-2018 Kalev Lember <klember@redhat.com>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 /**
@@ -236,7 +236,7 @@ gs_utils_get_cache_filename (const gchar *kind,
  *
  * This provides an identifier that can be used to identify a specific
  * user on a machine, allowing them to cast only one vote or perform
- * one review on each application.
+ * one review on each app.
  *
  * There is no known way to calculate the machine ID or username from
  * the machine hash and there should be no privacy issue.
@@ -827,8 +827,9 @@ gs_utils_error_convert_gdbus (GError **perror)
 		error->code = GS_PLUGIN_ERROR_INVALID_FORMAT;
 		break;
 	default:
-		g_warning ("can't reliably fixup error code %i in domain %s",
-			   error->code, g_quark_to_string (error->domain));
+		g_warning ("can't reliably fixup error code %i in domain %s: %s",
+			   error->code, g_quark_to_string (error->domain),
+			   error->message);
 		error->code = GS_PLUGIN_ERROR_FAILED;
 		break;
 	}
@@ -889,8 +890,9 @@ gs_utils_error_convert_gio (GError **perror)
 		error->code = GS_PLUGIN_ERROR_NO_NETWORK;
 		break;
 	default:
-		g_warning ("can't reliably fixup error code %i in domain %s",
-			   error->code, g_quark_to_string (error->domain));
+		g_warning ("can't reliably fixup error code %i in domain %s: %s",
+			   error->code, g_quark_to_string (error->domain),
+			   error->message);
 		error->code = GS_PLUGIN_ERROR_FAILED;
 		break;
 	}
@@ -927,8 +929,9 @@ gs_utils_error_convert_gresolver (GError **perror)
 		error->code = GS_PLUGIN_ERROR_DOWNLOAD_FAILED;
 		break;
 	default:
-		g_warning ("can't reliably fixup error code %i in domain %s",
-			   error->code, g_quark_to_string (error->domain));
+		g_warning ("can't reliably fixup error code %i in domain %s: %s",
+			   error->code, g_quark_to_string (error->domain),
+			   error->message);
 		error->code = GS_PLUGIN_ERROR_FAILED;
 		break;
 	}
@@ -968,8 +971,9 @@ gs_utils_error_convert_gdk_pixbuf (GError **perror)
 		error->code = GS_PLUGIN_ERROR_INVALID_FORMAT;
 		break;
 	default:
-		g_warning ("can't reliably fixup error code %i in domain %s",
-			   error->code, g_quark_to_string (error->domain));
+		g_warning ("can't reliably fixup error code %i in domain %s: %s",
+			   error->code, g_quark_to_string (error->domain),
+			   error->message);
 		error->code = GS_PLUGIN_ERROR_FAILED;
 		break;
 	}
@@ -1032,8 +1036,9 @@ gs_utils_error_convert_appstream (GError **perror)
 			break;
 		}
 	} else {
-		g_warning ("can't reliably fixup error from domain %s",
-			   g_quark_to_string (error->domain));
+		g_warning ("can't reliably fixup error code %i in domain %s: %s",
+			   error->code, g_quark_to_string (error->domain),
+			   error->message);
 		error->code = GS_PLUGIN_ERROR_FAILED;
 	}
 	error->domain = GS_PLUGIN_ERROR;
@@ -1160,23 +1165,6 @@ gs_utils_get_memory_total (void)
 #else
 #error "Please implement gs_utils_get_memory_total for your system."
 #endif
-}
-
-/**
- * gs_utils_set_online_updates_timestamp:
- *
- * Sets the value of online-updates-timestamp to current epoch. "online-updates-timestamp" represents
- * the last time the system was online and got any updates.
- **/
-void
-gs_utils_set_online_updates_timestamp (GSettings *settings)
-{
-	g_autoptr(GDateTime) now = NULL;
-
-	g_return_if_fail (settings != NULL);
-
-	now = g_date_time_new_now_local ();
-	g_settings_set (settings, "online-updates-timestamp", "x", g_date_time_to_unix (now));
 }
 
 /**

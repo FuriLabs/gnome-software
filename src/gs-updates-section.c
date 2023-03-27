@@ -4,7 +4,7 @@
  * Copyright (C) 2013-2017 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2014-2018 Kalev Lember <klember@redhat.com>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -103,7 +103,7 @@ _row_unrevealed_cb (GObject *row, GParamSpec *pspec, gpointer data)
 	gtk_list_box_remove (GTK_LIST_BOX (self->listbox), GTK_WIDGET (row));
 
 	if (!gs_app_list_length (self->list))
-		gtk_widget_hide (widget);
+		gtk_widget_set_visible (widget, FALSE);
 }
 
 static void
@@ -147,7 +147,7 @@ gs_updates_section_add_app (GsUpdatesSection *self, GsApp *app)
 	g_object_bind_property (G_OBJECT (self), "is-narrow",
 				app_row, "is-narrow",
 				G_BINDING_SYNC_CREATE);
-	gtk_widget_show (GTK_WIDGET (self));
+	gtk_widget_set_visible (GTK_WIDGET (self), TRUE);
 }
 
 void
@@ -157,13 +157,15 @@ gs_updates_section_remove_all (GsUpdatesSection *self)
 	while ((child = gtk_widget_get_first_child (self->listbox)) != NULL)
 		gtk_list_box_remove (GTK_LIST_BOX (self->listbox), child);
 	gs_app_list_remove_all (self->list);
-	gtk_widget_hide (GTK_WIDGET (self));
+	gtk_widget_set_visible (GTK_WIDGET (self), FALSE);
+	g_clear_object (&self->cancellable);
 }
 
 typedef struct {
 	GsUpdatesSection	*self;
 	gboolean		 do_reboot;
 	gboolean		 do_reboot_notification;
+	GsPluginJob		*job;  /* (owned) */
 } GsUpdatesSectionUpdateHelper;
 
 static gchar *
@@ -229,6 +231,7 @@ _list_sort_func (GtkListBoxRow *a, GtkListBoxRow *b, gpointer user_data)
 static void
 _update_helper_free (GsUpdatesSectionUpdateHelper *helper)
 {
+	g_clear_object (&helper->job);
 	g_object_unref (helper->self);
 	g_free (helper);
 }
@@ -287,17 +290,42 @@ _all_offline_updates_downloaded (GsUpdatesSection *self)
 	return TRUE;
 }
 
+static guint
+gs_updates_section_count_busy_apps (GsUpdatesSection *self)
+{
+	guint ii, busy = 0;
+
+	for (ii = 0; ii < gs_app_list_length (self->list); ii++) {
+		GsApp *app = gs_app_list_index (self->list, ii);
+		GsAppState state = gs_app_get_state (app);
+
+		if (state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_REMOVING) {
+			busy++;
+		}
+	}
+
+	return busy;
+}
+
 static void
 _update_buttons (GsUpdatesSection *self)
 {
+	guint busy, len;
+
 	/* operation in progress */
 	if (self->cancellable != NULL) {
 		gtk_widget_set_sensitive (self->button_cancel,
 					  !g_cancellable_is_cancelled (self->cancellable));
 		gtk_stack_set_visible_child_name (GTK_STACK (self->button_stack), "cancel");
-		gtk_widget_show (GTK_WIDGET (self->button_stack));
+		gtk_widget_set_visible (GTK_WIDGET (self->button_stack), TRUE);
 		return;
 	}
+
+	len = gs_app_list_length (self->list);
+	busy = gs_updates_section_count_busy_apps (self);
+
+	gtk_widget_set_sensitive (self->button_update, busy == 0 || busy < len);
 
 	if (self->kind == GS_UPDATES_SECTION_KIND_OFFLINE_FIRMWARE ||
 	    self->kind == GS_UPDATES_SECTION_KIND_OFFLINE) {
@@ -306,18 +334,18 @@ _update_buttons (GsUpdatesSection *self)
 		else
 			gtk_stack_set_visible_child_name (GTK_STACK (self->button_stack), "download");
 
-		gtk_widget_show (GTK_WIDGET (self->button_stack));
+		gtk_widget_set_visible (GTK_WIDGET (self->button_stack), TRUE);
 		/* TRANSLATORS: This is the button for installing all
 		 * offline updates */
-		gs_progress_button_set_label (GS_PROGRESS_BUTTON (self->button_update), _("Restart & Update"));
+		gs_progress_button_set_label (GS_PROGRESS_BUTTON (self->button_update), _("_Restart & Update…"));
 	} else if (self->kind == GS_UPDATES_SECTION_KIND_ONLINE) {
 		gtk_stack_set_visible_child_name (GTK_STACK (self->button_stack), "update");
-		gtk_widget_show (GTK_WIDGET (self->button_stack));
+		gtk_widget_set_visible (GTK_WIDGET (self->button_stack), TRUE);
 		/* TRANSLATORS: This is the button for upgrading all
-		 * online-updatable applications */
-		gs_progress_button_set_label (GS_PROGRESS_BUTTON (self->button_update), _("Update All"));
+		 * online-updatable apps */
+		gs_progress_button_set_label (GS_PROGRESS_BUTTON (self->button_update), _("U_pdate All"));
 	} else {
-		gtk_widget_hide (GTK_WIDGET (self->button_stack));
+		gtk_widget_set_visible (GTK_WIDGET (self->button_stack), FALSE);
 	}
 
 }
@@ -333,27 +361,20 @@ _perform_update_cb (GsPluginLoader *plugin_loader, GAsyncResult *res, gpointer u
 	if (!gs_plugin_loader_job_action_finish (plugin_loader, res, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-			GsApp *app = NULL;
-
-			if (gs_app_list_length (self->list) == 1)
-				app = gs_app_list_index (self->list, 0);
-
-			gs_plugin_loader_claim_error (plugin_loader,
-						      NULL,
-						      GS_PLUGIN_ACTION_UPDATE,
-						      app,
-						      TRUE,
-						      error);
+			gs_plugin_loader_claim_job_error (plugin_loader,
+							  NULL,
+							  helper->job,
+							  error);
 		}
 		goto out;
 	}
 
-	/* trigger reboot if any application was not updatable live */
+	/* trigger reboot if any app was not updatable live */
 	if (helper->do_reboot) {
 		gs_utils_invoke_reboot_async (NULL, _reboot_failed_cb, self);
 
 	/* when we are not doing an offline update, show a notification
-	 * if any application requires a reboot */
+	 * if any app requires a reboot */
 	} else if (helper->do_reboot_notification) {
 		gs_utils_reboot_notify (self->list, TRUE);
 	}
@@ -367,6 +388,13 @@ static void
 _button_cancel_clicked_cb (GsUpdatesSection *self)
 {
 	g_cancellable_cancel (self->cancellable);
+	/* cancel also individual app's cancellables */
+	for (guint i = 0; i < gs_app_list_length (self->list); i++) {
+		GsApp *app = gs_app_list_index (self->list, i);
+		g_autoptr(GCancellable) cancellable = gs_app_peek_cancellable (app);
+		if (cancellable != NULL)
+			g_cancellable_cancel (cancellable);
+	}
 	_update_buttons (self);
 }
 
@@ -396,11 +424,8 @@ _button_download_clicked_cb (GsUpdatesSection *self)
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	g_set_object (&self->cancellable, cancellable);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_DOWNLOAD,
-					 "list", self->list,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE,
-					 "interactive", TRUE,
-					 NULL);
+	plugin_job = gs_plugin_job_update_apps_new (self->list,
+						    GS_PLUGIN_UPDATE_APPS_FLAGS_NO_APPLY | GS_PLUGIN_UPDATE_APPS_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    (GAsyncReadyCallback) _download_finished_cb,
@@ -427,11 +452,10 @@ _button_update_all_clicked_cb (GsUpdatesSection *self)
 	}
 
 	g_set_object (&self->cancellable, cancellable);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPDATE,
-					 "list", self->list,
-					 "interactive", TRUE,
-					 "propagate-error", TRUE,
-					 NULL);
+	plugin_job = gs_plugin_job_update_apps_new (self->list,
+						    GS_PLUGIN_UPDATE_APPS_FLAGS_INTERACTIVE);
+	gs_plugin_job_set_propagate_error (plugin_job, TRUE);
+	helper->job = g_object_ref (plugin_job);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    (GAsyncReadyCallback) _perform_update_cb,
@@ -457,7 +481,7 @@ _setup_section_header (GsUpdatesSection *self)
 	case GS_UPDATES_SECTION_KIND_ONLINE:
 		/* TRANSLATORS: This is the header for online runtime and
 		 * app updates, typically flatpaks or snaps */
-		gtk_label_set_label (GTK_LABEL (self->title), _("Application Updates"));
+		gtk_label_set_label (GTK_LABEL (self->title), _("App Updates"));
 		break;
 	case GS_UPDATES_SECTION_KIND_ONLINE_FIRMWARE:
 		/* TRANSLATORS: This is the header for device firmware that can
@@ -633,21 +657,19 @@ gs_updates_section_app_state_changed_cb (GsAppList *list,
 					 GsApp *in_app,
 					 GsUpdatesSection *self)
 {
-	guint ii, len, busy = 0;
+	guint busy, len;
 
-	len = gs_app_list_length (list);
+	len = gs_app_list_length (self->list);
+	busy = gs_updates_section_count_busy_apps (self);
 
-	for (ii = 0; ii < len; ii++) {
-		GsApp *app = gs_app_list_index (list, ii);
-		GsAppState state = gs_app_get_state (app);
-
-		if (state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_REMOVING) {
-			busy++;
-		}
+	if (busy == len && busy > 0 && self->cancellable == NULL) {
+		/* this will show the "Cancel" button, instead of "Update All" */
+		self->cancellable = g_cancellable_new ();
+	} else if (busy == 0 && self->cancellable != NULL) {
+		g_clear_object (&self->cancellable);
 	}
 
-	gtk_widget_set_sensitive (self->button_update, busy < len);
+	_update_buttons (self);
 }
 
 static void

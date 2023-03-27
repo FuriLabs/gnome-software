@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2021 Matthew Leeds <mwleeds@endlessos.org>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -37,11 +37,12 @@ populate_version_history (GsAppVersionHistoryDialog *dialog,
 	if (version_history == NULL || version_history->len == 0) {
 		GtkWidget *row;
 		row = gs_app_version_history_row_new ();
+		gs_app_version_history_row_set_always_expanded (GS_APP_VERSION_HISTORY_ROW (row), TRUE);
 		gs_app_version_history_row_set_info (GS_APP_VERSION_HISTORY_ROW (row),
 						     gs_app_get_version (app),
 						     gs_app_get_release_date (app), NULL);
 		gtk_list_box_append (GTK_LIST_BOX (dialog->listbox), row);
-		gtk_widget_show (row);
+		gtk_widget_set_visible (row, TRUE);
 		return;
 	}
 
@@ -51,13 +52,14 @@ populate_version_history (GsAppVersionHistoryDialog *dialog,
 		AsRelease *version = g_ptr_array_index (version_history, i);
 
 		row = gs_app_version_history_row_new ();
+		gs_app_version_history_row_set_always_expanded (GS_APP_VERSION_HISTORY_ROW (row), TRUE);
 		gs_app_version_history_row_set_info (GS_APP_VERSION_HISTORY_ROW (row),
 						     as_release_get_version (version),
 						     as_release_get_timestamp (version),
 						     as_release_get_description (version));
 
 		gtk_list_box_append (GTK_LIST_BOX (dialog->listbox), row);
-		gtk_widget_show (row);
+		gtk_widget_set_visible (row, TRUE);
 	}
 }
 

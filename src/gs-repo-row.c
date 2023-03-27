@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2015-2018 Kalev Lember <klember@redhat.com>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -155,36 +155,53 @@ get_repo_installed_text (GsApp *repo)
 	}
 
 	if (cnt_addon == 0) {
-		/* TRANSLATORS: This string is used to construct the 'X applications
-		   installed' sentence, describing a software repository. */
-		return g_strdup_printf (ngettext ("%u application installed",
-		                                  "%u applications installed",
+		/* TRANSLATORS: This string states how many apps have been
+		 * installed from a particular repo, and is displayed on a row
+		 * describing that repo. The placeholder is the number of apps. */
+		return g_strdup_printf (ngettext ("%u app installed",
+		                                  "%u apps installed",
 		                                  cnt_apps), cnt_apps);
 	}
 	if (cnt_apps == 0) {
-		/* TRANSLATORS: This string is used to construct the 'X add-ons
-		   installed' sentence, describing a software repository. */
+		/* TRANSLATORS: This string states how many add-ons have been
+		 * installed from a particular repo, and is displayed on a row
+		 * describing that repo. The placeholder is the number of add-ons. */
 		return g_strdup_printf (ngettext ("%u add-on installed",
 		                                  "%u add-ons installed",
 		                                  cnt_addon), cnt_addon);
 	}
 
-	/* TRANSLATORS: This string is used to construct the 'X applications
-	   and y add-ons installed' sentence, describing a software repository.
-	   The correct form here depends on the number of applications. */
-	apps_text = g_strdup_printf (ngettext ("%u application",
-	                                       "%u applications",
+	/* TRANSLATORS: This string is used to construct the 'X apps
+	   and Y add-ons installed' sentence, stating how many things have been
+	 * installed from a particular repo. It’s displayed on a row describing
+	 * that repo. The placeholder is the number of apps, and the translated
+	 * string will be substituted in for the first placeholder in the
+	 * string “%s and %s installed”. */
+	apps_text = g_strdup_printf (ngettext ("%u app",
+	                                       "%u apps",
 	                                       cnt_apps), cnt_apps);
-	/* TRANSLATORS: This string is used to construct the 'X applications
-	   and y add-ons installed' sentence, describing a software repository.
-	   The correct form here depends on the number of add-ons. */
+	/* TRANSLATORS: This string is used to construct the 'X apps
+	   and Y add-ons installed' sentence, stating how many things have been
+	 * installed from a particular repo. It’s displayed on a row describing
+	 * that repo. The placeholder is the number of add-ons, and the translated
+	 * string will be substituted in for the second placeholder in the
+	 * string “%s and %s installed”. */
 	addons_text = g_strdup_printf (ngettext ("%u add-on",
 	                                         "%u add-ons",
 	                                         cnt_addon), cnt_addon);
-	/* TRANSLATORS: This string is used to construct the 'X applications
-	   and y add-ons installed' sentence, describing a software repository.
-	   The correct form here depends on the total number of
-	   applications and add-ons. */
+	/* TRANSLATORS: This string is used to construct the 'X apps
+	   and Y add-ons installed' sentence, stating how many things have been
+	 * installed from a particular repo. It’s displayed on a row describing
+	 * that repo. The first placeholder is the translated string “%u app” or
+	 * “%u apps”. The second placeholder is the translated string “%u add-on”
+	 * or “%u add-ons”.
+	 *
+	 * The choice of plural form for this string is determined by the total
+	 * number of apps plus add-ons. For example,
+	 *  - “1 app and 2 add-ons installed” - uses count 3
+	 *  - “2 apps and 1 add-on installed” - uses count 3
+	 *  - “4 apps and 5 add-ons installed” - uses count 9
+	 */
 	return g_strdup_printf (ngettext ("%s and %s installed",
 	                                  "%s and %s installed",
 	                                  cnt_apps + cnt_addon),
@@ -238,7 +255,7 @@ gs_repo_row_set_repo (GsRepoRow *self, GsApp *repo)
 	if (tmp != NULL && *tmp != '\0') {
 		gchar *cnt;
 
-		/* Translators: The first '%s' is replaced with a text like '10 applications installed',
+		/* Translators: The first '%s' is replaced with a text like '10 apps installed',
 		      the second '%s' is replaced with installation kind, like in case of Flatpak 'User Installation'. */
 		cnt = g_strdup_printf (C_("repo-row", "%s • %s"), comment, tmp);
 		g_clear_pointer (&comment, g_free);
@@ -311,6 +328,7 @@ gs_repo_row_init (GsRepoRow *self)
 						    G_CALLBACK (disable_switch_clicked_cb), self);
 	image = gtk_image_new_from_icon_name ("user-trash-symbolic");
 	gtk_button_set_child (GTK_BUTTON (priv->remove_button), image);
+	gtk_widget_set_tooltip_text(priv->remove_button, _("Remove"));
 	g_signal_connect (priv->remove_button, "clicked",
 		G_CALLBACK (gs_repo_row_remove_button_clicked_cb), self);
 }

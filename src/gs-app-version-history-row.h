@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2021 Matthew Leeds <mwleeds@endlessos.org>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #pragma once
@@ -23,5 +23,10 @@ void		 gs_app_version_history_row_set_info	(GsAppVersionHistoryRow *row,
 							 const char		*version_number,
 							 guint64		 version_date,
 							 const char		*version_description);
+gboolean	 gs_app_version_history_row_get_always_expanded
+							(GsAppVersionHistoryRow *self);
+void		 gs_app_version_history_row_set_always_expanded
+							(GsAppVersionHistoryRow *self,
+							 gboolean always_expanded);
 
 G_END_DECLS

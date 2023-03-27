@@ -4,7 +4,7 @@
  * Copyright (C) 2013-2018 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2014-2018 Kalev Lember <klember@redhat.com>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #pragma once
@@ -137,7 +137,7 @@ typedef enum {
  * @GS_APP_QUIRK_NOT_LAUNCHABLE:	The app is not launchable (run-able)
  * @GS_APP_QUIRK_NEEDS_USER_ACTION:	The component requires some kind of user action
  * @GS_APP_QUIRK_IS_PROXY:		Is a proxy app that operates on other applications
- * @GS_APP_QUIRK_REMOVABLE_HARDWARE:	The device is unusable whilst the action is performed
+ * @GS_APP_QUIRK_UNUSABLE_DURING_UPDATE:The device is unusable whilst the action is performed
  * @GS_APP_QUIRK_DEVELOPER_VERIFIED:	The app developer has been verified
  * @GS_APP_QUIRK_PARENTAL_FILTER:	The app has been filtered by parental controls, and should be hidden
  * @GS_APP_QUIRK_NEW_PERMISSIONS:	The update requires new permissions
@@ -161,7 +161,7 @@ typedef enum {
 	GS_APP_QUIRK_NOT_LAUNCHABLE	= 1 << 7,	/* Since: 3.32 */
 	GS_APP_QUIRK_NEEDS_USER_ACTION	= 1 << 8,	/* Since: 3.32 */
 	GS_APP_QUIRK_IS_PROXY 		= 1 << 9,	/* Since: 3.32 */
-	GS_APP_QUIRK_REMOVABLE_HARDWARE	= 1 << 10,	/* Since: 3.32 */
+	GS_APP_QUIRK_UNUSABLE_DURING_UPDATE	= 1 << 10,	/* Since: 44 */
 	GS_APP_QUIRK_DEVELOPER_VERIFIED	= 1 << 11,	/* Since: 3.32 */
 	GS_APP_QUIRK_PARENTAL_FILTER	= 1 << 12,	/* Since: 3.32 */
 	GS_APP_QUIRK_NEW_PERMISSIONS	= 1 << 13,	/* Since: 3.32 */
@@ -211,6 +211,24 @@ typedef enum {
 	GS_APP_QUALITY_HIGHEST,
 	GS_APP_QUALITY_LAST  /*< skip >*/
 } GsAppQuality;
+
+/**
+ * GsAppIconsState:
+ * @GS_APP_ICONS_STATE_UNKNOWN:		The state of the icons is unknown
+ * @GS_APP_ICONS_STATE_PENDING_DOWNLOAD:	Icons are in queue to be downloaded
+ * @GS_APP_ICONS_STATE_DOWNLOADING:	Icons are downloading
+ * @GS_APP_ICONS_STATE_AVAILABLE:	Icons are available
+ *
+ * State of the icons of the application.
+ *
+ * Since: 44
+ **/
+typedef enum {
+	GS_APP_ICONS_STATE_UNKNOWN,
+	GS_APP_ICONS_STATE_PENDING_DOWNLOAD,
+	GS_APP_ICONS_STATE_DOWNLOADING,
+	GS_APP_ICONS_STATE_AVAILABLE,
+} GsAppIconsState;
 
 /**
  * GS_APP_PROGRESS_UNKNOWN:
@@ -454,9 +472,13 @@ void		 gs_app_set_key_colors		(GsApp		*app,
 void		 gs_app_add_key_color		(GsApp		*app,
 						 GdkRGBA	*key_color);
 gboolean	gs_app_get_user_key_colors	(GsApp		*app);
+
+G_DEPRECATED
 void            gs_app_set_is_update_downloaded (GsApp         *app,
                                                  gboolean       is_update_downloaded);
+G_DEPRECATED
 gboolean        gs_app_get_is_update_downloaded (GsApp         *app);
+
 gboolean	 gs_app_has_category		(GsApp		*app,
 						 const gchar	*category);
 void		 gs_app_add_category		(GsApp		*app,
@@ -520,5 +542,7 @@ gboolean	 gs_app_get_has_translations	(GsApp		*app);
 void		 gs_app_set_has_translations	(GsApp		*app,
 						 gboolean	 has_translations);
 gboolean	 gs_app_is_downloaded		(GsApp		*app);
+
+GsAppIconsState	 gs_app_get_icons_state		(GsApp		*app);
 
 G_END_DECLS

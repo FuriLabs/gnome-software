@@ -5,7 +5,7 @@
  * Copyright (C) 2013 Matthias Clasen <mclasen@redhat.com>
  * Copyright (C) 2015 Kalev Lember <klember@redhat.com>
  *
- * SPDX-License-Identifier: GPL-2.0+
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -45,7 +45,8 @@ main (int argc, char **argv)
 	/* redirect logs */
 	application = gs_application_new (debug);
 	appinfo = g_desktop_app_info_new ("org.gnome.Software.desktop");
-	g_set_application_name (g_app_info_get_name (G_APP_INFO (appinfo)));
+	if (appinfo != NULL)
+		g_set_application_name (g_app_info_get_name (G_APP_INFO (appinfo)));
 	status = g_application_run (G_APPLICATION (application), argc, argv);
 	return status;
 }
