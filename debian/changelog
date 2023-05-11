@@ -1,4 +1,4 @@
-gnome-software (44.1-1ubuntu1) UNRELEASED; urgency=medium
+gnome-software (44.1-1ubuntu1) mantic; urgency=medium
 
   * Merge with Debian. Remaining changes:
     - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
