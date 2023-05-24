@@ -1,3 +1,13 @@
+gnome-software (44.1-1ubuntu2) mantic; urgency=medium
+
+  * No-change rebuild for translations
+    - Due to the change in dh-translations 153 this results in a
+      smaller POT file being generated and imported to Launchpad, where
+      the strings in the <releases/> section of
+      org.gnome.Software.metainfo.xml are omitted (LP: #1927149).
+
+ -- Gunnar Hjalmarsson <gunnarhj@ubuntu.com>  Wed, 24 May 2023 19:46:48 +0200
+
 gnome-software (44.1-1ubuntu1) mantic; urgency=medium
 
   * Merge with Debian. Remaining changes:
