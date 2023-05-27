@@ -29,7 +29,7 @@ index 0000000..57c0f11
 +</svg>
 \ No newline at end of file
 diff --git a/src/gnome-software.gresource.xml b/src/gnome-software.gresource.xml
-index 941dd40..2d1f2ff 100644
+index 4efe369..9f897a5 100644
 --- a/src/gnome-software.gresource.xml
 +++ b/src/gnome-software.gresource.xml
 @@ -54,6 +54,7 @@
@@ -41,7 +41,7 @@ index 941dd40..2d1f2ff 100644
    <file preprocess="xml-stripblanks" alias="icons/scalable/apps/system-component-addon.svg">../data/icons/system-component-addon.svg</file>
    <file preprocess="xml-stripblanks" alias="icons/scalable/apps/system-component-application.svg">../data/icons/system-component-application.svg</file>
 diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
-index 8b0e88b..4c120ef 100644
+index d3fad10..37c657b 100644
 --- a/src/gs-details-page.ui
 +++ b/src/gs-details-page.ui
 @@ -173,7 +173,7 @@
