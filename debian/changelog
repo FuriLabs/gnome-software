@@ -1,4 +1,4 @@
-gnome-software (43.5-1) UNRELEASED; urgency=medium
+gnome-software (43.5-1) unstable; urgency=medium
 
   * d/gbp.conf: Use upstream/43.x branch to import new upstream versions
   * d/watch: Only watch for versions 43.x
@@ -6,7 +6,7 @@ gnome-software (43.5-1) UNRELEASED; urgency=medium
     - Fix some memory leaks (Closes: #1036312)
   * Refresh patch series (no functional changes)
 
- -- Simon McVittie <smcv@debian.org>  Sat, 27 May 2023 15:26:56 +0100
+ -- Simon McVittie <smcv@debian.org>  Tue, 13 Jun 2023 10:25:39 +0100
 
 gnome-software (43.4-1) unstable; urgency=medium
 
