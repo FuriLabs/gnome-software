@@ -33,6 +33,7 @@
 #include <xmlb.h>
 
 #include "gs-appstream.h"
+#include "gs-app-private.h"
 #include "gs-flatpak-app.h"
 #include "gs-flatpak.h"
 #include "gs-flatpak-transaction.h"
@@ -199,24 +200,30 @@ gs_flatpak_claim_app_list (GsFlatpak *self,
 }
 
 static void
+gs_flatpak_set_runtime_kind_from_id (GsApp *app)
+{
+	const gchar *id = gs_app_get_id (app);
+	/* this is anything that's not an app, including locales
+	 * sources and debuginfo */
+	if (g_str_has_suffix (id, ".Locale")) {
+		gs_app_set_kind (app, AS_COMPONENT_KIND_LOCALIZATION);
+	} else if (g_str_has_suffix (id, ".Debug") ||
+		   g_str_has_suffix (id, ".Sources") ||
+		   g_str_has_prefix (id, "org.freedesktop.Platform.Icontheme.") ||
+		   g_str_has_prefix (id, "org.gtk.Gtk3theme.")) {
+		gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
+	} else {
+		gs_app_set_kind (app, AS_COMPONENT_KIND_RUNTIME);
+	}
+}
+
+static void
 gs_flatpak_set_kind_from_flatpak (GsApp *app, FlatpakRef *xref)
 {
 	if (flatpak_ref_get_kind (xref) == FLATPAK_REF_KIND_APP) {
 		gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
 	} else if (flatpak_ref_get_kind (xref) == FLATPAK_REF_KIND_RUNTIME) {
-		const gchar *id = gs_app_get_id (app);
-		/* this is anything that's not an app, including locales
-		 * sources and debuginfo */
-		if (g_str_has_suffix (id, ".Locale")) {
-			gs_app_set_kind (app, AS_COMPONENT_KIND_LOCALIZATION);
-		} else if (g_str_has_suffix (id, ".Debug") ||
-			   g_str_has_suffix (id, ".Sources") ||
-			   g_str_has_prefix (id, "org.freedesktop.Platform.Icontheme.") ||
-			   g_str_has_prefix (id, "org.gtk.Gtk3theme.")) {
-			gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
-		} else {
-			gs_app_set_kind (app, AS_COMPONENT_KIND_RUNTIME);
-		}
+		gs_flatpak_set_runtime_kind_from_id (app);
 	}
 }
 
@@ -442,7 +449,18 @@ gs_flatpak_set_update_permissions (GsFlatpak           *self,
 	g_autoptr(GsAppPermissions) additional_permissions = gs_app_permissions_new ();
 	g_autoptr(GError) error_local = NULL;
 
-	old_bytes = flatpak_installed_ref_load_metadata (FLATPAK_INSTALLED_REF (xref), NULL, NULL);
+	old_bytes = flatpak_installed_ref_load_metadata (FLATPAK_INSTALLED_REF (xref), NULL, &error_local);
+	if (old_bytes == NULL) {
+		g_debug ("Failed to get metadata for app ‘%s’: %s",
+			 gs_app_get_id (app), error_local->message);
+		g_clear_error (&error_local);
+
+		/* Permissions are unknown */
+		g_clear_object (&additional_permissions);
+
+		goto finish;
+	}
+
 	old_keyfile = g_key_file_new ();
 	g_key_file_load_from_data (old_keyfile,
 	                           g_bytes_get_data (old_bytes, NULL),
@@ -492,6 +510,7 @@ gs_flatpak_set_update_permissions (GsFlatpak           *self,
 		}
 	}
 
+finish:
 	/* no new permissions set */
 	if (gs_app_permissions_get_flags (additional_permissions) == GS_APP_PERMISSIONS_FLAGS_UNKNOWN)
 		gs_app_permissions_set_flags (additional_permissions, GS_APP_PERMISSIONS_FLAGS_NONE);
@@ -2397,6 +2416,7 @@ static gboolean
 gs_flatpak_refine_app_state_unlocked (GsFlatpak *self,
                                       GsApp *app,
                                       gboolean interactive,
+				      gboolean force_state_update,
                                       GCancellable *cancellable,
                                       GError **error)
 {
@@ -2405,7 +2425,8 @@ gs_flatpak_refine_app_state_unlocked (GsFlatpak *self,
 	FlatpakInstallation *installation = gs_flatpak_get_installation (self, interactive);
 
 	/* already found */
-	if (gs_app_get_state (app) != GS_APP_STATE_UNKNOWN)
+	if (!force_state_update &&
+	    gs_app_get_state (app) != GS_APP_STATE_UNKNOWN)
 		return TRUE;
 
 	/* need broken out metadata */
@@ -2451,7 +2472,7 @@ gs_flatpak_refine_app_state_unlocked (GsFlatpak *self,
 		g_debug ("marking %s as installed with flatpak",
 			 gs_app_get_unique_id (app));
 		gs_flatpak_set_metadata_installed (self, app, ref, interactive, cancellable);
-		if (gs_app_get_state (app) == GS_APP_STATE_UNKNOWN)
+		if (force_state_update || gs_app_get_state (app) == GS_APP_STATE_UNKNOWN)
 			gs_app_set_state (app, GS_APP_STATE_INSTALLED);
 
 		/* flatpak only allows one installed app to be launchable */
@@ -2466,7 +2487,7 @@ gs_flatpak_refine_app_state_unlocked (GsFlatpak *self,
 	}
 
 	/* anything not installed just check the remote is still present */
-	if (gs_app_get_state (app) == GS_APP_STATE_UNKNOWN &&
+	if ((force_state_update || gs_app_get_state (app) == GS_APP_STATE_UNKNOWN) &&
 	    gs_app_get_origin (app) != NULL) {
 		g_autoptr(FlatpakRemote) xremote = NULL;
 		xremote = flatpak_installation_get_remote_by_name (installation,
@@ -2501,6 +2522,7 @@ gboolean
 gs_flatpak_refine_app_state (GsFlatpak *self,
                              GsApp *app,
                              gboolean interactive,
+			     gboolean force_state_update,
                              GCancellable *cancellable,
                              GError **error)
 {
@@ -2508,7 +2530,7 @@ gs_flatpak_refine_app_state (GsFlatpak *self,
 	if (!gs_flatpak_rescan_app_data (self, interactive, cancellable, error))
 		return FALSE;
 
-	return gs_flatpak_refine_app_state_unlocked (self, app, interactive, cancellable, error);
+	return gs_flatpak_refine_app_state_unlocked (self, app, interactive, force_state_update, cancellable, error);
 }
 
 static GsApp *
@@ -2591,7 +2613,7 @@ gs_flatpak_create_runtime (GsFlatpak   *self,
 	gs_flatpak_app_set_ref_name (app, split[0]);
 	gs_flatpak_app_set_ref_arch (app, split[1]);
 
-	if (!gs_flatpak_refine_app_state_unlocked (self, app, interactive, NULL, &local_error))
+	if (!gs_flatpak_refine_app_state_unlocked (self, app, interactive, FALSE, NULL, &local_error))
 		g_debug ("Failed to refine state for runtime '%s': %s", gs_app_get_unique_id (app), local_error->message);
 
 	/* save in the cache */
@@ -2802,6 +2824,7 @@ gs_flatpak_prune_addons_list (GsFlatpak *self,
 	g_autoptr(GsAppList) addons_list = NULL;
 	g_autoptr(GPtrArray) installed_related_refs = NULL;
 	g_autoptr(GPtrArray) remote_related_refs = NULL;
+	g_autoptr(GPtrArray) remove_addons = NULL;
 	g_autofree gchar *ref = NULL;
 	FlatpakInstallation *installation = gs_flatpak_get_installation (self, interactive);
 	g_autoptr(GError) error_local = NULL;
@@ -2886,6 +2909,7 @@ gs_flatpak_prune_addons_list (GsFlatpak *self,
 
 	g_clear_error (&error_local);
 
+	remove_addons = g_ptr_array_new_full (gs_app_list_length (addons_list), g_object_unref);
 	/* For each addon, if it is neither installed nor available, hide it
 	 * since it may be intended for a different version of the app. We
 	 * don't want to show both org.videolan.VLC.Plugin.bdj//3-19.08 and
@@ -2902,29 +2926,30 @@ gs_flatpak_prune_addons_list (GsFlatpak *self,
 					     gs_flatpak_app_get_ref_name (app_addon),
 					     gs_flatpak_app_get_ref_arch (app_addon),
 					     gs_app_get_branch (app_addon));
-		for (guint j = 0; installed_related_refs && j < installed_related_refs->len; j++) {
+		for (guint j = 0; !found && installed_related_refs && j < installed_related_refs->len; j++) {
 			FlatpakRelatedRef *rel = g_ptr_array_index (installed_related_refs, j);
 			g_autofree char *rel_ref = flatpak_ref_format_ref (FLATPAK_REF (rel));
 			if (g_strcmp0 (addon_ref, rel_ref) == 0)
 				found = TRUE;
 		}
-		for (guint j = 0; remote_related_refs && j < remote_related_refs->len; j++) {
+		for (guint j = 0; !found && remote_related_refs && j < remote_related_refs->len; j++) {
 			FlatpakRelatedRef *rel = g_ptr_array_index (remote_related_refs, j);
 			g_autofree char *rel_ref = flatpak_ref_format_ref (FLATPAK_REF (rel));
 			if (g_strcmp0 (addon_ref, rel_ref) == 0)
 				found = TRUE;
 		}
 
-		if (!found) {
-			gs_app_add_quirk (app_addon, GS_APP_QUIRK_HIDE_EVERYWHERE);
-			g_debug ("hiding %s since it's not related to %s",
-				 addon_ref, gs_app_get_unique_id (app));
-		} else {
-			gs_app_remove_quirk (app_addon, GS_APP_QUIRK_HIDE_EVERYWHERE);
-			g_debug ("unhiding %s since it's related to %s",
-				 addon_ref, gs_app_get_unique_id (app));
-		}
+		if (!found)
+			g_ptr_array_add (remove_addons, g_object_ref (app_addon));
 	}
+
+	for (guint i = 0; i < remove_addons->len; i++) {
+		GsApp *addon = g_ptr_array_index (remove_addons, i);
+		g_debug ("removing addon '%s' from app '%s', because not related to it",
+			 gs_app_get_unique_id (addon), gs_app_get_unique_id (app));
+		gs_app_remove_addon (app, addon);
+	}
+
 	return TRUE;
 }
 
@@ -2981,6 +3006,7 @@ gs_plugin_refine_item_size (GsFlatpak *self,
 		if (!gs_flatpak_refine_app_state_unlocked (self,
 		                                           app_runtime,
 		                                           interactive,
+							   FALSE,
 		                                           cancellable,
 		                                           error))
 			return FALSE;
@@ -3425,6 +3451,7 @@ gs_flatpak_refine_app_unlocked (GsFlatpak *self,
                                 GsApp *app,
                                 GsPluginRefineFlags flags,
                                 gboolean interactive,
+				gboolean force_state_update,
                                 GRWLockReaderLocker **locker,
                                 GCancellable *cancellable,
                                 GError **error)
@@ -3452,7 +3479,7 @@ gs_flatpak_refine_app_unlocked (GsFlatpak *self,
 	}
 
 	/* check the installed state */
-	if (!gs_flatpak_refine_app_state_unlocked (self, app, interactive, cancellable, error)) {
+	if (!gs_flatpak_refine_app_state_unlocked (self, app, interactive, force_state_update, cancellable, error)) {
 		g_prefix_error (error, "failed to get state: ");
 		return FALSE;
 	}
@@ -3578,10 +3605,7 @@ gs_flatpak_refine_addons (GsFlatpak *self,
 		if (state != gs_app_get_state (addon))
 			continue;
 
-		/* To have refined also the state  */
-		gs_app_set_state (addon, GS_APP_STATE_UNKNOWN);
-
-		if (!gs_flatpak_refine_app_unlocked (self, addon, flags, interactive, &locker, cancellable, &local_error)) {
+		if (!gs_flatpak_refine_app_unlocked (self, addon, flags, interactive, TRUE, &locker, cancellable, &local_error)) {
 			if (errors)
 				g_string_append_c (errors, '\n');
 			else
@@ -3608,6 +3632,7 @@ gs_flatpak_refine_app (GsFlatpak *self,
 		       GsApp *app,
 		       GsPluginRefineFlags flags,
 		       gboolean interactive,
+		       gboolean force_state_update,
 		       GCancellable *cancellable,
 		       GError **error)
 {
@@ -3617,7 +3642,7 @@ gs_flatpak_refine_app (GsFlatpak *self,
 	if (!gs_flatpak_rescan_app_data (self, interactive, cancellable, error))
 		return FALSE;
 
-	return gs_flatpak_refine_app_unlocked (self, app, flags, interactive, &locker, cancellable, error);
+	return gs_flatpak_refine_app_unlocked (self, app, flags, interactive, force_state_update, &locker, cancellable, error);
 }
 
 gboolean
@@ -3671,8 +3696,38 @@ gs_flatpak_refine_wildcard (GsFlatpak *self, GsApp *app,
 			return FALSE;
 		gs_flatpak_claim_app (self, new);
 
+		/* The appstream plugin did not find the component in the plugin's cache,
+		   thus read the required info from the 'bundle' element. */
+		if (gs_flatpak_app_get_ref_name (new) == NULL ||
+		    gs_flatpak_app_get_ref_arch (new) == NULL) {
+			g_autoptr(GError) local_error2 = NULL;
+			const gchar *xref_str;
+			xref_str = xb_node_query_text (component, "bundle[@type='flatpak']", &local_error2);
+			if (xref_str != NULL) {
+				g_auto(GStrv) split = NULL;
+
+				/* get the kind/name/arch/branch */
+				split = g_strsplit (xref_str, "/", -1);
+				if (g_strv_length (split) == 4) {
+					if (g_ascii_strcasecmp (split[0], "app") == 0)
+						gs_app_set_kind (new, AS_COMPONENT_KIND_DESKTOP_APP);
+					else if (g_ascii_strcasecmp (split[0], "runtime") == 0)
+						gs_flatpak_set_runtime_kind_from_id (new);
+					gs_flatpak_app_set_ref_name (new, split[1]);
+					gs_flatpak_app_set_ref_arch (new, split[2]);
+					gs_app_set_branch (new, split[3]);
+				}
+			}
+		}
+
+		if (gs_flatpak_app_get_ref_name (new) == NULL ||
+		    gs_flatpak_app_get_ref_arch (new) == NULL) {
+			g_debug ("Failed to get ref info for '%s' from wildcard '%s', skipping it...", gs_app_get_id (new), id);
+			continue;
+		}
+
 		GS_PROFILER_BEGIN_SCOPED (FlatpakRefineWildcardRefineNewApp, "Flatpak (refine new app)", NULL);
-		if (!gs_flatpak_refine_app_unlocked (self, new, refine_flags, interactive, &locker, cancellable, error))
+		if (!gs_flatpak_refine_app_unlocked (self, new, refine_flags, interactive, FALSE, &locker, cancellable, error))
 			return FALSE;
 		GS_PROFILER_END_SCOPED (FlatpakRefineWildcardRefineNewApp);
 
