@@ -1,3 +1,10 @@
+gnome-software (44.3-1ubuntu1) mantic; urgency=medium
+
+  * Merge with Debian. Remaining changes:
+    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+
+ -- Jarred Wilson <jarred.wilson@canonical.com>  Wed, 12 Jul 2023 12:20:51 -0400
+
 gnome-software (44.3-1) experimental; urgency=medium
 
   * Team upload
