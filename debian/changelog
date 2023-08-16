@@ -1,11 +1,10 @@
-<<<<<<< HEAD
-gnome-software (44.3-1ubuntu1) mantic; urgency=medium
+gnome-software (45~beta-1ubuntu1) mantic; urgency=medium
 
-  * Merge with Debian. Remaining changes:
-    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+  * Merge with Debian
+  * Rebase patches
 
- -- Jarred Wilson <jarred.wilson@canonical.com>  Wed, 12 Jul 2023 12:20:51 -0400
-=======
+ -- Jarred Wilson <jarred.wilson@canonical.com>  Wed, 16 Aug 2023 12:59:54 -0400
+
 gnome-software (45~beta-1) unstable; urgency=medium
 
   * New upstream release
@@ -21,7 +20,13 @@ gnome-software (44.3-2) unstable; urgency=medium
   * Release to unstable
 
  -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 23 Jul 2023 16:22:56 -0400
->>>>>>> debian/45_beta-1
+
+gnome-software (44.3-1ubuntu1) mantic; urgency=medium
+
+  * Merge with Debian. Remaining changes:
+    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+
+ -- Jarred Wilson <jarred.wilson@canonical.com>  Wed, 12 Jul 2023 12:20:51 -0400
 
 gnome-software (44.3-1) experimental; urgency=medium
 
