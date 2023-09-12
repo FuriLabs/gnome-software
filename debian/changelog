@@ -1,5 +1,6 @@
-gnome-software (45~rc-1) UNRELEASED; urgency=medium
+gnome-software (45~rc-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream release
 
  -- Jarred Wilson <jarred.wilson@canonical.com>  Tue, 12 Sep 2023 12:30:42 -0400
