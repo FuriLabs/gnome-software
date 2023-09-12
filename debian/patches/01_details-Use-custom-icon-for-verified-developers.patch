@@ -41,7 +41,7 @@ index 4d314c7..e336bf4 100644
    <file preprocess="xml-stripblanks" alias="icons/scalable/apps/system-component-addon.svg">../data/icons/system-component-addon.svg</file>
    <file preprocess="xml-stripblanks" alias="icons/scalable/apps/system-component-application.svg">../data/icons/system-component-application.svg</file>
 diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
-index 45830f9..0e11cc8 100644
+index bb4a3cb..d16cb9a 100644
 --- a/src/gs-details-page.ui
 +++ b/src/gs-details-page.ui
 @@ -152,7 +152,7 @@

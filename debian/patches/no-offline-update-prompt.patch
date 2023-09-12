@@ -7,7 +7,7 @@ Subject: [PATCH] Disable offline updates
  1 file changed, 6 insertions(+)
 
 diff --git a/plugins/packagekit/gs-plugin-packagekit.c b/plugins/packagekit/gs-plugin-packagekit.c
-index da8257a..2aaa4cc 100644
+index 4fcdf4b..880d314 100644
 --- a/plugins/packagekit/gs-plugin-packagekit.c
 +++ b/plugins/packagekit/gs-plugin-packagekit.c
 @@ -740,6 +740,8 @@ gs_plugin_packagekit_add_updates (GsPlugin *plugin,
@@ -19,7 +19,7 @@ index da8257a..2aaa4cc 100644
  	g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
  	g_autoptr(PkTask) task_updates = NULL;
  	g_autoptr(PkResults) results = NULL;
-@@ -3779,6 +3781,8 @@ gs_plugin_packagekit_download_async (GsPluginPackagekit  *self,
+@@ -3894,6 +3896,8 @@ gs_plugin_packagekit_download_async (GsPluginPackagekit  *self,
                                       GAsyncReadyCallback  callback,
                                       gpointer             user_data)
  {
@@ -28,7 +28,7 @@ index da8257a..2aaa4cc 100644
  	GsPlugin *plugin = GS_PLUGIN (self);
  	g_autoptr(GTask) task = NULL;
  	g_autoptr(DownloadData) data_owned = NULL;
-@@ -4076,6 +4080,8 @@ update_apps_download_cb (GObject      *source_object,
+@@ -4191,6 +4195,8 @@ update_apps_download_cb (GObject      *source_object,
  	if (!(data->flags & GS_PLUGIN_UPDATE_APPS_FLAGS_NO_APPLY)) {
  		gboolean trigger_update = FALSE;
  
