@@ -1624,14 +1624,22 @@ gs_appstream_search (GsPlugin *plugin,
 		#else
 		{ AS_SEARCH_TOKEN_MATCH_MIMETYPE,	"mimetypes/mimetype[text()~=stem(?)]" },
 		#endif
+		/* Search once with a tokenize-and-casefold operator (`~=`) to support casefolded
+		 * full-text search, then again using substring matching (`contains()`), to
+		 * support prefix matching. Only do the prefix matches on a few fields, and at a
+		 * lower priority, otherwise things will get confusing.
+		 * 
+		 * See https://gitlab.gnome.org/GNOME/gnome-software/-/issues/2277 */
 		{ AS_SEARCH_TOKEN_MATCH_PKGNAME,	"pkgname[text()~=stem(?)]" },
+		{ AS_SEARCH_TOKEN_MATCH_PKGNAME / 2,	"pkgname[contains(text(),stem(?))]" },
 		{ AS_SEARCH_TOKEN_MATCH_SUMMARY,	"summary[text()~=stem(?)]" },
-		{ AS_SEARCH_TOKEN_MATCH_NAME,	"name[text()~=stem(?)]" },
+		{ AS_SEARCH_TOKEN_MATCH_NAME,		"name[text()~=stem(?)]" },
+		{ AS_SEARCH_TOKEN_MATCH_NAME / 2,	"name[contains(text(),stem(?))]" },
 		{ AS_SEARCH_TOKEN_MATCH_KEYWORD,	"keywords/keyword[text()~=stem(?)]" },
-		{ AS_SEARCH_TOKEN_MATCH_ID,	"id[text()~=stem(?)]" },
-		{ AS_SEARCH_TOKEN_MATCH_ID,	"launchable[text()~=stem(?)]" },
-		{ AS_SEARCH_TOKEN_MATCH_ORIGIN,	"../components[@origin~=stem(?)]" },
-		{ AS_SEARCH_TOKEN_MATCH_NONE,	NULL }
+		{ AS_SEARCH_TOKEN_MATCH_ID,		"id[text()~=stem(?)]" },
+		{ AS_SEARCH_TOKEN_MATCH_ID,		"launchable[text()~=stem(?)]" },
+		{ AS_SEARCH_TOKEN_MATCH_ORIGIN,		"../components[@origin~=stem(?)]" },
+		{ AS_SEARCH_TOKEN_MATCH_NONE,		NULL }
 	};
 
 	return gs_appstream_do_search (plugin, silo, values, queries, list, cancellable, error);
@@ -1867,7 +1875,7 @@ gs_appstream_add_recent (GsPlugin *plugin,
 			 GCancellable *cancellable,
 			 GError **error)
 {
-	guint64 now = (guint64) g_get_real_time () / G_USEC_PER_SEC;
+	guint64 now = (guint64) g_get_real_time () / G_USEC_PER_SEC, max_future_timestamp;
 	g_autofree gchar *xpath = NULL;
 	g_autoptr(GError) error_local = NULL;
 	g_autoptr(GPtrArray) array = NULL;
@@ -1887,17 +1895,22 @@ gs_appstream_add_recent (GsPlugin *plugin,
 		g_propagate_error (error, g_steal_pointer (&error_local));
 		return FALSE;
 	}
+	/* This is to cover mistakes when the release date is set in the future,
+	   to not have it picked for too long. */
+	max_future_timestamp = now + (3 * 24 * 60 * 60);
 	for (guint i = 0; i < array->len; i++) {
 		XbNode *component = g_ptr_array_index (array, i);
-		g_autoptr(GsApp) app = gs_appstream_create_app (plugin, silo, component, error);
-		guint64 timestamp;
-		if (app == NULL)
-			return FALSE;
+		g_autoptr(GsApp) app = NULL;
+		guint64 timestamp = component_get_release_timestamp (component);
 		/* set the release date */
-		timestamp = component_get_release_timestamp (component);
-		if (timestamp != G_MAXUINT64)
+		if (timestamp != G_MAXUINT64 && timestamp < max_future_timestamp) {
+			app = gs_appstream_create_app (plugin, silo, component, error);
+			if (app == NULL)
+				return FALSE;
+
 			gs_app_set_release_date (app, timestamp);
-		gs_app_list_add (list, app);
+			gs_app_list_add (list, app);
+		}
 	}
 	return TRUE;
 }

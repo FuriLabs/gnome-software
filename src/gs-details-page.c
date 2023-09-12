@@ -115,6 +115,7 @@ struct _GsDetailsPage
 	GtkWidget		*screenshot_carousel;
 	GtkWidget		*button_details_launch;
 	GtkStack		*links_stack;
+	GtkWidget		*label_no_metadata_info;
 	AdwActionRow		*project_website_row;
 	AdwActionRow		*donate_row;
 	AdwActionRow		*translate_row;
@@ -126,10 +127,12 @@ struct _GsDetailsPage
 	GtkWidget		*button_remove;
 	GsProgressButton	*button_cancel;
 	GtkWidget		*infobar_details_eol;
+	GtkWidget		*label_eol;
 	GtkWidget		*infobar_details_problems_label;
 	GtkWidget		*infobar_details_app_norepo;
 	GtkWidget		*infobar_details_app_repo;
 	GtkWidget		*infobar_details_package_baseos;
+	GtkWidget		*label_package_baseos;
 	GtkWidget		*infobar_details_repo;
 	GtkWidget		*infobar_app_data;
 	GtkWidget		*infobar_app_data_label;
@@ -592,6 +595,7 @@ static void
 gs_details_page_license_tile_get_involved_activated_cb (GsLicenseTile *license_tile,
 							GsDetailsPage *self)
 {
+	g_autofree gchar *license_url = NULL;
 	const gchar *uri = NULL;
 
 	if (gs_app_get_license_is_free (self->app)) {
@@ -601,15 +605,21 @@ gs_details_page_license_tile_get_involved_activated_cb (GsLicenseTile *license_t
 		if (uri == NULL)
 			uri = gs_app_get_url (self->app, AS_URL_KIND_HOMEPAGE);
 	} else {
-		/* Page to explain the differences between FOSS and proprietary
-		 * software. This is a page on the gnome-software wiki for now,
-		 * so that we can update the content independently of the release
-		 * cycle. Likely, we will link to a more authoritative source
-		 * to explain the differences.
-		 * Ultimately, we could ship a user manual page to explain the
-		 * differences (so that it’s available offline), but that’s too
-		 * much work for right now. */
-		uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/Software-licensing";
+		license_url = as_get_license_url (gs_app_get_license (self->app));
+
+		if (license_url != NULL && *license_url != '\0') {
+			uri = license_url;
+		} else {
+			/* Page to explain the differences between FOSS and proprietary
+			 * software. This is a page on the gnome-software wiki for now,
+			 * so that we can update the content independently of the release
+			 * cycle. Likely, we will link to a more authoritative source
+			 * to explain the differences.
+			 * Ultimately, we could ship a user manual page to explain the
+			 * differences (so that it’s available offline), but that’s too
+			 * much work for right now. */
+			uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/Software-licensing";
+		}
 	}
 
 	gs_shell_show_uri (self->shell, uri);
@@ -743,6 +753,21 @@ sort_by_packaging_format_preference (GsApp *app1,
 		return index1 == 0 ? 1 : -1;
 
 	return index1 - index2;
+}
+
+static void
+gs_details_page_refresh_screenshots (GsDetailsPage *self)
+{
+	if (self->app != NULL) {
+		gboolean is_online = gs_plugin_loader_get_network_available (self->plugin_loader);
+		gboolean has_screenshots;
+
+		gs_screenshot_carousel_load_screenshots (GS_SCREENSHOT_CAROUSEL (self->screenshot_carousel), self->app, is_online, NULL);
+		has_screenshots = gs_screenshot_carousel_get_has_screenshots (GS_SCREENSHOT_CAROUSEL (self->screenshot_carousel));
+		gtk_widget_set_visible (self->screenshot_carousel, has_screenshots);
+	} else {
+		gtk_widget_set_visible (self->screenshot_carousel, FALSE);
+	}
 }
 
 static void _set_app (GsDetailsPage *self, GsApp *app);
@@ -925,6 +950,7 @@ gs_details_page_get_alternates_cb (GObject *source_object,
 		   when it is clicked. */
 		g_clear_pointer (&self->last_developer_name, g_free);
 
+		gs_details_page_refresh_screenshots (self);
 		gs_details_page_refresh_all (self);
 	} else {
 		gs_details_page_refresh_app_data_info (self);
@@ -1255,7 +1281,10 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 	}
 	tmp = gs_app_get_summary (self->app);
 	if (tmp != NULL && tmp[0] != '\0') {
-		adw_banner_set_title (self->translation_banner, _("This app will appear in US English"));
+		if (gs_app_is_application (self->app))
+			adw_banner_set_title (self->translation_banner, _("This app will appear in US English"));
+		else
+			adw_banner_set_title (self->translation_banner, _("This software will appear in US English"));
 		gtk_label_set_label (GTK_LABEL (self->application_details_summary), tmp);
 		gtk_widget_set_visible (self->application_details_summary, TRUE);
 	} else {
@@ -1844,6 +1873,16 @@ _set_app (GsDetailsPage *self, GsApp *app)
 	g_signal_connect_object (self->app, "notify::pending-action",
 				 G_CALLBACK (gs_details_page_notify_state_changed_cb),
 				 self, 0);
+
+	if (gs_app_is_application (self->app)) {
+		gtk_label_set_text (GTK_LABEL (self->label_eol), _("This app is no longer receiving updates, including security fixes"));
+		gtk_label_set_text (GTK_LABEL (self->label_package_baseos), _("This app is already provided by your distribution and should not be replaced."));
+		gtk_label_set_text (GTK_LABEL (self->label_no_metadata_info), _("This app doesn’t provide any links to a website, code repository or issue tracker."));
+	} else {
+		gtk_label_set_text (GTK_LABEL (self->label_eol), _("This software is no longer receiving updates, including security fixes"));
+		gtk_label_set_text (GTK_LABEL (self->label_package_baseos), _("This software is already provided by your distribution and should not be replaced."));
+		gtk_label_set_text (GTK_LABEL (self->label_no_metadata_info), _("This software doesn’t provide any links to a website, code repository or issue tracker."));
+	}
 }
 
 static gboolean
@@ -1865,8 +1904,6 @@ gs_details_page_load_stage2 (GsDetailsPage *self,
 	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job1 = NULL;
 	g_autoptr(GsPluginJob) plugin_job2 = NULL;
-	gboolean is_online = gs_plugin_loader_get_network_available (self->plugin_loader);
-	gboolean has_screenshots;
 
 	/* print what we've got */
 	tmp = gs_app_to_string (self->app);
@@ -1874,9 +1911,7 @@ gs_details_page_load_stage2 (GsDetailsPage *self,
 
 	/* update UI */
 	gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_READY);
-	gs_screenshot_carousel_load_screenshots (GS_SCREENSHOT_CAROUSEL (self->screenshot_carousel), self->app, is_online, NULL);
-	has_screenshots = gs_screenshot_carousel_get_has_screenshots (GS_SCREENSHOT_CAROUSEL (self->screenshot_carousel));
-	gtk_widget_set_visible (self->screenshot_carousel, has_screenshots);
+	gs_details_page_refresh_screenshots (self);
 	gs_details_page_refresh_reviews (self);
 	gs_details_page_refresh_all (self);
 	gs_details_page_update_origin_button (self, FALSE);
@@ -2588,6 +2623,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, screenshot_carousel);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_launch);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, links_stack);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_no_metadata_info);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, project_website_row);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, donate_row);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, translate_row);
@@ -2599,10 +2635,12 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_remove);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_cancel);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_details_eol);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_eol);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_details_problems_label);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_details_app_norepo);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_details_app_repo);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_details_package_baseos);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_package_baseos);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_details_repo);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_app_data);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, infobar_app_data_label);
