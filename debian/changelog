@@ -1,5 +1,6 @@
-gnome-software (45.0-1) UNRELEASED; urgency=medium
+gnome-software (45.0-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream release
 
  -- Jarred Wilson <jarred.wilson@canonical.com>  Fri, 15 Sep 2023 14:12:24 -0400
