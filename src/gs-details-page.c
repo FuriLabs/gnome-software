@@ -605,20 +605,24 @@ gs_details_page_license_tile_get_involved_activated_cb (GsLicenseTile *license_t
 		if (uri == NULL)
 			uri = gs_app_get_url (self->app, AS_URL_KIND_HOMEPAGE);
 	} else {
-		license_url = as_get_license_url (gs_app_get_license (self->app));
-
-		if (license_url != NULL && *license_url != '\0') {
-			uri = license_url;
+		if (gs_app_get_license (self->app) == NULL) {
+			uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/software-metadata#license";
 		} else {
-			/* Page to explain the differences between FOSS and proprietary
-			 * software. This is a page on the gnome-software wiki for now,
-			 * so that we can update the content independently of the release
-			 * cycle. Likely, we will link to a more authoritative source
-			 * to explain the differences.
-			 * Ultimately, we could ship a user manual page to explain the
-			 * differences (so that it’s available offline), but that’s too
-			 * much work for right now. */
-			uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/Software-licensing";
+			license_url = as_get_license_url (gs_app_get_license (self->app));
+
+			if (license_url != NULL && *license_url != '\0') {
+				uri = license_url;
+			} else {
+				/* Page to explain the differences between FOSS and proprietary
+				 * software. This is a page on the gnome-software wiki for now,
+				 * so that we can update the content independently of the release
+				 * cycle. Likely, we will link to a more authoritative source
+				 * to explain the differences.
+				 * Ultimately, we could ship a user manual page to explain the
+				 * differences (so that it’s available offline), but that’s too
+				 * much work for right now. */
+				uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/Software-licensing";
+			}
 		}
 	}
 
@@ -1420,9 +1424,11 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 		const gchar *version = gs_app_get_version_ui (self->app);
 		if (version == NULL || *version == '\0')
 			gtk_widget_set_visible (self->list_box_version_history, FALSE);
-		else
+		else {
 			gs_app_version_history_row_set_info (GS_APP_VERSION_HISTORY_ROW (self->row_latest_version),
 							     version, gs_app_get_release_date (self->app), NULL);
+			gtk_widget_set_visible (self->list_box_version_history, TRUE);
+		}
 	} else {
 		AsRelease *latest_version = g_ptr_array_index (version_history, 0);
 		const gchar *version = gs_app_get_version_ui (self->app);
@@ -1438,6 +1444,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 							     version, gs_app_get_release_date (self->app),
 							     same_version ? as_release_get_description (latest_version) : NULL);
 		}
+		gtk_widget_set_visible (self->list_box_version_history, TRUE);
 	}
 
 	gtk_widget_set_visible (self->version_history_button, version_history != NULL && version_history->len > 1);
