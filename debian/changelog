@@ -1,4 +1,11 @@
-gnome-software (45~rc-1ubuntu1) mantic; urgency=medium
+gnome-software (45.0-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jarred Wilson <jarred.wilson@canonical.com>  Fri, 15 Sep 2023 14:12:24 -0400
+
+ gnome-software (45~rc-1ubuntu1) mantic; urgency=medium
 
   * Merge with Debian
   * Rebase patches
