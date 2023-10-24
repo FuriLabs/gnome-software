@@ -1,9 +1,14 @@
-gnome-software (45.1-1) UNRELEASED; urgency=medium
+gnome-software (45.1-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream release
+    - Various styling fixes
+    - Report PackageKit GPG-related errors in the GUI
+    - Flatpak permission checks improvements
+    - Optimize loading of the details page
   * Drop debian/patches/01_details-Use-custom-icon-for-verified-developers.patch
 
- -- Amin Bandali <bandali@ubuntu.com>  Tue, 24 Oct 2023 15:36:02 -0400
+ -- Amin Bandali <bandali@ubuntu.com>  Tue, 24 Oct 2023 16:13:39 -0400
 
 gnome-software (45.0-1) unstable; urgency=medium
 
