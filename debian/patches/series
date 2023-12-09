@@ -1,1 +1,2 @@
 debian/use-software-properties-gtk.patch
+01_appstream1.0-support.patch
