@@ -1,3 +1,12 @@
+gnome-software (45.1-2) unstable; urgency=medium
+
+  * Team upload
+  * Add appstream1.0-support.patch:
+    - Support the latest AppStream library version
+  * Bump dependency on appstream
+
+ -- Matthias Klumpp <mak@debian.org>  Sat, 16 Dec 2023 19:29:56 +0100
+
 gnome-software (45.1-1) unstable; urgency=medium
 
   * Team upload
