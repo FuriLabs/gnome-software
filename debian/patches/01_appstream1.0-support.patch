@@ -1,27 +1,29 @@
-From 0655f358ed0e8455e12d9634f60bc4dbaee434e3 Mon Sep 17 00:00:00 2001
 From: Matthias Klumpp <matthias@tenstral.net>
 Date: Sun, 8 Oct 2023 20:22:44 +0200
 Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
 
+Origin: upstream, future 46 alpha
 ---
  lib/gs-app.c                             |  4 ++
- lib/gs-appstream.c                       | 61 +++++++++++++++++++-----
+ lib/gs-appstream.c                       | 63 +++++++++++++++++++++++++-------
  lib/gs-utils.c                           |  8 ++--
- meson.build                              | 22 +--------
+ meson.build                              | 22 +----------
  plugins/core/gs-plugin-appstream.c       |  8 ----
  plugins/fwupd/gs-fwupd-app.c             |  8 ++++
  plugins/fwupd/gs-plugin-fwupd.c          |  4 ++
  src/gs-hardware-support-context-dialog.c |  6 +++
  src/gs-repos-dialog.c                    |  4 ++
  src/gs-screenshot-carousel.c             |  4 +-
- src/gs-screenshot-image.c                | 41 ++++++++++++----
- src/gs-screenshot-image.h                |  7 +++
+ src/gs-screenshot-image.c                | 41 ++++++++++++++++-----
+ src/gs-screenshot-image.h                |  7 ++++
  subprojects/appstream.wrap               |  2 +-
- 13 files changed, 122 insertions(+), 57 deletions(-)
+ 13 files changed, 122 insertions(+), 59 deletions(-)
 
+diff --git a/lib/gs-app.c b/lib/gs-app.c
+index 048a061..e269405 100644
 --- a/lib/gs-app.c
 +++ b/lib/gs-app.c
-@@ -609,7 +609,11 @@
+@@ -609,7 +609,11 @@ gs_app_to_string_append (GsApp *app, GString *str)
  		AsScreenshot *ss = g_ptr_array_index (priv->screenshots, i);
  		g_autofree gchar *key = NULL;
  		tmp = as_screenshot_get_caption (ss);
@@ -33,9 +35,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		if (im == NULL)
  			continue;
  		key = g_strdup_printf ("screenshot-%02u", i);
+diff --git a/lib/gs-appstream.c b/lib/gs-appstream.c
+index deca176..4fd7f53 100644
 --- a/lib/gs-appstream.c
 +++ b/lib/gs-appstream.c
-@@ -587,8 +587,6 @@
+@@ -587,8 +587,6 @@ gs_appstream_refine_add_provides (GsApp *app, XbNode *component, GError **error)
  					kind = AS_PROVIDED_KIND_FIRMWARE_RUNTIME;
  				else if (g_strcmp0 (fw_type, "flashed") == 0)
  					kind = AS_PROVIDED_KIND_FIRMWARE_FLASHED;
@@ -44,7 +48,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  			} else if (g_strcmp0 (element_name, "python3") == 0) {
  				kind = AS_PROVIDED_KIND_PYTHON;
  			} else if (g_strcmp0 (element_name, "dbus") == 0) {
-@@ -1011,8 +1009,11 @@
+@@ -1011,8 +1009,11 @@ gs_appstream_refine_app_relation (GsApp           *app,
  			as_relation_set_item_kind (relation, AS_RELATION_ITEM_KIND_CONTROL);
  			as_relation_set_value_control_kind (relation, as_control_kind_from_string (xb_node_get_text (child)));
  		} else if (g_str_equal (item_kind, "display_length")) {
@@ -57,7 +61,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  			/* https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-relations-display_length */
  			as_relation_set_item_kind (relation, AS_RELATION_ITEM_KIND_DISPLAY_LENGTH);
-@@ -1020,15 +1021,21 @@
+@@ -1020,15 +1021,21 @@ gs_appstream_refine_app_relation (GsApp           *app,
  			compare = xb_node_get_attr (child, "compare");
  			as_relation_set_compare (relation, (compare != NULL) ? as_relation_compare_from_string (compare) : AS_RELATION_COMPARE_GE);
  
@@ -80,7 +84,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		} else {
  			g_debug ("Relation type ‘%s’ not currently supported for %s; ignoring",
  				 item_kind, gs_app_get_id (app));
-@@ -1472,7 +1479,7 @@
+@@ -1472,7 +1479,7 @@ gs_appstream_refine_app (GsPlugin *plugin,
  }
  
  typedef struct {
@@ -89,7 +93,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  	XbQuery			*query;
  } GsAppstreamSearchHelper;
  
-@@ -1522,7 +1529,7 @@
+@@ -1522,7 +1529,7 @@ gs_appstream_silo_search_component (GPtrArray *array, XbNode *component, const g
  }
  
  typedef struct {
@@ -98,7 +102,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  	const gchar		*xpath;
  } Query;
  
-@@ -1539,6 +1546,11 @@
+@@ -1539,6 +1546,11 @@ gs_appstream_do_search (GsPlugin *plugin,
  	g_autoptr(GPtrArray) array = g_ptr_array_new_with_free_func ((GDestroyNotify) gs_appstream_search_helper_free);
  	g_autoptr(GPtrArray) components = NULL;
  	g_autoptr(GTimer) timer = g_timer_new ();
@@ -110,7 +114,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  	g_return_val_if_fail (GS_IS_PLUGIN (plugin), FALSE);
  	g_return_val_if_fail (XB_IS_SILO (silo), FALSE);
-@@ -1585,7 +1597,7 @@
+@@ -1585,7 +1597,7 @@ gs_appstream_do_search (GsPlugin *plugin,
  			 * Drop the ID token from it as it’s the highest
  			 * numeric value but isn’t visible to the user in the
  			 * UI, which leads to confusing results ordering. */
@@ -119,7 +123,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  			gs_app_list_add (list, app);
  
  			if (gs_app_get_kind (app) == AS_COMPONENT_KIND_ADDON) {
-@@ -1624,18 +1636,32 @@
+@@ -1624,18 +1636,32 @@ gs_appstream_search (GsPlugin *plugin,
  		     GCancellable *cancellable,
  		     GError **error)
  {
@@ -158,7 +162,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		{ AS_SEARCH_TOKEN_MATCH_PKGNAME,	"pkgname[text()~=stem(?)]" },
  		{ AS_SEARCH_TOKEN_MATCH_PKGNAME / 2,	"pkgname[contains(text(),stem(?))]" },
  		{ AS_SEARCH_TOKEN_MATCH_SUMMARY,	"summary[text()~=stem(?)]" },
-@@ -1647,6 +1673,7 @@
+@@ -1647,6 +1673,7 @@ gs_appstream_search (GsPlugin *plugin,
  		{ AS_SEARCH_TOKEN_MATCH_ORIGIN,		"../components[@origin~=stem(?)]" },
  		{ AS_SEARCH_TOKEN_MATCH_NONE,		NULL }
  	};
@@ -166,7 +170,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  	return gs_appstream_do_search (plugin, silo, values, queries, list, cancellable, error);
  }
-@@ -1659,11 +1686,21 @@
+@@ -1659,11 +1686,21 @@ gs_appstream_search_developer_apps (GsPlugin *plugin,
  				    GCancellable *cancellable,
  				    GError **error)
  {
@@ -188,9 +192,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  	return gs_appstream_do_search (plugin, silo, values, queries, list, cancellable, error);
  }
+diff --git a/lib/gs-utils.c b/lib/gs-utils.c
+index cf90730..19e6ebd 100644
 --- a/lib/gs-utils.c
 +++ b/lib/gs-utils.c
-@@ -1694,9 +1694,9 @@
+@@ -1694,9 +1694,9 @@ gs_utils_gstring_replace (GString *str,
  			  const gchar *find,
  			  const gchar *replace)
  {
@@ -204,9 +210,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
 +	as_gstring_replace2 (str, find, replace, 0);
 +#endif
  }
+diff --git a/meson.build b/meson.build
+index da9e7ac..2cab9d6 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -113,7 +113,7 @@
+@@ -113,7 +113,7 @@ add_project_arguments('-D_GNU_SOURCE', language : 'c')
  conf.set('HAVE_LINUX_UNISTD_H', cc.has_header('linux/unistd.h'))
  
  appstream = dependency('appstream',
@@ -215,7 +223,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
    fallback : ['appstream', 'appstream_dep'],
    default_options : [
      'docs=false',
-@@ -121,26 +121,6 @@
+@@ -121,26 +121,6 @@ appstream = dependency('appstream',
      'install-docs=false'
    ]
  )
@@ -242,9 +250,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  gdk_pixbuf = dependency('gdk-pixbuf-2.0', version : '>= 2.32.0')
  libxmlb = dependency('xmlb', version : '>= 0.1.7', fallback : ['libxmlb', 'libxmlb_dep'])
+diff --git a/plugins/core/gs-plugin-appstream.c b/plugins/core/gs-plugin-appstream.c
+index cf9f302..ef3226a 100644
 --- a/plugins/core/gs-plugin-appstream.c
 +++ b/plugins/core/gs-plugin-appstream.c
-@@ -414,11 +414,7 @@
+@@ -414,11 +414,7 @@ gs_plugin_appstream_load_dep11_cb (XbBuilderSource *self,
  	if (bytes == NULL)
  		return NULL;
  
@@ -256,7 +266,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  	as_metadata_parse_bytes (mdata,
  				 bytes,
  				 AS_FORMAT_KIND_YAML,
-@@ -428,11 +424,7 @@
+@@ -428,11 +424,7 @@ gs_plugin_appstream_load_dep11_cb (XbBuilderSource *self,
  		return NULL;
  	}
  
@@ -268,9 +278,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  	if (xml == NULL) {
  		// This API currently returns NULL if there is nothing to serialize, so we
  		// have to test if this is an error or not.
+diff --git a/plugins/fwupd/gs-fwupd-app.c b/plugins/fwupd/gs-fwupd-app.c
+index 6dcda6e..5d3254d 100644
 --- a/plugins/fwupd/gs-fwupd-app.c
 +++ b/plugins/fwupd/gs-fwupd-app.c
-@@ -164,7 +164,11 @@
+@@ -164,7 +164,11 @@ gs_fwupd_app_set_from_device (GsApp *app,
  		gs_app_set_install_date (app, fwupd_device_get_created (dev));
  	if (fwupd_device_get_description (dev) != NULL) {
  		g_autofree gchar *tmp = NULL;
@@ -282,7 +294,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		if (tmp != NULL)
  			gs_app_set_description (app, GS_APP_QUALITY_NORMAL, tmp);
  	}
-@@ -402,7 +406,11 @@
+@@ -402,7 +406,11 @@ gs_fwupd_app_set_from_release (GsApp *app, FwupdRelease *rel)
  	}
  	if (fwupd_release_get_description (rel) != NULL) {
  		g_autofree gchar *tmp = NULL;
@@ -294,9 +306,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		if (tmp != NULL)
  			gs_app_set_update_details_text (app, tmp);
  	}
+diff --git a/plugins/fwupd/gs-plugin-fwupd.c b/plugins/fwupd/gs-plugin-fwupd.c
+index e931b2b..0747d6e 100644
 --- a/plugins/fwupd/gs-plugin-fwupd.c
 +++ b/plugins/fwupd/gs-plugin-fwupd.c
-@@ -726,7 +726,11 @@
+@@ -726,7 +726,11 @@ gs_plugin_add_updates (GsPlugin *plugin,
  				g_autofree gchar *desc = NULL;
  				if (fwupd_release_get_description (rel) == NULL)
  					continue;
@@ -308,9 +322,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  				if (desc == NULL)
  					continue;
  				g_string_append_printf (update_desc,
+diff --git a/src/gs-hardware-support-context-dialog.c b/src/gs-hardware-support-context-dialog.c
+index 0e48c8c..1465340 100644
 --- a/src/gs-hardware-support-context-dialog.c
 +++ b/src/gs-hardware-support-context-dialog.c
-@@ -461,6 +461,7 @@
+@@ -461,6 +461,7 @@ gs_hardware_support_context_dialog_get_display_support (GdkMonitor     *monitor,
  			AsRelationCompare comparator = as_relation_get_compare (relation);
  			Range current_display_comparand, relation_comparand;
  
@@ -318,7 +334,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  			/* From https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-requires-recommends-display_length */
  			Range display_lengths[] = {
  				[AS_DISPLAY_LENGTH_KIND_XSMALL] = { 0, 360 },
-@@ -469,6 +470,7 @@
+@@ -469,6 +470,7 @@ gs_hardware_support_context_dialog_get_display_support (GdkMonitor     *monitor,
  				[AS_DISPLAY_LENGTH_KIND_LARGE] = { 1024, 3840 },
  				[AS_DISPLAY_LENGTH_KIND_XLARGE] = { 3840, G_MAXUINT },
  			};
@@ -326,7 +342,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  			any_display_relations_set = TRUE;
  
-@@ -485,11 +487,14 @@
+@@ -485,11 +487,14 @@ gs_hardware_support_context_dialog_get_display_support (GdkMonitor     *monitor,
  			case AS_DISPLAY_SIDE_KIND_LAST:
  			default:
  				current_display_comparand.min = current_display_comparand.max = MAX (current_screen_size.width, current_screen_size.height);
@@ -341,7 +357,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  			if (evaluate_display_comparison (display_lengths[AS_DISPLAY_LENGTH_KIND_SMALL], comparator, relation_comparand)) {
  				*mobile_relation_kind_out = max_relation_kind (*mobile_relation_kind_out, as_relation_get_kind (relation));
  				*mobile_match_out = TRUE;
-@@ -499,6 +504,7 @@
+@@ -499,6 +504,7 @@ gs_hardware_support_context_dialog_get_display_support (GdkMonitor     *monitor,
  				*desktop_relation_kind_out = max_relation_kind (*desktop_relation_kind_out, as_relation_get_kind (relation));
  				*desktop_match_out = TRUE;
  			}
@@ -349,9 +365,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  
  			if (evaluate_display_comparison (current_display_comparand, comparator, relation_comparand)) {
  				*current_relation_kind_out = max_relation_kind (*current_relation_kind_out, as_relation_get_kind (relation));
+diff --git a/src/gs-repos-dialog.c b/src/gs-repos-dialog.c
+index c41c494..7dac041 100644
 --- a/src/gs-repos-dialog.c
 +++ b/src/gs-repos-dialog.c
-@@ -154,7 +154,11 @@
+@@ -154,7 +154,11 @@ enable_repo (GsReposDialog *dialog,
  		g_autoptr(GError) error = NULL;
  
  		/* convert from AppStream markup */
@@ -363,9 +381,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		if (message == NULL) {
  			/* failed, so just try and show the original markup */
  			message = g_strdup (gs_app_get_agreement (repo));
+diff --git a/src/gs-screenshot-carousel.c b/src/gs-screenshot-carousel.c
+index 04bbf86..d269af6 100644
 --- a/src/gs-screenshot-carousel.c
 +++ b/src/gs-screenshot-carousel.c
-@@ -141,8 +141,8 @@
+@@ -141,8 +141,8 @@ gs_screenshot_carousel_load_screenshots (GsScreenshotCarousel *self, GsApp *app,
  		gtk_widget_set_can_focus (gtk_widget_get_first_child (ssimg), FALSE);
  		gs_screenshot_image_set_screenshot (GS_SCREENSHOT_IMAGE (ssimg), ss);
  		gs_screenshot_image_set_size (GS_SCREENSHOT_IMAGE (ssimg),
@@ -376,9 +396,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		gtk_widget_add_css_class (ssimg, "screenshot-image-main");
  		gs_screenshot_image_load_async (GS_SCREENSHOT_IMAGE (ssimg), cancellable);
  
+diff --git a/src/gs-screenshot-image.c b/src/gs-screenshot-image.c
+index c313a25..b24083b 100644
 --- a/src/gs-screenshot-image.c
 +++ b/src/gs-screenshot-image.c
-@@ -284,13 +284,13 @@
+@@ -284,13 +284,13 @@ gs_screenshot_image_save_downloaded_img (GsScreenshotImage *ssimg,
  	if (images->len > 1)
  		return TRUE;
  
@@ -398,7 +420,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  	}
  
  	width *= ssimg->scale;
-@@ -582,16 +582,30 @@
+@@ -582,16 +582,30 @@ gs_screenshot_image_get_url (GsScreenshotImage *ssimg)
  	} else if (as_screenshot_get_media_kind (ssimg->screenshot) == AS_SCREENSHOT_MEDIA_KIND_IMAGE) {
  		AsImage *im;
  
@@ -429,7 +451,7 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		}
  
  		if (im)
-@@ -698,15 +712,22 @@
+@@ -698,15 +712,22 @@ gs_screenshot_image_load_async (GsScreenshotImage *ssimg,
  	 * smaller version of it straight away */
  	if (!ssimg->showing_image &&
  	    as_screenshot_get_media_kind (ssimg->screenshot) == AS_SCREENSHOT_MEDIA_KIND_IMAGE &&
@@ -456,9 +478,11 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  		url_thumb = as_image_get_url (im);
  		basename_thumb = gs_screenshot_get_cachefn_for_url (url_thumb);
  		cache_kind_thumb = g_build_filename ("screenshots", "112x63", NULL);
+diff --git a/src/gs-screenshot-image.h b/src/gs-screenshot-image.h
+index 1f6cf81..6e45f5d 100644
 --- a/src/gs-screenshot-image.h
 +++ b/src/gs-screenshot-image.h
-@@ -21,6 +21,13 @@
+@@ -21,6 +21,13 @@ G_BEGIN_DECLS
  
  G_DECLARE_FINAL_TYPE (GsScreenshotImage, gs_screenshot_image, GS, SCREENSHOT_IMAGE, GtkWidget)
  
@@ -472,6 +496,8 @@ Subject: [PATCH] Adjust to build with AppStream 1.0 as well as 0.16.x
  GtkWidget	*gs_screenshot_image_new		(SoupSession		*session);
  
  AsScreenshot	*gs_screenshot_image_get_screenshot	(GsScreenshotImage	*ssimg);
+diff --git a/subprojects/appstream.wrap b/subprojects/appstream.wrap
+index 6f0beb0..b9a9c7d 100644
 --- a/subprojects/appstream.wrap
 +++ b/subprojects/appstream.wrap
 @@ -1,5 +1,5 @@
