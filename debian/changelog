@@ -1,3 +1,10 @@
+gnome-software (45.2-1ubuntu1) noble; urgency=medium
+
+  * Merge with Debian. Remaining change:
+    - Add patch to disable apt updates (Closes: #787485) (LP: #1992498)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 17 Dec 2023 13:34:10 -0500
+
 gnome-software (45.2-1) unstable; urgency=medium
 
   * New upstream release
