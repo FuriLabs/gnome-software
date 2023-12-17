@@ -1,3 +1,35 @@
+Version 45.2
+~~~~~~~~~~~~
+Released: 2023-12-01
+
+This is a stable release with translations update:
+ * Catalan (Jordi Mas)
+ * Czech (Daniel Rusek)
+ * Friulian (Fabio Tomat)
+ * Georgian (Ekaterine Papava)
+ * Russian (Artur S0)
+ * Vietnamese (Ngọc Quân Trần)
+
+Version 45.1
+~~~~~~~~~~~~
+Released: 2023-10-20
+
+This is a stable release with the following changes:
+ * Various styling fixes
+ * Report PackageKit GPG-related errors in the GUI
+ * Flatpak permission checks improvements
+ * Optimize loading of the details page
+
+This release also updates translations:
+ * Catalan (Jordi Mas)
+ * Chinese (Taiwan) (Cheng-Chia Tseng)
+ * English (United Kingdom) (Bruce Cowan)
+ * Esperanto (Kristjan SCHMIDT)
+ * French (Irénée THIRION)
+ * Friulian (Fabio Tomat)
+ * Romanian (Florentina Mușat)
+ * Turkish (Sabri Ünal)
+
 Version 45.0
 ~~~~~~~~~~~~
 Released: 2023-09-15

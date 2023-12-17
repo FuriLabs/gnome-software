@@ -1,3 +1,30 @@
+gnome-software (45.2-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 17 Dec 2023 13:29:21 -0500
+
+gnome-software (45.1-2) unstable; urgency=medium
+
+  * Team upload
+  * Add appstream1.0-support.patch:
+    - Support the latest AppStream library version
+  * Bump dependency on appstream
+
+ -- Matthias Klumpp <mak@debian.org>  Sat, 16 Dec 2023 19:29:56 +0100
+
+gnome-software (45.1-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+    - Various styling fixes
+    - Report PackageKit GPG-related errors in the GUI
+    - Flatpak permission checks improvements
+    - Optimize loading of the details page
+  * Drop debian/patches/01_details-Use-custom-icon-for-verified-developers.patch
+
+ -- Amin Bandali <bandali@ubuntu.com>  Tue, 24 Oct 2023 16:13:39 -0400
+
 gnome-software (45.0-1ubuntu1) mantic; urgency=medium
 
   * Merge with Debian 

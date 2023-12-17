@@ -38,6 +38,7 @@
 #include "gs-flatpak.h"
 #include "gs-flatpak-transaction.h"
 #include "gs-flatpak-utils.h"
+#include "gs-profiler.h"
 
 struct _GsFlatpak {
 	GObject			 parent_instance;
@@ -258,6 +259,10 @@ perms_from_metadata (GKeyFile *keyfile)
 	    !g_strv_contains ((const gchar * const*)strv, "fallback-x11") &&
 	    g_strv_contains ((const gchar * const*)strv, "x11"))
 		flags |= GS_APP_PERMISSIONS_FLAGS_X11;
+	/* "fallback-x11" without "wayland" means X11 */
+	if (strv != NULL && g_strv_contains ((const gchar * const*)strv, "fallback-x11") &&
+	    !g_strv_contains ((const gchar * const*)strv, "wayland"))
+		flags |= GS_APP_PERMISSIONS_FLAGS_X11;
 	g_strfreev (strv);
 
 	strv = g_key_file_get_string_list (keyfile, "Context", "devices", NULL, NULL);
@@ -293,7 +298,8 @@ perms_from_metadata (GKeyFile *keyfile)
 			{ "xdg-download", GS_APP_PERMISSIONS_FLAGS_DOWNLOADS_FULL },
 			{ "xdg-download:rw", GS_APP_PERMISSIONS_FLAGS_DOWNLOADS_FULL },
 			{ "xdg-download:ro", GS_APP_PERMISSIONS_FLAGS_DOWNLOADS_READ },
-			{ "xdg-data/flatpak/overrides:create", GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX }
+			{ "xdg-data/flatpak/overrides:create", GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX },
+			{ "xdg-run/pipewire-0", GS_APP_PERMISSIONS_FLAGS_DEVICES },  /* see https://gitlab.gnome.org/GNOME/gnome-software/-/issues/2329 */
 		};
 		guint filesystems_hits = 0;
 		guint strv_len = g_strv_length (strv);
