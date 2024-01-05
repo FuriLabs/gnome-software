@@ -1,8 +1,10 @@
-gnome-software (45.3-1) UNRELEASED; urgency=medium
+gnome-software (45.3-1) unstable; urgency=medium
 
   * New upstream release
+  * Stop using debian/control.in and dh_gnome_clean
+  * Drop nocheck annotation from appstream Build-Depends (Closes: #1059983)
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jan 2024 08:42:33 -0500
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jan 2024 11:36:47 -0500
 
 gnome-software (45.2-1) unstable; urgency=medium
 
