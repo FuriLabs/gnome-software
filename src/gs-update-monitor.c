@@ -538,9 +538,9 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 	g_autoptr(DownloadUpdatesData) download_updates_data = (DownloadUpdatesData *) user_data;
 	GsUpdateMonitor *monitor = download_updates_data->monitor;
 	guint64 security_timestamp = 0;
-	guint64 security_timestamp_old = 0;
 	g_autoptr(GError) error = NULL;
 	g_autoptr(GsAppList) apps = NULL;
+	gboolean install_timestamp_outdated;
 	gboolean should_download;
 
 	/* get result */
@@ -563,9 +563,7 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		return;
 	}
 
-	/* find security updates, or clear timestamp if there are now none */
-	g_settings_get (monitor->settings,
-			"security-timestamp", "x", &security_timestamp_old);
+	/* find security updates */
 	for (guint i = 0; i < gs_app_list_length (apps); i++) {
 		GsApp *app = gs_app_list_index (apps, i);
 		guint64 size_download_bytes;
@@ -574,11 +572,11 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		if (gs_app_get_update_urgency (app) >= AS_URGENCY_KIND_CRITICAL &&
 		    size_download_type == GS_SIZE_TYPE_VALID &&
 		    size_download_bytes > 0) {
-			security_timestamp = (guint64) g_get_monotonic_time ();
+			security_timestamp = (guint64) g_get_real_time ();
 			break;
 		}
 	}
-	if (security_timestamp_old != security_timestamp) {
+	if (security_timestamp > 0) {
 		g_settings_set (monitor->settings,
 				"security-timestamp", "x", security_timestamp);
 	}
@@ -586,10 +584,9 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 	g_debug ("got %u updates", gs_app_list_length (apps));
 
 	should_download = should_download_updates (monitor);
+	install_timestamp_outdated = check_if_timestamp_more_than_days_ago (monitor, "install-timestamp", 14);
 
-	if (should_download &&
-	    (security_timestamp_old != security_timestamp ||
-	    check_if_timestamp_more_than_days_ago (monitor, "install-timestamp", 14))) {
+	if (should_download && (security_timestamp > 0 || install_timestamp_outdated)) {
 		g_autoptr(GsPluginJob) plugin_job = NULL;
 		g_autoptr(UpdateAppsData) data = NULL;
 
@@ -605,7 +602,11 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		data->monitor = g_object_ref (monitor);
 		data->job = g_object_ref (plugin_job);
 
-		g_debug ("Getting updates");
+		g_debug ("Getting updates, because%s%s%s", security_timestamp > 0 ?
+			 " security timestamp changed" : "", (security_timestamp > 0 && install_timestamp_outdated) ?
+			 " and" : "",
+			 install_timestamp_outdated ?
+			 " install timestamp is more than 14 days ago" : "");
 		gs_plugin_loader_job_process_async (monitor->plugin_loader,
 						    plugin_job,
 						    monitor->refresh_cancellable,
@@ -1183,8 +1184,10 @@ static void
 get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 {
 	GsUpdateMonitor *monitor = data;
-	GsApp *app;
+	GsApp *os_upgrade_app = NULL;
+	guint64 latest_install_date = 0, now;
 	guint64 time_last_notified;
+	gboolean did_clamp = FALSE;
 	g_autoptr(GError) error = NULL;
 	g_autoptr(GsAppList) apps = NULL;
 	g_autoptr(GNotification) notification = NULL;
@@ -1221,14 +1224,35 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 		return;
 	}
 
+	for (guint i = 0; i < gs_app_list_length (apps); i++) {
+		GsApp *app = gs_app_list_index (apps, i);
+		if (!latest_install_date || latest_install_date < gs_app_get_install_date (app))
+			latest_install_date = gs_app_get_install_date (app);
+		if (gs_app_get_kind (app) == AS_COMPONENT_KIND_OPERATING_SYSTEM)
+			os_upgrade_app = app;
+	}
+
 	/* have we notified about this before */
-	app = gs_app_list_index (apps, 0);
 	g_settings_get (monitor->settings,
 			"install-timestamp", "x", &time_last_notified);
-	if (time_last_notified >= gs_app_get_install_date (app))
+	now = (guint64) g_get_real_time ();
+	if (time_last_notified > now) {
+		time_last_notified = now;
+		did_clamp = TRUE;
+	}
+	if (latest_install_date > now) {
+		latest_install_date = now;
+		did_clamp = TRUE;
+	}
+	if (time_last_notified >= latest_install_date) {
+		if (did_clamp) {
+			g_settings_set (monitor->settings,
+					"install-timestamp", "x", latest_install_date);
+		}
 		return;
+	}
 
-	if (gs_app_get_kind (app) == AS_COMPONENT_KIND_OPERATING_SYSTEM) {
+	if (os_upgrade_app != NULL) {
 		g_autofree gchar *message = NULL;
 
 		/* TRANSLATORS: Notification title when we've done a distro upgrade */
@@ -1238,8 +1262,8 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 		 * distro upgrade. First %s is the distro name and the 2nd %s
 		 * is the version, e.g. "Welcome to Fedora 28!" */
 		message = g_strdup_printf (_("Welcome to %s %s!"),
-		                           gs_app_get_name (app),
-		                           gs_app_get_version (app));
+		                           gs_app_get_name (os_upgrade_app),
+		                           gs_app_get_version (os_upgrade_app));
 		g_notification_set_body (notification, message);
 	} else {
 		const gchar *message;
@@ -1268,7 +1292,7 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 
 	/* update the timestamp so we don't show again */
 	g_settings_set (monitor->settings,
-			"install-timestamp", "x", gs_app_get_install_date (app));
+			"install-timestamp", "x", latest_install_date);
 
 	reset_update_notification_timestamp (monitor);
 }
