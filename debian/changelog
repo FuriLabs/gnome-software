@@ -1,3 +1,9 @@
+gnome-software (45.3-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jan 2024 08:42:33 -0500
+
 gnome-software (45.2-1) unstable; urgency=medium
 
   * New upstream release
