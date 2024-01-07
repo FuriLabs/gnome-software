@@ -1,3 +1,18 @@
+gnome-software (45.3-2) unstable; urgency=high
+
+  [ Matthias Klumpp ]
+  * Add patch to fix showing deb packages (Closes: #1058924) (LP: #2047818)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 07 Jan 2024 11:46:03 -0500
+
+gnome-software (45.3-1) unstable; urgency=medium
+
+  * New upstream release
+  * Stop using debian/control.in and dh_gnome_clean
+  * Drop nocheck annotation from appstream Build-Depends (Closes: #1059983)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jan 2024 11:36:47 -0500
+
 gnome-software (45.2-1ubuntu1) noble; urgency=medium
 
   * Merge with Debian. Remaining change:

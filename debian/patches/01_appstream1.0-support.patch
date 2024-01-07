@@ -36,7 +36,7 @@ index 048a061..e269405 100644
  			continue;
  		key = g_strdup_printf ("screenshot-%02u", i);
 diff --git a/lib/gs-appstream.c b/lib/gs-appstream.c
-index deca176..4fd7f53 100644
+index 43d6da1..d832fad 100644
 --- a/lib/gs-appstream.c
 +++ b/lib/gs-appstream.c
 @@ -587,8 +587,6 @@ gs_appstream_refine_add_provides (GsApp *app, XbNode *component, GError **error)
@@ -84,7 +84,7 @@ index deca176..4fd7f53 100644
  		} else {
  			g_debug ("Relation type ‘%s’ not currently supported for %s; ignoring",
  				 item_kind, gs_app_get_id (app));
-@@ -1472,7 +1479,7 @@ gs_appstream_refine_app (GsPlugin *plugin,
+@@ -1476,7 +1483,7 @@ gs_appstream_refine_app (GsPlugin *plugin,
  }
  
  typedef struct {
@@ -93,7 +93,7 @@ index deca176..4fd7f53 100644
  	XbQuery			*query;
  } GsAppstreamSearchHelper;
  
-@@ -1522,7 +1529,7 @@ gs_appstream_silo_search_component (GPtrArray *array, XbNode *component, const g
+@@ -1526,7 +1533,7 @@ gs_appstream_silo_search_component (GPtrArray *array, XbNode *component, const g
  }
  
  typedef struct {
@@ -102,7 +102,7 @@ index deca176..4fd7f53 100644
  	const gchar		*xpath;
  } Query;
  
-@@ -1539,6 +1546,11 @@ gs_appstream_do_search (GsPlugin *plugin,
+@@ -1543,6 +1550,11 @@ gs_appstream_do_search (GsPlugin *plugin,
  	g_autoptr(GPtrArray) array = g_ptr_array_new_with_free_func ((GDestroyNotify) gs_appstream_search_helper_free);
  	g_autoptr(GPtrArray) components = NULL;
  	g_autoptr(GTimer) timer = g_timer_new ();
@@ -114,7 +114,7 @@ index deca176..4fd7f53 100644
  
  	g_return_val_if_fail (GS_IS_PLUGIN (plugin), FALSE);
  	g_return_val_if_fail (XB_IS_SILO (silo), FALSE);
-@@ -1585,7 +1597,7 @@ gs_appstream_do_search (GsPlugin *plugin,
+@@ -1589,7 +1601,7 @@ gs_appstream_do_search (GsPlugin *plugin,
  			 * Drop the ID token from it as it’s the highest
  			 * numeric value but isn’t visible to the user in the
  			 * UI, which leads to confusing results ordering. */
@@ -123,7 +123,7 @@ index deca176..4fd7f53 100644
  			gs_app_list_add (list, app);
  
  			if (gs_app_get_kind (app) == AS_COMPONENT_KIND_ADDON) {
-@@ -1624,18 +1636,32 @@ gs_appstream_search (GsPlugin *plugin,
+@@ -1628,18 +1640,32 @@ gs_appstream_search (GsPlugin *plugin,
  		     GCancellable *cancellable,
  		     GError **error)
  {
@@ -162,7 +162,7 @@ index deca176..4fd7f53 100644
  		{ AS_SEARCH_TOKEN_MATCH_PKGNAME,	"pkgname[text()~=stem(?)]" },
  		{ AS_SEARCH_TOKEN_MATCH_PKGNAME / 2,	"pkgname[contains(text(),stem(?))]" },
  		{ AS_SEARCH_TOKEN_MATCH_SUMMARY,	"summary[text()~=stem(?)]" },
-@@ -1647,6 +1673,7 @@ gs_appstream_search (GsPlugin *plugin,
+@@ -1651,6 +1677,7 @@ gs_appstream_search (GsPlugin *plugin,
  		{ AS_SEARCH_TOKEN_MATCH_ORIGIN,		"../components[@origin~=stem(?)]" },
  		{ AS_SEARCH_TOKEN_MATCH_NONE,		NULL }
  	};
@@ -170,7 +170,7 @@ index deca176..4fd7f53 100644
  
  	return gs_appstream_do_search (plugin, silo, values, queries, list, cancellable, error);
  }
-@@ -1659,11 +1686,21 @@ gs_appstream_search_developer_apps (GsPlugin *plugin,
+@@ -1663,11 +1690,21 @@ gs_appstream_search_developer_apps (GsPlugin *plugin,
  				    GCancellable *cancellable,
  				    GError **error)
  {
@@ -211,7 +211,7 @@ index cf90730..19e6ebd 100644
 +#endif
  }
 diff --git a/meson.build b/meson.build
-index da9e7ac..2cab9d6 100644
+index eb61d48..d6c251c 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -113,7 +113,7 @@ add_project_arguments('-D_GNU_SOURCE', language : 'c')
