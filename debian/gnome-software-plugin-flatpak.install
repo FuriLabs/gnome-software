@@ -1,3 +1,4 @@
 #usr/lib/*/gnome-software/plugins-*/libgs_plugin_ostree*.so
 usr/lib/*/gnome-software/plugins-*/libgs_plugin_flatpak*.so
+usr/share/applications/gnome-software-local-file-flatpak.desktop
 usr/share/metainfo/org.gnome.Software.Plugin.Flatpak.metainfo.xml

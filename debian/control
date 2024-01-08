@@ -49,12 +49,11 @@ X-Ubuntu-Use-Langpack: yes
 
 Package: gnome-software
 Architecture: any
-Depends: appstream,
-         apt-config-icons,
+Depends: apt-config-icons,
+         gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin-flatpak (= ${binary:Version}) | gnome-software-plugin-snap (= ${binary:Version}),
          gnome-software-common (= ${source:Version}),
          gsettings-desktop-schemas (>= 3.18),
          libgtk3-perl,
-         packagekit (>= 1.2.5),
          ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: sessioninstaller
@@ -87,12 +86,36 @@ Description: Software Center for GNOME (common files)
  .
  This package contains the architecture-independent files.
 
+Package: gnome-software-plugin-deb
+Architecture: any
+Depends: appstream,
+         gnome-software (= ${binary:Version}),
+         packagekit (>= 1.2.5),
+         software-properties-gtk,
+         ${misc:Depends},
+         ${shlibs:Depends}
+Breaks: gnome-software (<< 46.0-2~)
+Replaces: gnome-software (<< 46.0-2~)
+Description: Flatpak support for GNOME Software
+ Software lets you install and update applications and system extensions.
+ .
+ Software uses a plugin architecture to separate the frontend from the
+ technologies that are used underneath. Currently, a PackageKit plugin provides
+ data from a number of traditional packaging systems, such as rpm or apt. An
+ appdata plugin provides additional metadata from locally installed data in the
+ appdata format.
+ .
+ This package contains the AppStream and PackageKit plugins necessary for
+ managing .deb packages with apt.
+
 Package: gnome-software-plugin-flatpak
 Architecture: amd64 arm64 armel armhf hppa i386 mips64el mipsel powerpc ppc64 ppc64el riscv64 s390x x32
 Depends: flatpak (>= 1.14.0),
          gnome-software (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
+Breaks: gnome-software (<< 46.0-2~)
+Replaces: gnome-software (<< 46.0-2~)
 Description: Flatpak support for GNOME Software
  Software lets you install and update applications and system extensions.
  .
@@ -111,8 +134,8 @@ Depends: gnome-software (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
 Recommends: snapd [s390x]
-Breaks: gnome-software (<< 3.22.3)
-Replaces: gnome-software (<< 3.22.3)
+Breaks: gnome-software (<< 46.0-2~)
+Replaces: gnome-software (<< 46.0-2~)
 Description: Snap support for GNOME Software
  Software lets you install and update applications and system extensions.
  .

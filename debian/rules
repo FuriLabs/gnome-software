@@ -72,7 +72,9 @@ override_dh_missing:
 	dh_missing --fail-missing
 
 	# These files are split out to separate packages
+	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_appstream*
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_flatpak*
+	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_packagekit*
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_snap*
 	rm -f debian/gnome-software/usr/share/metainfo/org.gnome.Software.Plugin.Flatpak.metainfo.xml
 	rm -f debian/gnome-software/usr/share/metainfo/org.gnome.Software.Plugin.Snap.metainfo.xml

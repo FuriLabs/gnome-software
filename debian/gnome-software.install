@@ -4,7 +4,8 @@ usr/lib/*/gnome-software/libgnomesoftware.so*
 usr/lib/*/gnome-software/plugins-*/*.so
 usr/libexec/gnome-software-cmd
 usr/libexec/gnome-software-restarter
-usr/share/applications/
+usr/share/applications/org.gnome.Software.desktop
+usr/share/applications/gnome-software-local-file-fwupd.desktop
 usr/share/bash-completion/
 usr/share/dbus-1/
 usr/share/doc/
