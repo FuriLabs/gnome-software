@@ -24,7 +24,6 @@
   <file preprocess="xml-stripblanks">gs-license-tile.ui</file>
   <file preprocess="xml-stripblanks">gs-loading-page.ui</file>
   <file preprocess="xml-stripblanks">gs-lozenge.ui</file>
-  <file preprocess="xml-stripblanks">gs-metered-data-dialog.ui</file>
   <file preprocess="xml-stripblanks">gs-moderate-page.ui</file>
   <file preprocess="xml-stripblanks">gs-overview-page.ui</file>
   <file preprocess="xml-stripblanks">gs-origin-popover-row.ui</file>
@@ -49,6 +48,7 @@
   <file preprocess="xml-stripblanks">gs-updates-page.ui</file>
   <file preprocess="xml-stripblanks">gs-updates-section.ui</file>
   <file preprocess="xml-stripblanks">gs-upgrade-banner.ui</file>
+  <file preprocess="xml-stripblanks" alias="gtk/help-overlay.ui">gs-help-overlay.ui</file>
   <file preprocess="xml-stripblanks">org.freedesktop.PackageKit.xml</file>
   <file>style.css</file>
   <file>style-dark.css</file>
@@ -95,6 +95,7 @@
   <file preprocess="xml-stripblanks" alias="icons/scalable/devices/phone-symbolic.svg">../data/icons/phone-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/pub-symbolic.svg">../data/icons/pub-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/review-symbolic.svg">../data/icons/review-symbolic.svg</file>
+  <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/screen-privacy-symbolic.svg">../data/icons/screen-privacy-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/safety-symbolic.svg">../data/icons/safety-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/devices/sign-language-symbolic.svg">../data/icons/sign-language-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/strong-language-none-symbolic.svg">../data/icons/strong-language-none-symbolic.svg</file>
@@ -108,5 +109,6 @@
   <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/snap-symbolic.svg">../data/icons/snap-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/emblems/verified-checkmark-symbolic.svg">../data/icons/verified-checkmark-symbolic.svg</file>
   <file preprocess="xml-stripblanks" alias="icons/scalable/status/content-loading-symbolic.svg">../data/icons/content-loading-symbolic.svg</file>
+  <file preprocess="xml-stripblanks" alias="icons/scalable/actions/info-symbolic.svg">../data/icons/info-symbolic.svg</file>
  </gresource>
 </gresources>

@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnome-software main\n"
 "Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/gnome-software/issues\n"
-"POT-Creation-Date: 2023-11-04 23:52+0000\n"
-"PO-Revision-Date: 2023-11-05 07:14+0700\n"
+"POT-Creation-Date: 2023-10-25 13:40+0000\n"
+"PO-Revision-Date: 2023-10-29 09:44+0700\n"
 "Last-Translator: Trần Ngọc Quân <vnwildman@gmail.com>\n"
 "Language-Team: Vietnamese <Vietnamese <gnome-vi-list@gnome.org>>\n"
 "Language: vi\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0\n"
 "X-Generator: Gtranslator 42.0\n"
 
-#: data/metainfo/org.gnome.Software.metainfo.xml.in:7 src/gs-shell.ui:21
+#: data/metainfo/org.gnome.Software.metainfo.xml.in:7 src/gs-shell.ui:25
 #: src/org.gnome.Software.desktop.in:3
 msgid "Software"
 msgstr "Phần mềm"
@@ -70,7 +70,7 @@ msgstr "Bảng cập nhật"
 msgid "The update details"
 msgstr "Chi tiết cập nhật"
 
-#: data/metainfo/org.gnome.Software.metainfo.xml.in:2400
+#: data/metainfo/org.gnome.Software.metainfo.xml.in:2378
 #: src/gs-application.c:264
 msgid "The GNOME Project"
 msgstr "Dự án GNOME"
@@ -134,7 +134,7 @@ msgstr ""
 
 #: data/org.gnome.software.gschema.xml:25
 msgid "Whether to automatically refresh when on a metered connection"
-msgstr "Có tự động làm mới khi đang dùng kết nối được đo lưu lượng không"
+msgstr "Có tự động làm mới khi đang duy trì kết nối được đo lưu lượng không"
 
 #: data/org.gnome.software.gschema.xml:26
 msgid ""
@@ -811,7 +811,7 @@ msgstr "Tập tin nội bộ"
 #. Example string: "Local file (RPM)"
 #. Translators: The first placeholder is an app runtime
 #. * name, the second is its version number.
-#: lib/gs-app.c:6350 src/gs-safety-context-dialog.c:500
+#: lib/gs-app.c:6350 src/gs-safety-context-dialog.c:508
 #, c-format
 msgid "%s (%s)"
 msgstr "%s (%s)"
@@ -895,67 +895,77 @@ msgstr "Không thể truy cập các thiết bị tùy ý như các webcam"
 msgid "Can access system device files"
 msgstr "Không thể truy cập các tập tin thiết bị hệ thống"
 
-#: src/gs-app-details-page.c:78 src/gs-app-details-page.c:79
+#: src/gs-app-details-page.c:78
+msgid "Screen contents"
+msgstr "Nội dung màn hình"
+
+#. Translators: This indicates an app can access the screen/display contents.
+#. * It’s used in a context tile, so should be short.
+#: src/gs-app-details-page.c:78 src/gs-app-context-bar.c:344
+msgid "Can access screen contents"
+msgstr "Có thể truy cập nội dung màn hình"
+
+#: src/gs-app-details-page.c:79 src/gs-app-details-page.c:80
 msgid "Home folder"
 msgstr "Thư mục riêng (HOME)"
 
-#: src/gs-app-details-page.c:78 src/gs-app-details-page.c:80
-#: src/gs-app-details-page.c:83 src/gs-app-details-page.c:156
+#: src/gs-app-details-page.c:79 src/gs-app-details-page.c:81
+#: src/gs-app-details-page.c:84 src/gs-app-details-page.c:157
 msgid "Can view, edit and create files"
 msgstr "Có thể xem, sửa và tạo các tập tin"
 
-#: src/gs-app-details-page.c:79 src/gs-app-details-page.c:81
-#: src/gs-app-details-page.c:84 src/gs-app-details-page.c:151
+#: src/gs-app-details-page.c:80 src/gs-app-details-page.c:82
+#: src/gs-app-details-page.c:85 src/gs-app-details-page.c:152
 msgid "Can view files"
 msgstr "Có thể xem các tập tin"
 
-#: src/gs-app-details-page.c:80 src/gs-app-details-page.c:81
+#: src/gs-app-details-page.c:81 src/gs-app-details-page.c:82
 msgid "File system"
 msgstr "Hệ thống tập tin"
 
 #. The GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER is used only as a flag, with actual files being part of the read/full lists
-#: src/gs-app-details-page.c:83 src/gs-app-details-page.c:84
+#: src/gs-app-details-page.c:84 src/gs-app-details-page.c:85
 msgid "Downloads folder"
 msgstr "Thư mục tải về"
 
-#: src/gs-app-details-page.c:85
+#: src/gs-app-details-page.c:86
 msgid "Settings"
 msgstr "Các cài đặt"
 
-#: src/gs-app-details-page.c:85
+#: src/gs-app-details-page.c:86
 msgid "Can view and change any settings"
 msgstr "Có thể xem và thay đổi bất kỳ cài đặt nào"
 
-#: src/gs-app-details-page.c:86
+#: src/gs-app-details-page.c:87
 msgid "Legacy display system"
 msgstr "Hệ thống hiển thị cũ"
 
-#: src/gs-app-details-page.c:86
+#: src/gs-app-details-page.c:87
 msgid "Uses an old, insecure display system"
 msgstr "Dùng một hệ thống hiển thị cũ và thiếu an toàn"
 
-#: src/gs-app-details-page.c:87
+#: src/gs-app-details-page.c:88
 msgid "Sandbox escape"
 msgstr "Thoát khỏi sandbox"
 
-#: src/gs-app-details-page.c:87
+#: src/gs-app-details-page.c:88
 msgid "Can escape the sandbox and circumvent any other restrictions"
 msgstr "Có thể thoát khỏi sandbox và phá vỡ bất kỳ hạn chế nào khác"
 
 #. TRANSLATORS: this is where the packager did not write
 #. * a description for the update
-#: src/gs-app-details-page.c:226
+#: src/gs-app-details-page.c:227
 msgid "No update description available."
 msgstr "Không có mô tả cập nhật."
 
 #. FIXME support app == NULL
 #. set window title
-#: src/gs-app-details-page.c:249
+#: src/gs-app-details-page.c:250
 msgid "Update Details"
 msgstr "Chi tiết cập nhật"
 
 #: src/gs-app-details-page.ui:25 src/gs-os-update-page.ui:25
-#: src/gs-shell.ui:349 src/gs-shell.ui:440
+#: src/gs-shell.ui:380 src/gs-shell.ui:471
 msgid "Go back"
 msgstr "Trở lại"
 
@@ -1058,6 +1068,10 @@ msgid ""
 msgstr ""
 "Kiểu tương tác cần có cho hành động này: có thể là \"không\", \"thông báo\" "
 "hoặc \"đầy đủ\""
+
+#: src/gs-application.c:139
+msgid "INTERACTION"
+msgstr "TƯƠNG_TÁC"
 
 #: src/gs-application.c:141
 msgid "Show a local metainfo or appdata file"
@@ -1204,62 +1218,62 @@ msgstr "Không thể truy cập các thiết bị hệ thống"
 
 #. Translators: This indicates an app can read/write to the user’s home or the entire filesystem.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:349
+#: src/gs-app-context-bar.c:356
 msgid "Can read/write all your data"
 msgstr "Có thể đọc/ghi mọi dữ liệu của bạn"
 
 #. Translators: This indicates an app can read (but not write) from the user’s home or the entire filesystem.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:361
+#: src/gs-app-context-bar.c:368
 msgid "Can read all your data"
 msgstr "Có thể đọc mọi dữ liệu của bạn"
 
 #. Translators: This indicates an app can read/write to the user’s Downloads directory.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:368
+#: src/gs-app-context-bar.c:375
 msgid "Can read/write your downloads"
 msgstr "Có thể đọc/ghi tải về của bạn"
 
 #. Translators: This indicates an app can read (but not write) from the user’s Downloads directory.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:375
+#: src/gs-app-context-bar.c:382
 msgid "Can read your downloads"
 msgstr "Có thể đọc các phần tải về của bạn"
 
 #. Translators: This indicates an app can access data in the system unknown to the Software.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:382
+#: src/gs-app-context-bar.c:389
 msgid "Can access some specific files"
 msgstr "Không thể truy cập một số tập tin cụ thể"
 
 #. Translators: This indicates an app can access or change user settings.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:389 src/gs-safety-context-dialog.c:254
+#: src/gs-app-context-bar.c:396 src/gs-safety-context-dialog.c:262
 msgid "Can access and change user settings"
 msgstr "Có truy cập và thay đổi các cài đặt người dùng"
 
 #. Translators: This indicates an app uses the X11 windowing system.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:396 src/gs-safety-context-dialog.c:238
+#: src/gs-app-context-bar.c:403 src/gs-safety-context-dialog.c:246
 msgid "Uses a legacy windowing system"
 msgstr "Dùng một hệ thống hiển cửa sổ cũ"
 
 #. Translators: This indicates an app can escape its sandbox.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:403 src/gs-safety-context-dialog.c:246
+#: src/gs-app-context-bar.c:410 src/gs-safety-context-dialog.c:254
 msgid "Can acquire arbitrary permissions"
 msgstr "Có thể thu thập các quyền tùy ý"
 
 #. Translators: This indicates an app was written and released by a developer who has been verified.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:415
+#: src/gs-app-context-bar.c:422
 msgid "Software developer is verified"
 msgstr "Nhà phát triển phần mềm đã được thẩm định"
 
 #. Translators: This indicates that an app has been packaged
 #. * by the user’s distribution and is probably safe.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:434 src/gs-safety-context-dialog.c:146
+#: src/gs-app-context-bar.c:441 src/gs-safety-context-dialog.c:146
 msgid "Reviewed by OS distributor"
 msgstr "Được đánh giá bởi bản phân phối HĐH"
 
@@ -1268,7 +1282,7 @@ msgstr "Được đánh giá bởi bản phân phối HĐH"
 #. * It’s used in a context tile, so should be short.
 #. * The '%s' is replaced by the distribution name.
 #. Translators: The '%s' is replaced by the distribution name.
-#: src/gs-app-context-bar.c:440 src/gs-safety-context-dialog.c:149
+#: src/gs-app-context-bar.c:447 src/gs-safety-context-dialog.c:149
 #, c-format
 msgid "Reviewed by %s"
 msgstr "Đánh giá bởi %s"
@@ -1276,31 +1290,31 @@ msgstr "Đánh giá bởi %s"
 #. Translators: This indicates that an app has been packaged
 #. * by someone other than the user’s distribution, so might not be safe.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:456 src/gs-safety-context-dialog.c:163
+#: src/gs-app-context-bar.c:463 src/gs-safety-context-dialog.c:163
 msgid "Provided by a third party"
 msgstr "Cung cấp bởi bên thứ ba"
 
 #. Translators: This indicates an app or its runtime reached its end of life.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:466
+#: src/gs-app-context-bar.c:473
 msgid "Software no longer supported"
 msgstr "Phần mềm không còn được hỗ trợ nữa"
 
 #. Translators: This indicates an app’s source code is freely available, so can be audited for security.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:478
+#: src/gs-app-context-bar.c:485
 msgid "Auditable code"
 msgstr "Mã có thể kiểm tra"
 
 #. Translators: This indicates an app does not specify which license it's developed under.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:487
+#: src/gs-app-context-bar.c:494
 msgid "Unknown license"
 msgstr "Bản quyền phần mềm không xác định"
 
 #. Translators: This indicates an app is not licensed under a free software license.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-app-context-bar.c:499
+#: src/gs-app-context-bar.c:506
 msgid "Proprietary code"
 msgstr "Mã độc quyền"
 
@@ -1318,116 +1332,116 @@ msgstr "Mã độc quyền"
 #. * If concatenating strings as a list using a separator like this is not
 #. * possible in your language, please file an issue against gnome-software:
 #. * https://gitlab.gnome.org/GNOME/gnome-software/-/issues/new
-#: src/gs-app-context-bar.c:514 src/gs-app-context-bar.c:797
+#: src/gs-app-context-bar.c:521 src/gs-app-context-bar.c:804
 msgid "; "
 msgstr "; "
 
 #. Translators: The app is considered privileged, aka provided by the distribution.
 #. * This is displayed in a context tile, so the string should be short.
-#: src/gs-app-context-bar.c:522
+#: src/gs-app-context-bar.c:529
 msgid "Privileged"
 msgstr "Đặc quyền"
 
 #. Translators: The app is considered safe to install and run.
 #. * This is displayed in a context tile, so the string should be short.
-#: src/gs-app-context-bar.c:529
+#: src/gs-app-context-bar.c:536
 msgid "Safe"
 msgstr "An toàn"
 
 #. Translators: The app is considered probably safe to install and run.
 #. * This is displayed in a context tile, so the string should be short.
-#: src/gs-app-context-bar.c:536
+#: src/gs-app-context-bar.c:543
 msgid "Probably Safe"
 msgstr "Có lẽ an toàn"
 
 #. Translators: The app is considered potentially unsafe to install and run.
 #. * This is displayed in a context tile, so the string should be short.
-#: src/gs-app-context-bar.c:543
+#: src/gs-app-context-bar.c:550
 msgid "Potentially Unsafe"
 msgstr "Tiềm ẩn thiếu an toàn"
 
 #. Translators: The app is considered unsafe to install and run.
 #. * This is displayed in a context tile, so the string should be short.
-#: src/gs-app-context-bar.c:550
+#: src/gs-app-context-bar.c:557
 msgid "Unsafe"
 msgstr "Không an toàn"
 
-#: src/gs-app-context-bar.c:628 src/gs-app-context-bar.c:660
+#: src/gs-app-context-bar.c:635 src/gs-app-context-bar.c:667
 #: src/gs-hardware-support-context-dialog.c:602
 msgid "Mobile Only"
 msgstr "Chỉ trên di động"
 
-#: src/gs-app-context-bar.c:629
+#: src/gs-app-context-bar.c:636
 msgid "Only works on a small screen"
 msgstr "Chỉ hoạt động trên một màn hình nhỏ"
 
-#: src/gs-app-context-bar.c:634 src/gs-app-context-bar.c:667
-#: src/gs-app-context-bar.c:674 src/gs-app-context-bar.c:724
-#: src/gs-app-context-bar.c:729 src/gs-hardware-support-context-dialog.c:582
+#: src/gs-app-context-bar.c:641 src/gs-app-context-bar.c:674
+#: src/gs-app-context-bar.c:681 src/gs-app-context-bar.c:731
+#: src/gs-app-context-bar.c:736 src/gs-hardware-support-context-dialog.c:582
 msgid "Desktop Only"
 msgstr "Chỉ máy tính để bàn"
 
-#: src/gs-app-context-bar.c:635
+#: src/gs-app-context-bar.c:642
 msgid "Only works on a large screen"
 msgstr "Chỉ hoạt động trên một màn hình lớn"
 
-#: src/gs-app-context-bar.c:639 src/gs-hardware-support-context-dialog.c:620
+#: src/gs-app-context-bar.c:646 src/gs-hardware-support-context-dialog.c:620
 msgid "Screen Size Mismatch"
 msgstr "Kích cỡ màn hình không khớp nhau"
 
-#: src/gs-app-context-bar.c:640 src/gs-hardware-support-context-dialog.c:621
+#: src/gs-app-context-bar.c:647 src/gs-hardware-support-context-dialog.c:621
 msgid "Doesn’t support your current screen size"
 msgstr "Không hỗ trợ cỡ màn hình hiện tại của bạn"
 
-#: src/gs-app-context-bar.c:661 src/gs-hardware-support-context-dialog.c:673
+#: src/gs-app-context-bar.c:668 src/gs-hardware-support-context-dialog.c:673
 #: src/gs-hardware-support-context-dialog.c:679
 msgid "Requires a touchscreen"
 msgstr "Cần phải có màn hình cảm ứng"
 
-#: src/gs-app-context-bar.c:668 src/gs-hardware-support-context-dialog.c:633
+#: src/gs-app-context-bar.c:675 src/gs-hardware-support-context-dialog.c:633
 #: src/gs-hardware-support-context-dialog.c:639
 msgid "Requires a keyboard"
 msgstr "Cần phải có bàn phím"
 
-#: src/gs-app-context-bar.c:675
+#: src/gs-app-context-bar.c:682
 msgid "Requires a mouse"
 msgstr "Cần phải có con chuột"
 
-#: src/gs-app-context-bar.c:686
+#: src/gs-app-context-bar.c:693
 msgid "Gamepad Needed"
 msgstr "Cần phải có tay chơi game"
 
-#: src/gs-app-context-bar.c:687
+#: src/gs-app-context-bar.c:694
 msgid "Requires a gamepad to play"
 msgstr "Cần phải có tay chơi game để phát"
 
 #. Translators: This is used in a context tile to indicate that
 #. * an app works on phones, tablets *and* desktops. It should be
 #. * short and in title case.
-#: src/gs-app-context-bar.c:711
+#: src/gs-app-context-bar.c:718
 msgid "Adaptive"
 msgstr "Thích nghi"
 
-#: src/gs-app-context-bar.c:712
+#: src/gs-app-context-bar.c:719
 msgid "Works on phones, tablets and desktops"
 msgstr "Làm việc trên điện thoại, máy tính bảng và máy tính để bàn"
 
-#: src/gs-app-context-bar.c:725
+#: src/gs-app-context-bar.c:732
 msgid "Probably requires a keyboard or mouse"
 msgstr "Gần như chắc chắn là cần một bàn phím hoặc con chuột"
 
-#: src/gs-app-context-bar.c:730
+#: src/gs-app-context-bar.c:737
 msgid "Works on desktops and laptops"
 msgstr "Làm việc trên máy tính để bàn và máy tính xách tay"
 
 #. Translators: This indicates that the content rating for an
 #. * app says it can be used by all ages of people, as it contains
 #. * no objectionable content.
-#: src/gs-app-context-bar.c:772
+#: src/gs-app-context-bar.c:779
 msgid "Contains no age-inappropriate content"
 msgstr "Ứng dụng có chứa nội dung không phù hợp với lứa tuổi"
 
-#: src/gs-app-context-bar.c:820
+#: src/gs-app-context-bar.c:827
 msgid "No age rating information available"
 msgstr "Không có thông tin đánh giá tuổi sẵn có"
 
@@ -2711,8 +2725,8 @@ msgid ""
 msgid_plural ""
 "Unable to find the %s requested by %s. Please see %s for more information."
 msgstr[0] ""
-"Không thể tìm thấy %s cái được yêu cầu bởi %s. Vui lòng xem %s để biết thêm "
-"thông tin."
+"Không thể tìm thấy %s cái được yêu cầu bởi %s. Vui lòng tham khảo %s để biết "
+"thêm thông tin."
 
 #. TRANSLATORS: no codecs were found. First %s will be replaced by actual codec name(s), second %s is a link titled "the documentation"
 #: src/gs-extras-page.c:572
@@ -2972,6 +2986,46 @@ msgstr "%s sẽ không làm việc trên thiết bị này"
 msgid "Hardware Support"
 msgstr "Hỗ trợ phần cứng"
 
+#: src/gs-help-overlay.ui:12
+msgid "Navigation"
+msgstr "Chuyển hướng"
+
+#: src/gs-help-overlay.ui:17
+msgid "Navigate to Explore Page"
+msgstr "Chuyển hướng đến Trang duyệt"
+
+#: src/gs-help-overlay.ui:23
+msgid "Navigate to Installed Page"
+msgstr "Chuyển hướng đến Trang đã cài đặt"
+
+#: src/gs-help-overlay.ui:29
+msgid "Navigate to Updates Page"
+msgstr "Chuyển hướng đến Trang cập nhật"
+
+#: src/gs-help-overlay.ui:35
+msgid "Open Search Bar"
+msgstr "Mở Thanh kiếm trang"
+
+#: src/gs-help-overlay.ui:43
+msgid "Windows"
+msgstr "Cửa sổ"
+
+#: src/gs-help-overlay.ui:48
+msgid "Open Preferences"
+msgstr "Mở Tuỳ thích"
+
+#: src/gs-help-overlay.ui:54
+msgid "Open Software Repositories"
+msgstr "Mở Kho Phần mềm"
+
+#: src/gs-help-overlay.ui:62
+msgid "Help"
+msgstr "Trợ giúp"
+
+#: src/gs-help-overlay.ui:67
+msgid "Open Keyboard Shortcuts"
+msgstr "Mở Phím tắt bàn phím"
+
 #. Translators: This is in the context of a list of apps which are installed on the system.
 #: src/gs-installed-page.c:813
 msgctxt "List of installed apps"
@@ -3065,7 +3119,7 @@ msgstr ""
 "Bạn có thể đóng góp và giúp đỡ để làm nó thậm chí tốt hơn."
 
 #. Translators: This indicates an app does not specify which license it's developed under.
-#: src/gs-license-tile.c:148 src/gs-safety-context-dialog.c:388
+#: src/gs-license-tile.c:148 src/gs-safety-context-dialog.c:396
 msgid "Unknown License"
 msgstr "Bản quyền phần mềm không xác định"
 
@@ -3103,7 +3157,7 @@ msgstr ""
 "Bạn có thể và không thể đóng góp cho phần mềm này."
 
 #. Translators: This is used for "License    Proprietary"
-#: src/gs-license-tile.c:166 src/gs-safety-context-dialog.c:547
+#: src/gs-license-tile.c:166 src/gs-safety-context-dialog.c:555
 msgid "Proprietary"
 msgstr "Quyền sở hữu"
 
@@ -3189,7 +3243,7 @@ msgstr ""
 
 #. TRANSLATORS: initial start
 #: src/gs-loading-page.c:56
-msgid "Downloading software catalog"
+msgid "Downloading Software Catalog"
 msgstr "Đang tải danh sách thể loại phần mềm"
 
 #: src/gs-loading-page.ui:6
@@ -3268,14 +3322,14 @@ msgstr "Hạ cấp"
 #. Translators: This is a clickable link on the third party repositories message dialog. It's
 #. part of a constructed sentence: "Provides access to additional software from [selected external sources].
 #. Some proprietary software is included."
-#: src/gs-overview-page.c:592
+#: src/gs-overview-page.c:602
 msgid "selected external sources"
 msgstr "các nguồn bên ngoài đã chọn"
 
 #. Translators: This is the third party repositories message dialog.
 #. The %s is replaced with "selected external sources" link.
 #. Repositories Preferences is an item from Software's main menu.
-#: src/gs-overview-page.c:596
+#: src/gs-overview-page.c:606
 #, c-format
 msgid ""
 "Provides access to additional software from %s. Some proprietary software is "
@@ -3289,34 +3343,34 @@ msgstr ""
 "Bạn có thể bật những kho này sau trong Tùy thích Kho Phần mềm."
 
 #. TRANSLATORS: Heading asking whether to turn third party software repositories on of off.
-#: src/gs-overview-page.c:602
+#: src/gs-overview-page.c:612
 msgid "Enable Third Party Software Repositories?"
 msgstr "Kích hoạt Kho Phần mềm Bên Thứ ba?"
 
 #. TRANSLATORS: button to keep the third party software repositories off
-#: src/gs-overview-page.c:607
+#: src/gs-overview-page.c:617
 msgid "_Ignore"
 msgstr "_Bỏ qua"
 
 #. TRANSLATORS: button to turn on third party software repositories
 #. TRANSLATORS: button to accept the agreement
-#: src/gs-overview-page.c:609 src/gs-repos-dialog.c:173
+#: src/gs-overview-page.c:619 src/gs-repos-dialog.c:173
 msgid "_Enable"
 msgstr "_Bật"
 
-#: src/gs-overview-page.c:812
+#: src/gs-overview-page.c:822
 msgid "Available for your operating system"
 msgstr "Sẵn có cho hệ điều hành của bạn"
 
 #. Translators: the '%s' is replaced with the distribution name, constructing
 #. for example: "Available for Fedora Linux"
-#: src/gs-overview-page.c:816
+#: src/gs-overview-page.c:826
 #, c-format
 msgid "Available for %s"
 msgstr "Sẵn có cho %s"
 
 #. Translators: This is the title of the main page of the UI.
-#: src/gs-overview-page.c:1109
+#: src/gs-overview-page.c:1119
 msgid "Explore"
 msgstr "Khám phá"
 
@@ -3425,39 +3479,55 @@ msgstr ""
 msgid "Preferences"
 msgstr "Tùy thích"
 
-#: src/gs-prefs-dialog.ui:16
-msgid ""
-"To avoid charges and network caps, software updates are not automatically "
-"downloaded on mobile or metered connections."
-msgstr ""
-"Để tránh các thay đổi và lưu lượng mạng, các cập nhật sẽ không tự động được "
-"tải về trên thiết bị di dộng hay các kết nối trả phí theo lưu lượng."
+#: src/gs-prefs-dialog.ui:14
+msgid "Software Updates"
+msgstr "Các cập nhật phần mềm"
 
-#: src/gs-prefs-dialog.ui:19
-msgid "Automatic _Updates"
-msgstr "_Tự động cập nhật"
+#: src/gs-prefs-dialog.ui:26
+msgid "_Automatic"
+msgstr "_Tự động"
 
-#: src/gs-prefs-dialog.ui:20
-msgid ""
-"Downloads and installs software updates in the background, when possible"
-msgstr "Tải và cài đặt các bản cập nhật phần mềm trong nền hệ thống khi có thể"
+#: src/gs-prefs-dialog.ui:27
+msgid "Automatically check for and download updates"
+msgstr "Tự động kiểm tra và tải xuống các bản cập nhật"
 
-#: src/gs-prefs-dialog.ui:33
+#: src/gs-prefs-dialog.ui:41
+msgid "_Manual"
+msgstr "_Thủ công"
+
+#: src/gs-prefs-dialog.ui:42
+msgid "Checking for and downloading updates must be done manually"
+msgstr "Kiểm tra và tải xuống các cài đặt thực hiện một cách thủ công"
+
+#: src/gs-prefs-dialog.ui:60
 msgid "Automatic Update _Notifications"
 msgstr "Thông _báo khi tự động cập nhật bật"
 
-#: src/gs-prefs-dialog.ui:34
-msgid "Show notifications when updates have been automatically installed"
+#: src/gs-prefs-dialog.ui:61
+msgid "Notify when updates have been automatically installed"
 msgstr "Hiện thông báo khi bản cập nhật đã được cài đặt tự động"
 
-#: src/gs-prefs-dialog.ui:47
-msgid "Show Only _Free Apps"
-msgstr "Chỉ hiển thị ứng dụng tự _do"
+#: src/gs-prefs-dialog.ui:76
+msgid "Explore Pages"
+msgstr "Trang duyệt"
 
-#: src/gs-prefs-dialog.ui:48
-msgid "Show only freely licensed apps and hide any proprietary apps"
+#: src/gs-prefs-dialog.ui:79
+msgid "Only Show _Free Software"
+msgstr "Chỉ hiển thị các Phần mềm Tự do"
+
+#: src/gs-prefs-dialog.ui:80
+msgid "Hide proprietary software when browsing and searching"
+msgstr "Ẩn các phần mềm độc quyền khi duyệt và tìm kiếm"
+
+#: src/gs-prefs-dialog.ui:106
+msgid ""
+"Checking for and downloading updates uses data and power. Automatic update "
+"features are therefore paused when on metered network connections and when "
+"power saver is on."
 msgstr ""
-"Chỉ hiển thị các ứng dụng với giấy phép tự do và ẩn các ứng dụng độc quyền"
+"Kiểm tra và tải về các cập nhật dùng dữ liệu và năng lượng. Các tính năng "
+"cập nhật tự động do đó tạm dừng khi kết nối mạng giới hạn và khi chế độ tiết "
+"kiệm điện được bật."
 
 #. TRANSLATORS: This is a text displayed during a distro upgrade. %s
 #. will be replaced by the name and version of distro, e.g. 'Fedora 23'.
@@ -3543,7 +3613,7 @@ msgid "These repositories supplement the default software provided by %s."
 msgstr "Các kho này bổ sung phần mềm mặc định được cung cấp bởi %s."
 
 #. button in the info bar
-#: src/gs-repos-dialog.ui:8 src/gs-shell.ui:99
+#: src/gs-repos-dialog.ui:8 src/gs-shell.ui:130
 msgid "Software Repositories"
 msgstr "Kho Phần mềm"
 
@@ -3888,97 +3958,106 @@ msgstr "Không thể truy cập các thiết bị hệ thống cái mà yêu c�
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:237
+msgid "Screen Contents Access"
+msgstr "Truy cập nội dung màn hình"
+
+#: src/gs-safety-context-dialog.c:238
+msgid "Can access the contents of the screen or other windows"
+msgstr "Có thể truy cập nội dung của màn hình hay các cửa sổ khác"
+
+#. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
+#: src/gs-safety-context-dialog.c:245
 msgid "Legacy Windowing System"
 msgstr "Hệ thống cửa sổ cũ"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:245
+#: src/gs-safety-context-dialog.c:253
 msgid "Arbitrary Permissions"
 msgstr "Quyền hạn tự ý"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:253
+#: src/gs-safety-context-dialog.c:261
 msgid "User Settings"
 msgstr "Cài đặt người dùng"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:265
+#: src/gs-safety-context-dialog.c:273
 msgid "Full File System Read/Write Access"
 msgstr "Truy cập đọc ghi hệ thống tập tin đầy đủ"
 
-#: src/gs-safety-context-dialog.c:266
+#: src/gs-safety-context-dialog.c:274
 msgid "Can read and write all data on the file system"
 msgstr "Có thể đọc và ghi mọi dữ liệu trên hệ thống tập tin"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:274
+#: src/gs-safety-context-dialog.c:282
 msgid "Home Folder Read/Write Access"
 msgstr "Truy cập đọc ghi thư mục riêng"
 
-#: src/gs-safety-context-dialog.c:275
+#: src/gs-safety-context-dialog.c:283
 msgid "Can read and write all data in your home directory"
 msgstr "Có thể đọc và ghi mọi dữ liệu lên thư mục riêng của bạn"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:283
+#: src/gs-safety-context-dialog.c:291
 msgid "Full File System Read Access"
 msgstr "Truy cập đọc hệ thống tập tin đầy đủ"
 
-#: src/gs-safety-context-dialog.c:284
+#: src/gs-safety-context-dialog.c:292
 msgid "Can read all data on the file system"
 msgstr "Có thể đọc mọi dữ liệu trên hệ thống tập tin"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:293
+#: src/gs-safety-context-dialog.c:301
 msgid "Home Folder Read Access"
 msgstr "Truy cập đọc thư mục riêng"
 
-#: src/gs-safety-context-dialog.c:294
+#: src/gs-safety-context-dialog.c:302
 msgid "Can read all data in your home directory"
 msgstr "Có thể đọc và ghi mọi dữ liệu trên thư mục riêng của bạn"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:303
+#: src/gs-safety-context-dialog.c:311
 msgid "Download Folder Read/Write Access"
 msgstr "Truy cập đọc/ghi thư mục Tải về của bạn"
 
-#: src/gs-safety-context-dialog.c:304
+#: src/gs-safety-context-dialog.c:312
 msgid "Can read and write all data in your downloads directory"
 msgstr "Có thể đọc và ghi mọi dữ liệu trên thư mục Tải về của bạn"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:315
+#: src/gs-safety-context-dialog.c:323
 msgid "Download Folder Read Access"
 msgstr "Truy cập đọc thư mục Tải về của bạn"
 
-#: src/gs-safety-context-dialog.c:316
+#: src/gs-safety-context-dialog.c:324
 msgid "Can read all data in your downloads directory"
 msgstr "Có thể đọc mọi dữ liệu trên thư mục tải về của bạn"
 
-#: src/gs-safety-context-dialog.c:326
+#: src/gs-safety-context-dialog.c:334
 msgid "Can read and write all data in the directory"
 msgstr "Có thể đọc và ghi mọi dữ liệu lên thư mục"
 
-#: src/gs-safety-context-dialog.c:337
+#: src/gs-safety-context-dialog.c:345
 msgid "Can read all data in the directory"
 msgstr "Có thể đọc mọi dữ liệu trong thư mục"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:353
+#: src/gs-safety-context-dialog.c:361
 msgid "No File System Access"
 msgstr "Không truy cập Hệ thống tập tin"
 
-#: src/gs-safety-context-dialog.c:354
+#: src/gs-safety-context-dialog.c:362
 msgid "Cannot access the file system at all"
 msgstr "Không thể truy cập hệ thống tập tin"
 
 #. Translators: This indicates an app was written and released by a developer who has been verified.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-safety-context-dialog.c:364
+#: src/gs-safety-context-dialog.c:372
 msgid "App developer is verified"
 msgstr "Nhà phát triển ứng dụng đã được xác thực"
 
-#: src/gs-safety-context-dialog.c:365
+#: src/gs-safety-context-dialog.c:373
 msgid "The developer of this app has been verified to be who they say they are"
 msgstr ""
 "Nhà phát triển phần mềm của ứng dụng này đã được xác thực để có thể nó họ là "
@@ -3986,18 +4065,18 @@ msgstr ""
 
 #. Translators: This indicates an app uses an outdated SDK.
 #. * It’s used in a context tile, so should be short.
-#: src/gs-safety-context-dialog.c:376
+#: src/gs-safety-context-dialog.c:384
 msgid "Insecure Dependencies"
 msgstr "Các phần phụ thuộc không an toàn"
 
-#: src/gs-safety-context-dialog.c:377
+#: src/gs-safety-context-dialog.c:385
 msgid ""
 "Software or its dependencies are no longer supported and may be insecure"
 msgstr ""
 "Phần mềm hoặc các thành phần phục thuộc của nó không còn được hỗ trợ nữa và "
 "có thể dẫn đến mất an toàn"
 
-#: src/gs-safety-context-dialog.c:390
+#: src/gs-safety-context-dialog.c:398
 msgid ""
 "This app does not specify what license it is developed under, and may be "
 "proprietary"
@@ -4005,7 +4084,7 @@ msgstr ""
 "Ứng dụng không chỉ rõ được phát triển theo giấy phép nào, và có lẽ là độc "
 "quyền"
 
-#: src/gs-safety-context-dialog.c:391
+#: src/gs-safety-context-dialog.c:399
 msgid ""
 "This software does not specify what license it is developed under, and may "
 "be proprietary"
@@ -4014,11 +4093,11 @@ msgstr ""
 "quyền"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:411
+#: src/gs-safety-context-dialog.c:419
 msgid "Proprietary Code"
 msgstr "Mã độc quyền"
 
-#: src/gs-safety-context-dialog.c:412
+#: src/gs-safety-context-dialog.c:420
 msgid ""
 "The source code is not public, so it cannot be independently audited and "
 "might be unsafe"
@@ -4027,11 +4106,11 @@ msgstr ""
 "lập và có thể thiếu an toàn"
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
-#: src/gs-safety-context-dialog.c:415
+#: src/gs-safety-context-dialog.c:423
 msgid "Auditable Code"
 msgstr "Mã kiểm định được"
 
-#: src/gs-safety-context-dialog.c:416
+#: src/gs-safety-context-dialog.c:424
 msgid ""
 "The source code is public and can be independently audited, which makes the "
 "app more likely to be safe"
@@ -4041,41 +4120,41 @@ msgstr ""
 
 #. Translators: The app is considered privileged, aka provided by the distribution.
 #. * The placeholder is the app name.
-#: src/gs-safety-context-dialog.c:425
+#: src/gs-safety-context-dialog.c:433
 #, c-format
 msgid "%s is privileged"
 msgstr "%s yêu cầu đặc quyền"
 
 #. Translators: The app is considered safe to install and run.
 #. * The placeholder is the app name.
-#: src/gs-safety-context-dialog.c:432
+#: src/gs-safety-context-dialog.c:440
 #, c-format
 msgid "%s is safe"
 msgstr "%s an toàn"
 
 #. Translators: The app is considered probably safe to install and run.
 #. * The placeholder is the app name.
-#: src/gs-safety-context-dialog.c:439
+#: src/gs-safety-context-dialog.c:447
 #, c-format
 msgid "%s is probably safe"
 msgstr "%s gần như chắc chắn là an toàn"
 
 #. Translators: The app is considered potentially unsafe to install and run.
 #. * The placeholder is the app name.
-#: src/gs-safety-context-dialog.c:446
+#: src/gs-safety-context-dialog.c:454
 #, c-format
 msgid "%s is potentially unsafe"
 msgstr "%s tiềm ẩn thiếu an toàn"
 
 #. Translators: The app is considered unsafe to install and run.
 #. * The placeholder is the app name.
-#: src/gs-safety-context-dialog.c:453
+#: src/gs-safety-context-dialog.c:461
 #, c-format
 msgid "%s is unsafe"
 msgstr "%s không an toàn"
 
 #. Translators: This is used for "License    Unknown"
-#: src/gs-safety-context-dialog.c:544
+#: src/gs-safety-context-dialog.c:552
 msgctxt "Unknown license"
 msgid "Unknown"
 msgstr "Không rõ"
@@ -4653,62 +4732,66 @@ msgid "_Software Repositories"
 msgstr "_Kho Phần mềm"
 
 #: src/gs-shell.ui:12
+msgid "_Keyboard Shortcuts"
+msgstr "_Phím tắt bàn phím"
+
+#: src/gs-shell.ui:16
 msgid "_Preferences"
 msgstr "_Tuỳ thích"
 
 #. button in the info bar
-#: src/gs-shell.ui:109
+#: src/gs-shell.ui:140
 msgid "Examine Disk"
 msgstr "Kiểm nghiệm ổ đĩa"
 
 #. button in the info bar
-#: src/gs-shell.ui:119
+#: src/gs-shell.ui:150
 msgid "Network Settings"
 msgstr "Cài đặt Mạng"
 
 #. button in the info bar
-#: src/gs-shell.ui:129
+#: src/gs-shell.ui:160
 msgid "_Restart Now…"
 msgstr "_Khởi động lại Ngay…"
 
 #. button in the info bar
-#: src/gs-shell.ui:140
+#: src/gs-shell.ui:171
 msgid "More Information"
 msgstr "Thông tin thêm"
 
-#: src/gs-shell.ui:200 src/gs-shell.ui:202
+#: src/gs-shell.ui:231 src/gs-shell.ui:233
 msgid "Search"
 msgstr "Tìm kiếm"
 
-#: src/gs-shell.ui:216 src/gs-shell.ui:218
+#: src/gs-shell.ui:247 src/gs-shell.ui:249
 msgid "Main Menu"
 msgstr "Trình đơn chính"
 
-#: src/gs-shell.ui:245
+#: src/gs-shell.ui:276
 msgid "Search apps"
 msgstr "Tìm kiếm các ứng dụng"
 
-#: src/gs-shell.ui:257
+#: src/gs-shell.ui:288
 msgid "Metered network ‒ automatic updates paused"
 msgstr "Mạng hạn chế lưu lượng - Tự động cập nhật bị tạm dừng"
 
-#: src/gs-shell.ui:258
+#: src/gs-shell.ui:289
 msgid "Find Out _More"
 msgstr "Tì_m thêm nữa"
 
 #. Translators: A label for a button to show all available software.
-#: src/gs-shell.ui:272
+#: src/gs-shell.ui:303
 msgid "_Explore"
 msgstr "_Khám phá"
 
 #. Translators: A label for a button to show only software which is already installed.
-#: src/gs-shell.ui:286
+#: src/gs-shell.ui:317
 msgctxt "List of installed apps"
 msgid "_Installed"
 msgstr "Đã cà_i đặt"
 
 #. Translators: A label for a button to show only updates which are available to install.
-#: src/gs-shell.ui:308
+#: src/gs-shell.ui:339
 msgctxt "Header bar button for list of apps to be updated"
 msgid "_Updates"
 msgstr "_Bản cập nhật"
@@ -4853,7 +4936,7 @@ msgstr "Vui lòng tải xuống các cập nhật còn đang đợi."
 #, c-format
 msgid "%u App Updated — Restart Required"
 msgid_plural "%u Apps Updated — Restart Required"
-msgstr[0] "%u Ứng dụng đã cập nhật -- Cần phải khởi động lại"
+msgstr[0] "%u Ứng dụng đã cập nhật -- Yêu cầu khởi động lại"
 
 #. TRANSLATORS: apps were auto-updated
 #: src/gs-update-monitor.c:363
@@ -5084,11 +5167,11 @@ msgstr "Các bản cập nhật đã được tải về"
 msgid "Software upgrades have been downloaded and are ready to be installed."
 msgstr "Đã có các bản cập nhật đã được tải về và sẵn sàng để cài đặt."
 
-#: src/gs-updates-page.c:1260
+#: src/gs-updates-page.c:1245
 msgid "Check for updates"
 msgstr "Kiểm tra cập nhật"
 
-#: src/gs-updates-page.c:1296
+#: src/gs-updates-page.c:1281
 msgctxt "Apps to be updated"
 msgid "Updates"
 msgstr "Các cập nhật"
@@ -5104,8 +5187,8 @@ msgstr "Đang tải các cập nhật…"
 
 #. TRANSLATORS: the updates panel is starting up.
 #: src/gs-updates-page.ui:71
-msgid "This could take a while."
-msgstr "Việc này có thể hơi mất thời gian."
+msgid "This could take a while"
+msgstr "Việc này có thể hơi mất thời gian"
 
 #. TRANSLATORS: This means all software (plural) installed on this system is up to date.
 #: src/gs-updates-page.ui:179
@@ -5119,10 +5202,10 @@ msgstr "Sử dụng dữ liệu từ mạng di động?"
 #: src/gs-updates-page.ui:219
 msgid ""
 "Checking for updates when using mobile broadband could cause you to incur "
-"charges."
+"charges"
 msgstr ""
 "Kiểm tra xem có các bản cập nhật không khi sử dụng Internet qua mạng di động "
-"có thể khiến bạn tốn kém tiền bạc."
+"có thể khiến bạn tốn kém tiền bạc"
 
 #: src/gs-updates-page.ui:222
 msgid "_Check Anyway"
@@ -5133,8 +5216,8 @@ msgid "No Connection"
 msgstr "Không kết nối"
 
 #: src/gs-updates-page.ui:239
-msgid "Go online to check for updates."
-msgstr "Kết nối mạng để tìm các bản cập nhật."
+msgid "Go online to check for updates"
+msgstr "Kết nối mạng để tìm xem các bản cập nhật"
 
 #: src/gs-updates-page.ui:242
 msgid "_Network Settings"
@@ -5145,8 +5228,8 @@ msgid "Error"
 msgstr "Lỗi"
 
 #: src/gs-updates-page.ui:276
-msgid "Updates are automatically managed."
-msgstr "Các cập nhật được quản lý tự động."
+msgid "Updates are automatically managed"
+msgstr "Các cập nhật được quản lý tự động"
 
 #. TRANSLATORS: This is the button for installing all
 #. * offline updates
@@ -5616,7 +5699,7 @@ msgstr "%s Cập nhật cấu hình"
 #: plugins/fwupd/gs-fwupd-app.c:270
 #, c-format
 msgid "%s Battery Update"
-msgstr "%s Cập nhật Nguồn điện"
+msgstr "%s Cập nhật Pin"
 
 #. TRANSLATORS: camera can refer to the laptop internal
 #. * camera in the bezel or external USB webcam
@@ -5809,91 +5892,29 @@ msgstr ""
 "Snap (tệp ứng dụng chạy độc lập) là một gói ứng dụng dùng được trên nhiều "
 "bản Linux khác nhau"
 
-#~ msgid "Screen contents"
-#~ msgstr "Nội dung màn hình"
-
-#~ msgid "Can access screen contents"
-#~ msgstr "Có thể truy cập nội dung màn hình"
-
-#~ msgid "INTERACTION"
-#~ msgstr "TƯƠNG_TÁC"
-
-#~ msgid "Navigation"
-#~ msgstr "Chuyển hướng"
-
-#~ msgid "Navigate to Explore Page"
-#~ msgstr "Chuyển hướng đến Trang duyệt"
-
-#~ msgid "Navigate to Installed Page"
-#~ msgstr "Chuyển hướng đến Trang đã cài đặt"
-
-#~ msgid "Navigate to Updates Page"
-#~ msgstr "Chuyển hướng đến Trang cập nhật"
-
-#~ msgid "Open Search Bar"
-#~ msgstr "Mở Thanh kiếm trang"
-
-#~ msgid "Windows"
-#~ msgstr "Cửa sổ"
-
-#~ msgid "Open Preferences"
-#~ msgstr "Mở Tuỳ thích"
-
-#~ msgid "Open Software Repositories"
-#~ msgstr "Mở Kho Phần mềm"
-
-#~ msgid "Help"
-#~ msgstr "Trợ giúp"
-
-#~ msgid "Open Keyboard Shortcuts"
-#~ msgstr "Mở Phím tắt bàn phím"
-
-#~ msgid "Software Updates"
-#~ msgstr "Các cập nhật phần mềm"
-
-#~ msgid "_Automatic"
-#~ msgstr "_Tự động"
-
-#~ msgid "Automatically check for and download updates"
-#~ msgstr "Tự động kiểm tra và tải xuống các bản cập nhật"
-
-#~ msgid "_Manual"
-#~ msgstr "_Thủ công"
-
-#~ msgid "Checking for and downloading updates must be done manually"
-#~ msgstr "Kiểm tra và tải xuống các cài đặt thực hiện một cách thủ công"
-
-#~ msgid "Explore Pages"
-#~ msgstr "Trang duyệt"
-
-#~ msgid "Only Show _Free Software"
-#~ msgstr "Chỉ hiển thị các Phần mềm Tự do"
-
-#~ msgid "Hide proprietary software when browsing and searching"
-#~ msgstr "Ẩn các phần mềm độc quyền khi duyệt và tìm kiếm"
-
-#~ msgid ""
-#~ "Checking for and downloading updates uses data and power. Automatic "
-#~ "update features are therefore paused when on metered network connections "
-#~ "and when power saver is on."
-#~ msgstr ""
-#~ "Kiểm tra và tải về các cập nhật dùng dữ liệu và năng lượng. Các tính năng "
-#~ "cập nhật tự động do đó tạm dừng khi kết nối mạng giới hạn và khi chế độ "
-#~ "tiết kiệm điện được bật."
-
-#~ msgid "Screen Contents Access"
-#~ msgstr "Truy cập nội dung màn hình"
-
-#~ msgid "Can access the contents of the screen or other windows"
-#~ msgstr "Có thể truy cập nội dung của màn hình hay các cửa sổ khác"
-
-#~ msgid "_Keyboard Shortcuts"
-#~ msgstr "_Phím tắt bàn phím"
-
 #, fuzzy
 #~| msgid "No update description available."
 #~ msgid "Loading update description, please wait…"
 #~ msgstr "Không có mô tả cập nhật."
+
+#~ msgid ""
+#~ "To avoid charges and network caps, software updates are not automatically "
+#~ "downloaded on mobile or metered connections."
+#~ msgstr ""
+#~ "Để tránh các thay đổi và lưu lượng mạng, các cập nhật sẽ không tự động "
+#~ "được tải về trên thiết bị di dộng hay các kết nối trả phí theo lưu lượng."
+
+#~ msgid ""
+#~ "Downloads and installs software updates in the background, when possible"
+#~ msgstr ""
+#~ "Tải và cài đặt các bản cập nhật phần mềm trong nền hệ thống khi có thể"
+
+#~ msgid "Show Only _Free Apps"
+#~ msgstr "Chỉ hiển thị ứng dụng tự _do"
+
+#~ msgid "Show only freely licensed apps and hide any proprietary apps"
+#~ msgstr ""
+#~ "Chỉ hiển thị các ứng dụng với giấy phép tự do và ẩn các ứng dụng độc quyền"
 
 #~ msgid "Show verbose debugging information"
 #~ msgstr "Hiển thị thông tin gỡ rối chi tiết"

@@ -413,7 +413,6 @@ populate_flow_boxes (GsCategoryPage *self,
 		for (i = 0; i < featured_app_tiles->len; i++) {
 			tile = g_ptr_array_index (featured_app_tiles, i);
 			gtk_flow_box_insert (GTK_FLOW_BOX (self->featured_flow_box), tile, -1);
-			gtk_widget_set_can_focus (gtk_widget_get_parent (tile), FALSE);
 		}
 	}
 
@@ -431,7 +430,6 @@ populate_flow_boxes (GsCategoryPage *self,
 			gtk_widget_set_tooltip_text (tile, release_date_tooltip);
 
 			gtk_flow_box_insert (GTK_FLOW_BOX (self->recently_updated_flow_box), tile, -1);
-			gtk_widget_set_can_focus (gtk_widget_get_parent (tile), FALSE);
 		}
 	}
 
@@ -440,7 +438,6 @@ populate_flow_boxes (GsCategoryPage *self,
 		for (i = 0; i < web_app_tiles->len; i++) {
 			tile = g_ptr_array_index (web_app_tiles, i);
 			gtk_flow_box_insert (GTK_FLOW_BOX (self->web_apps_flow_box), tile, -1);
-			gtk_widget_set_can_focus (gtk_widget_get_parent (tile), FALSE);
 		}
 	}
 
@@ -449,7 +446,6 @@ populate_flow_boxes (GsCategoryPage *self,
 		for (i = 0; i < other_app_tiles->len; i++) {
 			tile = g_ptr_array_index (other_app_tiles, i);
 			gtk_flow_box_insert (GTK_FLOW_BOX (self->category_detail_box), tile, -1);
-			gtk_widget_set_can_focus (gtk_widget_get_parent (tile), FALSE);
 		}
 	}
 
@@ -714,6 +710,7 @@ gs_category_page_load_category (GsCategoryPage *self)
 		featured_query = gs_app_query_new ("category", featured_subcat,
 						   "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_KUDOS,
 						   "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
+						   "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						   NULL);
 		featured_plugin_job = gs_plugin_job_list_apps_new (featured_query,
 								   GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
@@ -734,6 +731,7 @@ gs_category_page_load_category (GsCategoryPage *self)
 				       "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
 						       GS_APP_LIST_FILTER_FLAG_KEY_ID_PROVIDES,
 				       "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
+				       "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 				       NULL);
 	main_plugin_job = gs_plugin_job_list_apps_new (main_query,
 						       GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);

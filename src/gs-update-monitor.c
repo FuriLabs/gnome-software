@@ -64,6 +64,7 @@ struct _GsUpdateMonitor {
 
 	gint64		 last_notification_time_usec;	/* to notify once per day only */
 	gint64		 last_get_updates;		/* used when automatic updates are off */
+	gint		 randomized_hour;		/* to avoid all clients checking at same small interval */
 };
 
 G_DEFINE_TYPE (GsUpdateMonitor, gs_update_monitor, G_TYPE_OBJECT)
@@ -829,8 +830,6 @@ get_upgrades (GsUpdateMonitor *monitor)
 static void
 get_system (GsUpdateMonitor *monitor)
 {
-	g_autoptr(GsApp) app = NULL;
-
 	g_debug ("Getting system");
 	gs_plugin_loader_get_system_app_async (monitor->plugin_loader, monitor->update_cancellable,
 		get_system_finished_cb, monitor);
@@ -855,36 +854,6 @@ refresh_cache_finished_cb (GObject *object,
 	/* update the last checked timestamp */
 	now = g_date_time_new_now_local ();
 	get_updates (monitor, g_date_time_to_unix (now));
-}
-
-static gboolean
-monitor_get_game_mode_is_active (GsUpdateMonitor *self)
-{
-	g_autoptr(GDBusProxy) proxy = NULL;
-	g_autoptr(GVariant) val = NULL;
-
-	/* This supports https://github.com/FeralInteractive/gamemode ;
-	   it's okay when it's not installed, nor running. */
-	proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
-					       G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
-#if GLIB_CHECK_VERSION(2, 72, 0)
-					       G_DBUS_PROXY_FLAGS_NO_MATCH_RULE |
-#endif
-					       G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
-					       NULL,
-					       "com.feralinteractive.GameMode",
-					       "/com/feralinteractive/GameMode",
-					       "com.feralinteractive.GameMode",
-					       NULL,
-					       NULL);
-	if (proxy == NULL)
-		return FALSE;
-
-	val = g_dbus_proxy_get_cached_property (proxy, "ClientCount");
-	if (val != NULL)
-		return g_variant_get_int32 (val) > 0;
-
-	return FALSE;
 }
 
 typedef enum {
@@ -977,6 +946,30 @@ check_language_pack (GsUpdateMonitor *monitor) {
 					    monitor);
 }
 
+/*
+ * sets a random delay hour in [0, 6) for daily update check
+ */
+static void
+update_randomized_hour (GsUpdateMonitor *monitor)
+{
+	monitor->randomized_hour = g_random_int_range (0, 6);
+}
+
+/* 
+ * gets the midnight of the current day, for daily update datetime comparison
+ */
+static GDateTime*
+get_midnight (GDateTime *datetime)
+{
+	gint year, month, day;
+	GDateTime *midnight = NULL;
+
+	g_date_time_get_ymd (datetime, &year, &month, &day);
+	midnight = g_date_time_new_local (year, month, day, 0, 0, 0);
+	g_assert (midnight != NULL);
+	return midnight;
+}
+
 static void
 check_updates (GsUpdateMonitor *monitor)
 {
@@ -995,25 +988,33 @@ check_updates (GsUpdateMonitor *monitor)
 	g_settings_get (monitor->settings, "check-timestamp", "x", &tmp);
 	last_refreshed = g_date_time_new_from_unix_local (tmp);
 	if (last_refreshed != NULL) {
-		gint now_year, now_month, now_day, now_hour;
-		gint year, month, day;
+		gint now_hour;
+		GTimeSpan day_interval;
 		g_autoptr(GDateTime) now = NULL;
+		g_autoptr(GDateTime) last_refreshed_midnight = NULL;
+		g_autoptr(GDateTime) now_midnight = NULL;
 
 		now = g_date_time_new_now_local ();
 
-		g_date_time_get_ymd (now, &now_year, &now_month, &now_day);
+		now_midnight = get_midnight (now);
 		now_hour = g_date_time_get_hour (now);
 
-		g_date_time_get_ymd (last_refreshed, &year, &month, &day);
+		last_refreshed_midnight = get_midnight (last_refreshed);
+
+		day_interval = g_date_time_difference (now_midnight, last_refreshed_midnight);
 
 		/* check that it is the next day */
-		if (!((now_year > year) ||
-		      (now_year == year && now_month > month) ||
-		      (now_year == year && now_month == month && now_day > day)))
+		if (day_interval < G_TIME_SPAN_DAY)
 			return;
 
-		/* ...and past 6am */
-		if (!(now_hour >= 6))
+		/* ...and past 6-11am (with randomized hour), if interval is within 2 days */
+		if (day_interval < 2 * G_TIME_SPAN_DAY && !(now_hour >= 6 + monitor->randomized_hour))
+			return;
+
+		/* or the update has been delayed another day
+		 * randomized_hour should not be used in this case
+		 */
+		if (day_interval >= 2 * G_TIME_SPAN_DAY && !(now_hour >= 6))
 			return;
 	}
 
@@ -1044,19 +1045,15 @@ check_updates (GsUpdateMonitor *monitor)
 		g_debug ("no UPower support, so not doing power level checks");
 	}
 
-#if GLIB_CHECK_VERSION(2, 69, 1)
 	/* never refresh when in power saver mode */
-	if (monitor->power_profile_monitor != NULL) {
-		if (g_power_profile_monitor_get_power_saver_enabled (monitor->power_profile_monitor)) {
-			g_debug ("Not getting updates with power saver enabled");
-			return;
-		}
-	} else {
+	if (gs_plugin_loader_get_power_saver (monitor->plugin_loader)) {
+		g_debug ("Not getting updates with power saver enabled");
+		return;
+	} else if (monitor->power_profile_monitor == NULL) {
 		g_debug ("No power profile monitor support, so not doing power profile checks");
 	}
-#endif
 
-	if (monitor_get_game_mode_is_active (monitor)) {
+	if (gs_plugin_loader_get_game_mode (monitor->plugin_loader)) {
 		g_debug ("Not getting updates with enabled GameMode");
 		return;
 	}
@@ -1076,6 +1073,9 @@ check_updates (GsUpdateMonitor *monitor)
 	}
 
 	g_debug ("Daily update check due");
+	/* update randomized_hour for next daily update check */
+	if (last_refreshed != NULL)
+		update_randomized_hour (monitor);
 	plugin_job = gs_plugin_job_refresh_metadata_new (60 * 60 * 24,
 							 GS_PLUGIN_REFRESH_METADATA_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (monitor->plugin_loader, plugin_job,
@@ -1446,6 +1446,9 @@ gs_update_monitor_init (GsUpdateMonitor *monitor)
 	/* do a first check 60 seconds after login, and then every hour */
 	monitor->check_startup_id =
 		g_timeout_add_seconds (60, check_updates_on_startup_cb, monitor);
+
+	/* a randomized delay to avoid clients rushing within one hour */
+	update_randomized_hour (monitor);
 
 	/* we use three cancellables because we want to be able to cancel refresh
 	 * operations more opportunistically than other operations, since

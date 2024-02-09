@@ -188,8 +188,6 @@ build_title (GsExtrasPage *self)
 static void
 gs_extras_page_update_ui_state (GsExtrasPage *self)
 {
-	g_autofree gchar *title = NULL;
-
 	if (gs_shell_get_mode (self->shell) != GS_SHELL_MODE_EXTRAS)
 		return;
 
@@ -330,7 +328,8 @@ gs_extras_page_app_notify_state_cb (GsApp *app,
 		return;
 
 	if (gs_app_get_state (app) == GS_APP_STATE_INSTALLING ||
-	    gs_app_get_state (app) == GS_APP_STATE_REMOVING) {
+	    gs_app_get_state (app) == GS_APP_STATE_REMOVING ||
+	    gs_app_get_state (app) == GS_APP_STATE_DOWNLOADING) {
 		gtk_widget_set_sensitive (self->button_install_all, FALSE);
 		return;
 	}
@@ -831,6 +830,7 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 			query = gs_app_query_new ("provides-files", provides_files,
 						  "refine-flags", refine_flags,
 						  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
+						  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						  NULL);
 
 			plugin_job = gs_plugin_job_list_apps_new (query,
@@ -863,6 +863,7 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 						  "provides-type", search_data->search_provides_type,
 						  "refine-flags", refine_flags,
 						  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
+						  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						  NULL);
 
 			plugin_job = gs_plugin_job_list_apps_new (query,

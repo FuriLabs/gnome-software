@@ -372,7 +372,7 @@ gs_plugin_add_updates (GsPlugin *plugin,
 		return FALSE;
 
 	/* use a generic stock icon */
-	ic = g_themed_icon_new ("drive-harddisk");
+	ic = g_themed_icon_new ("system-component-driver");
 
 	/* add a live updatable normal application */
 	app = gs_app_new ("chiron.desktop");
@@ -576,7 +576,7 @@ refine_app (GsPluginDummy        *self,
 		if (gs_app_get_summary (app) == NULL)
 			gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "tmp");
 		if (!gs_app_has_icons (app)) {
-			g_autoptr(GIcon) ic = g_themed_icon_new ("drive-harddisk");
+			g_autoptr(GIcon) ic = g_themed_icon_new ("system-component-driver");
 			gs_app_add_icon (app, ic);
 		}
 	}
@@ -739,9 +739,6 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 	}
 
 	if (is_curated != GS_APP_QUERY_TRISTATE_UNSET) {
-		g_autoptr(GsApp) app1 = NULL;
-		g_autoptr(GsApp) app2 = NULL;
-
 		/* Hacky way of letting callers indicate which set of results
 		 * they want, for unit testing. */
 		if (max_results == 6) {
@@ -752,12 +749,13 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 				gs_app_list_add (list, app);
 			}
 		} else {
+			g_autoptr(GsApp) app = NULL;
 			/* add wildcard */
-			app1 = gs_app_new ("zeus.desktop");
-			gs_app_add_quirk (app1, GS_APP_QUIRK_IS_WILDCARD);
-			gs_app_set_metadata (app1, "GnomeSoftware::Creator",
+			app = gs_app_new ("zeus.desktop");
+			gs_app_add_quirk (app, GS_APP_QUIRK_IS_WILDCARD);
+			gs_app_set_metadata (app, "GnomeSoftware::Creator",
 					     gs_plugin_get_name (plugin));
-			gs_app_list_add (list, app1);
+			gs_app_list_add (list, app);
 		}
 	}
 
@@ -822,7 +820,7 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 					g_timeout_add_seconds (1, gs_plugin_dummy_poll_cb, plugin);
 
 				/* use a generic stock icon */
-				icon = g_themed_icon_new ("drive-harddisk");
+				icon = g_themed_icon_new ("system-component-driver");
 
 				/* add a live updatable normal application */
 				app = gs_app_new ("chiron.desktop");
@@ -969,7 +967,6 @@ gs_plugin_dummy_update_apps_async (GsPlugin                           *plugin,
                                    gpointer                            user_data)
 {
 	g_autoptr(GTask) task = NULL;
-	g_autoptr(GsApp) app = NULL;
 
 	task = gs_plugin_update_apps_data_new_task (plugin, apps, flags,
 						    progress_callback, progress_user_data,
@@ -1118,7 +1115,7 @@ gs_plugin_app_upgrade_download (GsPlugin *plugin, GsApp *app,
 		return TRUE;
 
 	g_debug ("starting download");
-	gs_app_set_state (app, GS_APP_STATE_INSTALLING);
+	gs_app_set_state (app, GS_APP_STATE_DOWNLOADING);
 	if (!gs_plugin_dummy_delay (plugin, app, 5000, cancellable, error)) {
 		gs_app_set_state_recover (app);
 		return FALSE;
