@@ -1,8 +1,12 @@
-gnome-software (46~beta-1) UNRELEASED; urgency=medium
+gnome-software (46~beta-1) unstable; urgency=medium
 
   * New upstream release
+  * Bump minimum GTK4 to 4.12 and libadwaita to 1.4
+  * debian/gnome-software.install: Install bash-completion file
+  * Run wrap-and-sort
+  * Drop 2 appstream patches applied in new release
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 09 Feb 2024 08:33:23 -0500
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 09 Feb 2024 08:44:32 -0500
 
 gnome-software (45.3-2) unstable; urgency=high
 
