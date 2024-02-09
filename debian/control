@@ -2,9 +2,13 @@ Source: gnome-software
 Section: gnome
 Priority: optional
 Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Amin Bandali <bandali@ubuntu.com>, Gunnar Hjalmarsson <gunnarhj@debian.org>, Jeremy Bícha <jbicha@ubuntu.com>, Laurent Bigonville <bigon@debian.org>, Matthias Klumpp <mak@debian.org>
-Build-Depends: debhelper-compat (= 13),
-               appstream,
+Uploaders: Amin Bandali <bandali@ubuntu.com>,
+           Gunnar Hjalmarsson <gunnarhj@debian.org>,
+           Jeremy Bícha <jbicha@ubuntu.com>,
+           Laurent Bigonville <bigon@debian.org>,
+           Matthias Klumpp <mak@debian.org>
+Build-Depends: appstream,
+               debhelper-compat (= 13),
                dh-sequence-gnome,
                docbook-xsl,
                gsettings-desktop-schemas-dev (>= 3.18),
@@ -13,13 +17,13 @@ Build-Depends: debhelper-compat (= 13),
                libappstream-dev (>= 1.0.0),
                libflatpak-dev (>= 1.14.0) [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
                libfwupd-dev (>= 1.5.6) [linux-any],
-               libglib2.0-dev (>= 2.70.0),
                libglib-testing-0-dev,
+               libglib2.0-dev (>= 2.70.0),
                libgtk-4-dev (>= 4.12.0),
                libgudev-1.0-dev [linux-any],
                libjson-glib-dev (>= 1.6.0),
-               libostree-dev (>= 2022.5-2~) [linux-any],
                libmalcontent-0-dev [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
+               libostree-dev (>= 2022.5-2~) [linux-any],
                libpackagekit-glib2-dev (>= 1.2.5),
                libpolkit-gobject-1-dev,
                libsnapd-glib-dev (>= 1.63) [amd64 arm64 armel armhf i386 ppc64el s390x],
@@ -27,15 +31,15 @@ Build-Depends: debhelper-compat (= 13),
                libxml2-utils,
                libxmlb-dev (>= 0.1.7),
                meson (>= 0.55.0),
-               pkg-config,
+               pkgconf,
                polkitd,
                xsltproc
 Build-Depends-Indep: libgdk-pixbuf2.0-doc <!nodoc>,
                      libglib2.0-doc <!nodoc>,
                      libgtk-3-doc <!nodoc>,
                      libjson-glib-doc <!nodoc>,
-                     libsoup2.4-doc <!nodoc>,
-                     libsoup-3.0-doc <!nodoc>
+                     libsoup-3.0-doc <!nodoc>,
+                     libsoup2.4-doc <!nodoc>
 Rules-Requires-Root: no
 Standards-Version: 4.6.2
 Vcs-Browser: https://salsa.debian.org/gnome-team/gnome-software
@@ -55,7 +59,8 @@ Depends: appstream,
          ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: sessioninstaller
-Recommends: fwupd [linux-any], ${plugin:Recommends}
+Recommends: fwupd [linux-any],
+            ${plugin:Recommends}
 Suggests: apt-config-icons-hidpi,
           gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
           ${plugin:Suggests}
@@ -84,7 +89,7 @@ Description: Software Center for GNOME (common files)
  This package contains the architecture-independent files.
 
 Package: gnome-software-plugin-flatpak
-Architecture: amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32
+Architecture: amd64 arm64 armel armhf hppa i386 mips64el mipsel powerpc ppc64 ppc64el riscv64 s390x x32
 Depends: flatpak (>= 1.14.0),
          gnome-software (= ${binary:Version}),
          ${misc:Depends},
