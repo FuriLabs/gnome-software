@@ -60,6 +60,9 @@ struct _GsSafetyContextDialog
 	GBinding		*license_label_binding;  /* (owned) (nullable) */
 	GtkLabel		*source_label;
 	GBinding		*source_label_binding;  /* (owned) (nullable) */
+	GtkWidget		*packagename_row;
+	GtkLabel		*packagename_title;
+	GtkLabel		*packagename_value;
 	GtkLabel		*sdk_label;
 	GtkImage		*sdk_eol_image;
 	GtkWidget		*sdk_row;
@@ -108,8 +111,6 @@ update_permissions_list (GsSafetyContextDialog *self)
 {
 	const gchar *icon_name, *css_class;
 	g_autofree gchar *title = NULL;
-	g_autofree gchar *description = NULL;
-	g_autoptr(GPtrArray) descriptions = g_ptr_array_new_with_free_func (NULL);
 	g_autoptr(GsAppPermissions) permissions = NULL;
 	GsAppPermissionsFlags perm_flags = GS_APP_PERMISSIONS_FLAGS_NONE;
 	GsContextDialogRowImportance chosen_rating;
@@ -222,12 +223,36 @@ update_permissions_list (GsSafetyContextDialog *self)
 				    _("No User Device Access"),
 				    _("Cannot access devices such as webcams or gaming controllers"));
 		add_permission_row (self->permissions_list, &chosen_rating,
+				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_INPUT_DEVICES) != 0,
+				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_INFORMATION,
+				    "input-keyboard-symbolic",
+				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
+				    _("Input Device Access"),
+				    _("Can access input devices"),
+				    NULL, NULL, NULL);
+		add_permission_row (self->permissions_list, &chosen_rating,
+				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_PULSEAUDIO_DEVICES) != 0,
+				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_INFORMATION,
+				    "audio-input-microphone-symbolic",
+				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
+				    _("Microphone Access"),
+				    _("Can listen using microphones without asking permission"),
+				    NULL, NULL, NULL);
+		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_SYSTEM_DEVICES) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
 				    "computer-chip-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("System Device Access"),
 				    _("Can access system devices which require elevated permissions"),
+				    NULL, NULL, NULL);
+		add_permission_row (self->permissions_list, &chosen_rating,
+				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_SCREEN) != 0,
+				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
+				    "screen-privacy-symbolic",
+				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
+				    _("Screen Contents Access"),
+				    _("Can access the contents of the screen or other windows"),
 				    NULL, NULL, NULL);
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_X11) != 0,
@@ -382,7 +407,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 	if (gs_app_get_license (self->app) == NULL) {
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    TRUE,
-				    license_rating,
+				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_NEUTRAL,
 				    "dialog-warning-symbolic",
 				    /* Translators: This indicates an app does not specify which license it's developed under. */
 				    _("Unknown License"),
@@ -390,26 +415,40 @@ update_permissions_list (GsSafetyContextDialog *self)
 				    _("This app does not specify what license it is developed under, and may be proprietary") :
 				    _("This software does not specify what license it is developed under, and may be proprietary"),
 				    NULL, NULL, NULL);
-	} else {
-		/* Proprietary apps are one level worse (less safe) than whichever rating
-		   had been determined from the provided permissions. */
-		if (!gs_app_get_license_is_free (self->app) &&
-		    chosen_rating < GS_CONTEXT_DIALOG_ROW_IMPORTANCE_IMPORTANT &&
-		    chosen_rating >= license_rating)
-			license_rating = chosen_rating + 1;
-
-		/* Is the code FOSS and hence inspectable? This doesn’t distinguish
-		 * between closed source and open-source-but-not-FOSS software, even
-		 * though the code of the latter is technically publicly auditable. This
-		 * is because I don’t want to get into the business of maintaining lists
-		 * of ‘auditable’ source code licenses. */
+	/* Is the code FOSS and hence inspectable? This doesn’t distinguish
+	 * between closed source and open-source-but-not-FOSS software, even
+	 * though the code of the latter is technically publicly auditable. This
+	 * is because I don’t want to get into the business of maintaining lists
+	 * of ‘auditable’ source code licenses. */
+	} else if (g_ascii_strncasecmp (gs_app_get_license (self->app), "LicenseRef-proprietary", strlen ("LicenseRef-proprietary")) == 0) {
 		add_permission_row (self->permissions_list, &chosen_rating,
-				    !gs_app_get_license_is_free (self->app),
+				    TRUE,
 				    license_rating,
 				    "dialog-warning-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Proprietary Code"),
 				    _("The source code is not public, so it cannot be independently audited and might be unsafe"),
+				    NULL, NULL, NULL);
+	} else {
+		g_autofree gchar *description = NULL;
+
+		if (!gs_app_get_license_is_free (self->app)) {
+			if (gs_app_is_application (self->app)) {
+				/* Translators: The placeholder here is the name of a software license. */
+				description = g_strdup_printf (_("This app is developed under the special license “%s”"), gs_app_get_license (self->app));
+			} else {
+				/* Translators: The placeholder here is the name of a software license. */
+				description = g_strdup_printf (_("This software is developed under the special license “%s”"), gs_app_get_license (self->app));
+			}
+		}
+
+		add_permission_row (self->permissions_list, &chosen_rating,
+				    !gs_app_get_license_is_free (self->app),
+				    license_rating,
+				    "dialog-warning-symbolic",
+				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
+				    _("Special License"),
+				    description,
 				    "app-installed-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Auditable Code"),
@@ -639,6 +678,9 @@ gs_safety_context_dialog_class_init (GsSafetyContextDialogClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, permissions_list);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, license_label);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, source_label);
+	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, packagename_row);
+	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, packagename_title);
+	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, packagename_value);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_label);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_eol_image);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_row);
@@ -713,6 +755,8 @@ gs_safety_context_dialog_set_app (GsSafetyContextDialog *self,
 	g_set_object (&self->app, app);
 
 	if (self->app != NULL) {
+		const gchar *packagename_value;
+
 		self->app_notify_handler_permissions = g_signal_connect (self->app, "notify::permissions", G_CALLBACK (app_notify_cb), self);
 		self->app_notify_handler_name = g_signal_connect (self->app, "notify::name", G_CALLBACK (app_notify_cb), self);
 		self->app_notify_handler_quirk = g_signal_connect (self->app, "notify::quirk", G_CALLBACK (app_notify_cb), self);
@@ -723,6 +767,21 @@ gs_safety_context_dialog_set_app (GsSafetyContextDialog *self,
 		self->license_label_binding = g_object_bind_property_full (self->app, "license", self->license_label, "label", G_BINDING_SYNC_CREATE,
 									   sanitize_license_text_cb, NULL, NULL, NULL);
 		self->source_label_binding = g_object_bind_property (self->app, "origin-ui", self->source_label, "label", G_BINDING_SYNC_CREATE);
+
+		packagename_value = gs_app_get_metadata_item (app, "GnomeSoftware::packagename-value");
+		if (packagename_value != NULL && *packagename_value != '\0') {
+			const gchar *packagename_title = gs_app_get_metadata_item (app, "GnomeSoftware::packagename-title");
+			if (packagename_title == NULL || *packagename_title == '\0') {
+				/* Translators: This is a heading for a row showing the package name of an app (such as ‘gnome-software-46.0-1’). */
+				packagename_title = _("Package");
+			}
+			gtk_label_set_label (self->packagename_title, packagename_title);
+			gtk_label_set_label (self->packagename_value, packagename_value);
+		}
+
+		gtk_widget_set_visible (self->packagename_row, packagename_value != NULL && *packagename_value != '\0');
+	} else {
+		gtk_widget_set_visible (self->packagename_row, FALSE);
 	}
 
 	/* Update the UI. */

@@ -274,6 +274,8 @@ gs_app_state_to_string (GsAppState state)
 		return "pending-install";
 	if (state == GS_APP_STATE_PENDING_REMOVE)
 		return "pending-remove";
+	if (state == GS_APP_STATE_DOWNLOADING)
+		return "downloading";
 	return NULL;
 }
 
@@ -467,25 +469,22 @@ static gchar *
 gs_app_kudos_to_string (guint64 kudos)
 {
 	g_autoptr(GPtrArray) array = g_ptr_array_new ();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdiscarded-qualifiers"
 	if ((kudos & GS_APP_KUDO_MY_LANGUAGE) > 0)
-		g_ptr_array_add (array, "my-language");
+		g_ptr_array_add (array, (gpointer) "my-language");
 	if ((kudos & GS_APP_KUDO_RECENT_RELEASE) > 0)
-		g_ptr_array_add (array, "recent-release");
+		g_ptr_array_add (array, (gpointer) "recent-release");
 	if ((kudos & GS_APP_KUDO_FEATURED_RECOMMENDED) > 0)
-		g_ptr_array_add (array, "featured-recommended");
+		g_ptr_array_add (array, (gpointer) "featured-recommended");
 	if ((kudos & GS_APP_KUDO_HAS_KEYWORDS) > 0)
-		g_ptr_array_add (array, "has-keywords");
+		g_ptr_array_add (array, (gpointer) "has-keywords");
 	if ((kudos & GS_APP_KUDO_HAS_SCREENSHOTS) > 0)
-		g_ptr_array_add (array, "has-screenshots");
+		g_ptr_array_add (array, (gpointer) "has-screenshots");
 	if ((kudos & GS_APP_KUDO_HI_DPI_ICON) > 0)
-		g_ptr_array_add (array, "hi-dpi-icon");
+		g_ptr_array_add (array, (gpointer) "hi-dpi-icon");
 	if ((kudos & GS_APP_KUDO_SANDBOXED) > 0)
-		g_ptr_array_add (array, "sandboxed");
+		g_ptr_array_add (array, (gpointer) "sandboxed");
 	if ((kudos & GS_APP_KUDO_SANDBOXED_SECURE) > 0)
-		g_ptr_array_add (array, "sandboxed-secure");
-#pragma GCC diagnostic pop
+		g_ptr_array_add (array, (gpointer) "sandboxed-secure");
 	g_ptr_array_add (array, NULL);
 	return g_strjoinv ("|", (gchar **) array->pdata);
 }
@@ -609,7 +608,11 @@ gs_app_to_string_append (GsApp *app, GString *str)
 		AsScreenshot *ss = g_ptr_array_index (priv->screenshots, i);
 		g_autofree gchar *key = NULL;
 		tmp = as_screenshot_get_caption (ss);
+#if AS_CHECK_VERSION(1, 0, 0)
+		im = as_screenshot_get_image (ss, 0, 0, 1);
+#else
 		im = as_screenshot_get_image (ss, 0, 0);
+#endif
 		if (im == NULL)
 			continue;
 		key = g_strdup_printf ("screenshot-%02u", i);
@@ -1117,6 +1120,7 @@ gs_app_set_state_internal (GsApp *app, GsAppState state)
 	case GS_APP_STATE_QUEUED_FOR_INSTALL:
 		if (state == GS_APP_STATE_UNKNOWN ||
 		    state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_DOWNLOADING ||
 		    state == GS_APP_STATE_AVAILABLE)
 			state_change_ok = TRUE;
 		break;
@@ -1124,7 +1128,18 @@ gs_app_set_state_internal (GsApp *app, GsAppState state)
 		/* available has to go into an action state */
 		if (state == GS_APP_STATE_UNKNOWN ||
 		    state == GS_APP_STATE_QUEUED_FOR_INSTALL ||
-		    state == GS_APP_STATE_INSTALLING)
+		    state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_DOWNLOADING)
+			state_change_ok = TRUE;
+		break;
+	case GS_APP_STATE_DOWNLOADING:
+		/* downloading is similar to the installing state, to which it can go too */
+		if (state == GS_APP_STATE_UNKNOWN ||
+		    state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_UPDATABLE ||
+		    state == GS_APP_STATE_UPDATABLE_LIVE ||
+		    state == GS_APP_STATE_AVAILABLE ||
+		    state == GS_APP_STATE_PENDING_INSTALL)
 			state_change_ok = TRUE;
 		break;
 	case GS_APP_STATE_INSTALLING:
@@ -1151,6 +1166,7 @@ gs_app_set_state_internal (GsApp *app, GsAppState state)
 		if (state == GS_APP_STATE_UNKNOWN ||
 		    state == GS_APP_STATE_REMOVING ||
 		    state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_DOWNLOADING ||
 		    state == GS_APP_STATE_PENDING_INSTALL)
 			state_change_ok = TRUE;
 		break;
@@ -1158,7 +1174,8 @@ gs_app_set_state_internal (GsApp *app, GsAppState state)
 		/* updatable-live has to go into an action state */
 		if (state == GS_APP_STATE_UNKNOWN ||
 		    state == GS_APP_STATE_REMOVING ||
-		    state == GS_APP_STATE_INSTALLING)
+		    state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_DOWNLOADING)
 			state_change_ok = TRUE;
 		break;
 	case GS_APP_STATE_UNAVAILABLE:
@@ -1171,7 +1188,8 @@ gs_app_set_state_internal (GsApp *app, GsAppState state)
 		/* local has to go into an action state */
 		if (state == GS_APP_STATE_UNKNOWN ||
 		    state == GS_APP_STATE_QUEUED_FOR_INSTALL ||
-		    state == GS_APP_STATE_INSTALLING)
+		    state == GS_APP_STATE_INSTALLING ||
+		    state == GS_APP_STATE_DOWNLOADING)
 			state_change_ok = TRUE;
 		break;
 	case GS_APP_STATE_PENDING_INSTALL:
@@ -1202,6 +1220,7 @@ gs_app_set_state_internal (GsApp *app, GsAppState state)
 
 	/* save this to simplify error handling in the plugins */
 	switch (state) {
+	case GS_APP_STATE_DOWNLOADING:
 	case GS_APP_STATE_INSTALLING:
 	case GS_APP_STATE_REMOVING:
 	case GS_APP_STATE_QUEUED_FOR_INSTALL:
@@ -1894,6 +1913,8 @@ get_icon_theme (void)
 			g_auto(GStrv) dirs = g_strsplit (test_search_path, ":", -1);
 			gtk_icon_theme_set_search_path (theme, (const char * const *) dirs);
 		}
+
+		gtk_icon_theme_add_resource_path (theme, "/org/gnome/Software/icons/");
 	}
 
 	return theme;
@@ -4813,28 +4834,15 @@ calculate_key_colors (GsApp *app)
 			if (path != NULL) {
 				pb_small = gdk_pixbuf_new_from_file_at_size (path, 32, 32, NULL);
 			} else {
-				g_autoptr(GskRenderNode) render_node = NULL;
-				g_autoptr(GtkSnapshot) snapshot = NULL;
-				cairo_surface_t *surface;
-				cairo_t *cr;
-
-				surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 32, 32);
-				cr = cairo_create (surface);
-
-				/* TODO: this can be done entirely on the GPU using shaders */
-				snapshot = gtk_snapshot_new ();
-				gdk_paintable_snapshot (GDK_PAINTABLE (icon_paintable),
-							GDK_SNAPSHOT (snapshot),
-							32.0,
-							32.0);
-
-				render_node = gtk_snapshot_free_to_node (g_steal_pointer (&snapshot));
-				gsk_render_node_draw (render_node, cr);
-
-				pb_small = gdk_pixbuf_get_from_surface (surface, 0, 0, 32, 32);
-
-				cairo_surface_destroy (surface);
-				cairo_destroy (cr);
+				const gchar *const *names = g_themed_icon_get_names (G_THEMED_ICON (icon_small));
+				for (guint i = 0; names != NULL && names[i] != NULL && pb_small == NULL; i++) {
+					g_autoptr(GError) local_error = NULL;
+					g_autofree gchar *resource_path = NULL;
+					resource_path = g_strconcat ("/org/gnome/Software/icons/scalable/apps/", names[i], ".svg", NULL);
+					pb_small = gdk_pixbuf_new_from_resource (resource_path, &local_error);
+					if (pb_small == NULL)
+						g_warning ("Failed to load icon from resource '%s': %s", resource_path, local_error != NULL ? local_error->message : "Unknown error");
+				}
 			}
 		}
 

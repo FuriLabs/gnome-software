@@ -154,7 +154,11 @@ enable_repo (GsReposDialog *dialog,
 		g_autoptr(GError) error = NULL;
 
 		/* convert from AppStream markup */
+#if AS_CHECK_VERSION(1, 0, 0)
+		message = as_markup_convert (gs_app_get_agreement (repo), AS_MARKUP_KIND_TEXT, &error);
+#else
 		message = as_markup_convert_simple (gs_app_get_agreement (repo), &error);
+#endif
 		if (message == NULL) {
 			/* failed, so just try and show the original markup */
 			message = g_strdup (gs_app_get_agreement (repo));
@@ -363,6 +367,7 @@ add_repo (GsReposDialog *dialog,
 	      state == GS_APP_STATE_AVAILABLE_LOCAL ||
 	      state == GS_APP_STATE_INSTALLED ||
 	      state == GS_APP_STATE_INSTALLING ||
+	      state == GS_APP_STATE_DOWNLOADING ||
 	      state == GS_APP_STATE_REMOVING)) {
 		g_warning ("repo %s in invalid state %s",
 		           gs_app_get_id (repo),
@@ -827,7 +832,6 @@ gs_repos_dialog_init (GsReposDialog *dialog)
 {
 	g_autofree gchar *label_empty_text = NULL;
 	g_autofree gchar *os_name = NULL;
-	g_autoptr(GString) str = g_string_new (NULL);
 
 	gtk_widget_init_template (GTK_WIDGET (dialog));
 

@@ -614,6 +614,13 @@ gs_plugin_flatpak_refine_app (GsPluginFlatpak      *self,
 	return gs_flatpak_refine_app (flatpak, app, flags, interactive, FALSE, cancellable, error);
 }
 
+static void
+unref_nonnull_hash_table (gpointer ptr)
+{
+	GHashTable *hash_table = ptr;
+	if (hash_table != NULL)
+		g_hash_table_unref (hash_table);
+}
 
 static gboolean
 refine_app (GsPluginFlatpak      *self,
@@ -692,6 +699,8 @@ refine_thread_cb (GTask        *task,
 	GsAppList *list = data->list;
 	GsPluginRefineFlags flags = data->flags;
 	gboolean interactive = gs_plugin_has_flags (GS_PLUGIN (self), GS_PLUGIN_FLAGS_INTERACTIVE);
+	g_autoptr(GPtrArray) array_components_by_id = NULL; /* (element-type GHashTable) */
+	g_autoptr(GPtrArray) array_components_by_bundle = NULL; /* (element-type GHashTable) */
 	g_autoptr(GsAppList) app_list = NULL;
 	g_autoptr(GError) local_error = NULL;
 
@@ -712,6 +721,10 @@ refine_thread_cb (GTask        *task,
 	 * (e.g. inserting an app in the list on every call results in
 	 * an infinite loop) */
 	app_list = gs_app_list_copy (list);
+	array_components_by_id = g_ptr_array_new_full (self->installations->len, unref_nonnull_hash_table);
+	g_ptr_array_set_size (array_components_by_id, self->installations->len);
+	array_components_by_bundle = g_ptr_array_new_full (self->installations->len, unref_nonnull_hash_table);
+	g_ptr_array_set_size (array_components_by_bundle, self->installations->len);
 
 	for (guint j = 0; j < gs_app_list_length (app_list); j++) {
 		GsApp *app = gs_app_list_index (app_list, j);
@@ -721,12 +734,16 @@ refine_thread_cb (GTask        *task,
 
 		for (guint i = 0; i < self->installations->len; i++) {
 			GsFlatpak *flatpak = g_ptr_array_index (self->installations, i);
+			GHashTable *components_by_id = array_components_by_id->pdata[i];
+			GHashTable *components_by_bundle = array_components_by_bundle->pdata[i];
 
-			if (!gs_flatpak_refine_wildcard (flatpak, app, list, flags, interactive,
+			if (!gs_flatpak_refine_wildcard (flatpak, app, list, flags, interactive, &components_by_id, &components_by_bundle,
 							 cancellable, &local_error)) {
 				g_task_return_error (task, g_steal_pointer (&local_error));
 				return;
 			}
+			array_components_by_id->pdata[i] = components_by_id;
+			array_components_by_bundle->pdata[i] = components_by_bundle;
 		}
 	}
 
@@ -1829,17 +1846,15 @@ gs_plugin_flatpak_file_to_app_ref (GsPluginFlatpak  *self,
 	return g_steal_pointer (&app);
 }
 
-gboolean
-gs_plugin_file_to_app (GsPlugin *plugin,
-		       GsAppList *list,
-		       GFile *file,
-		       GCancellable *cancellable,
-		       GError **error)
+static GsApp * /* (transfer full) */
+gs_plugin_flatpak_file_to_app (GsPluginFlatpak *self,
+			       GFile *file,
+			       gboolean interactive,
+			       GCancellable *cancellable,
+			       GError **error)
 {
-	GsPluginFlatpak *self = GS_PLUGIN_FLATPAK (plugin);
 	g_autofree gchar *content_type = NULL;
-	g_autoptr(GsApp) app = NULL;
-	gboolean interactive = gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
+	GsApp *app = NULL;
 	const gchar *mimetypes_bundle[] = {
 		"application/vnd.flatpak",
 		NULL };
@@ -1853,23 +1868,15 @@ gs_plugin_file_to_app (GsPlugin *plugin,
 	/* does this match any of the mimetypes we support */
 	content_type = gs_utils_get_content_type (file, cancellable, error);
 	if (content_type == NULL)
-		return FALSE;
-	if (g_strv_contains (mimetypes_bundle, content_type)) {
-		app = gs_plugin_flatpak_file_to_app_bundle (self, file, interactive,
-							    cancellable, error);
-		if (app == NULL)
-			return FALSE;
-	} else if (g_strv_contains (mimetypes_repo, content_type)) {
-		app = gs_plugin_flatpak_file_to_app_repo (self, file, interactive,
-							  cancellable, error);
-		if (app == NULL)
-			return FALSE;
-	} else if (g_strv_contains (mimetypes_ref, content_type)) {
-		app = gs_plugin_flatpak_file_to_app_ref (self, file, interactive,
-							 cancellable, error);
-		if (app == NULL)
-			return FALSE;
-	}
+		return NULL;
+
+	if (g_strv_contains (mimetypes_bundle, content_type))
+		app = gs_plugin_flatpak_file_to_app_bundle (self, file, interactive, cancellable, error);
+	else if (g_strv_contains (mimetypes_repo, content_type))
+		app = gs_plugin_flatpak_file_to_app_repo (self, file, interactive, cancellable, error);
+	else if (g_strv_contains (mimetypes_ref, content_type))
+		app = gs_plugin_flatpak_file_to_app_ref (self, file, interactive, cancellable, error);
+
 	if (app != NULL) {
 		GsApp *runtime = gs_app_get_runtime (app);
 		/* Ensure the origin for the runtime is set */
@@ -1878,8 +1885,27 @@ gs_plugin_file_to_app (GsPlugin *plugin,
 			if (!gs_plugin_flatpak_refine_app (self, runtime, GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN, interactive, cancellable, &error_local))
 				g_debug ("Failed to refine runtime: %s", error_local->message);
 		}
-		gs_app_list_add (list, app);
+		gs_plugin_flatpak_ensure_scope (GS_PLUGIN (self), app);
 	}
+
+	return app;
+}
+
+gboolean
+gs_plugin_file_to_app (GsPlugin *plugin,
+		       GsAppList *list,
+		       GFile *file,
+		       GCancellable *cancellable,
+		       GError **error)
+{
+	g_autoptr(GsApp) app = NULL;
+	GsPluginFlatpak *self = GS_PLUGIN_FLATPAK (plugin);
+	gboolean interactive = gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
+
+	app = gs_plugin_flatpak_file_to_app (self, file, interactive, cancellable, error);
+	if (app != NULL)
+		gs_app_list_add (list, app);
+
 	return TRUE;
 }
 
@@ -2040,6 +2066,28 @@ list_apps_thread_cb (GTask        *task,
 		g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
 					 "Unsupported query");
 		return;
+	}
+
+	if (alternate_of != NULL &&
+	    gs_app_get_bundle_kind (alternate_of) == AS_BUNDLE_KIND_FLATPAK &&
+	    gs_app_get_scope (alternate_of) != AS_COMPONENT_SCOPE_UNKNOWN &&
+	    gs_app_get_local_file (alternate_of) != NULL) {
+		g_autoptr(GsApp) app = NULL;
+		GFile *file = gs_app_get_local_file (alternate_of);
+		app = gs_plugin_flatpak_file_to_app (self, file, interactive, cancellable, NULL);
+		if (app != NULL) {
+			gs_app_set_local_file (app, file);
+			if (gs_app_get_scope (app) == gs_app_get_scope (alternate_of)) {
+				if (gs_app_get_scope (alternate_of) == AS_COMPONENT_SCOPE_SYSTEM)
+					gs_app_set_scope (app, AS_COMPONENT_SCOPE_USER);
+				else
+					gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
+			} else {
+				/* to have both scopes in the list */
+				gs_app_set_scope (app, gs_app_get_scope (alternate_of));
+			}
+			gs_app_list_add (list, app);
+		}
 	}
 
 	for (guint i = 0; i < self->installations->len; i++) {

@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM debian:trixie
 
 RUN apt-get update -qq && apt-get install --no-install-recommends -qq -y \
     appstream \
@@ -44,6 +44,7 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -qq -y \
     libpam0g-dev \
     libpango1.0-dev \
     libpolkit-gobject-1-dev \
+    librsvg2-common \
     libsoup2.4-dev \
     libstemmer-dev \
     libxcursor-dev \
@@ -77,7 +78,7 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -qq -y \
     xz-utils \
  && rm -rf /usr/share/doc/* /usr/share/man/*
 
-RUN pip3 install --break-system-packages meson==0.60.1
+RUN pip3 install --break-system-packages meson==0.63.0
 
 # Enable passwordless sudo for sudo users
 RUN sed -i -e '/%sudo/s/ALL$/NOPASSWD: ALL/' /etc/sudoers
@@ -89,6 +90,7 @@ RUN useradd -u $HOST_USER_ID -G sudo -ms /bin/bash user
 USER user
 WORKDIR /home/user
 
+COPY subprojects.meson.zip .
 COPY cache-subprojects.sh .
 RUN ./cache-subprojects.sh
 

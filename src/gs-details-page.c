@@ -96,6 +96,7 @@ struct _GsDetailsPage
 	GtkWidget		*app_reviews_dialog;
 	GtkCssProvider		*origin_css_provider; /* (nullable) (owned) */
 	GtkCssProvider		*developer_verified_image_css_provider; /* (nullable) (owned) */
+	GtkCssProvider		*developer_verified_label_css_provider; /* (nullable) (owned) */
 	gboolean		 origin_by_packaging_format; /* when TRUE, change the 'app' to the most preferred
 								packaging format when the alternatives are found */
 	gboolean		 is_narrow;
@@ -142,7 +143,8 @@ struct _GsDetailsPage
 	GsAppContextBar		*context_bar;
 	GtkLabel		*developer_name_label;
 	GtkWidget		*developer_verified_image;
-	GtkWidget		*label_failed;
+	GtkWidget		*developer_verified_label;
+	AdwStatusPage           *page_failed;
 	GtkWidget		*list_box_addons;
 	GtkWidget		*list_box_featured_review;
 	GtkWidget		*list_box_reviews_summary;
@@ -309,6 +311,7 @@ gs_details_page_update_origin_button (GsDetailsPage *self,
 
 	gs_utils_widget_set_css (self->origin_packaging_image, &self->origin_css_provider, css);
 	gs_utils_widget_set_css (self->developer_verified_image, &self->developer_verified_image_css_provider, css);
+	gs_utils_widget_set_css (self->developer_verified_label, &self->developer_verified_label_css_provider, css);
 }
 
 static void
@@ -351,6 +354,7 @@ gs_details_page_refresh_progress (GsDetailsPage *self)
 	switch (state) {
 	case GS_APP_STATE_INSTALLING:
 	case GS_APP_STATE_REMOVING:
+	case GS_APP_STATE_DOWNLOADING:
 		gtk_widget_set_visible (GTK_WIDGET (self->button_cancel), TRUE);
 		/* If the app is installing, the user can only cancel it if
 		 * 1) They haven't already, and
@@ -383,6 +387,11 @@ gs_details_page_refresh_progress (GsDetailsPage *self)
 		gtk_widget_set_visible (self->label_progress_status, TRUE);
 		gtk_label_set_label (GTK_LABEL (self->label_progress_status),
 				     _("Installing"));
+		break;
+	case GS_APP_STATE_DOWNLOADING:
+		gtk_widget_set_visible (self->label_progress_status, TRUE);
+		gtk_label_set_label (GTK_LABEL (self->label_progress_status),
+				     _("Downloading"));
 		break;
 	case GS_APP_STATE_PENDING_INSTALL:
 		gtk_widget_set_visible (self->label_progress_status, TRUE);
@@ -427,9 +436,13 @@ gs_details_page_refresh_progress (GsDetailsPage *self)
 	switch (state) {
 	case GS_APP_STATE_INSTALLING:
 	case GS_APP_STATE_REMOVING:
+	case GS_APP_STATE_DOWNLOADING:
 		percentage = gs_app_get_progress (self->app);
 		if (percentage == GS_APP_PROGRESS_UNKNOWN) {
-			if (state == GS_APP_STATE_INSTALLING) {
+			if (state == GS_APP_STATE_DOWNLOADING) {
+				/* Translators: This string is shown when downloading an app before install. */
+				gtk_label_set_label (GTK_LABEL (self->label_progress_status), _("Downloading…"));
+			} else if (state == GS_APP_STATE_INSTALLING) {
 				/* Translators: This string is shown when preparing to download and install an app. */
 				gtk_label_set_label (GTK_LABEL (self->label_progress_status), _("Preparing…"));
 			} else {
@@ -1030,6 +1043,7 @@ gs_details_page_refresh_buttons (GsDetailsPage *self)
 		gtk_button_set_label (GTK_BUTTON (self->button_install), _("_Install"));
 		break;
 	case GS_APP_STATE_INSTALLING:
+	case GS_APP_STATE_DOWNLOADING:
 		gtk_widget_set_visible (self->button_install, FALSE);
 		break;
 	case GS_APP_STATE_UNKNOWN:
@@ -1109,6 +1123,7 @@ gs_details_page_refresh_buttons (GsDetailsPage *self)
 		case GS_APP_STATE_AVAILABLE:
 		case GS_APP_STATE_INSTALLING:
 		case GS_APP_STATE_REMOVING:
+		case GS_APP_STATE_DOWNLOADING:
 		case GS_APP_STATE_UNAVAILABLE:
 		case GS_APP_STATE_UNKNOWN:
 		case GS_APP_STATE_QUEUED_FOR_INSTALL:
@@ -1269,7 +1284,6 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 {
 	g_autoptr(GIcon) icon = NULL;
 	const gchar *tmp;
-	g_autofree gchar *origin = NULL;
 	g_autoptr(GPtrArray) version_history = NULL;
 	gboolean link_rows_visible;
 
@@ -1400,6 +1414,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 						  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
 						  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_KEY_ID,
 						  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
+						  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						  NULL);
 
 			plugin_job = gs_plugin_job_list_apps_new (query,
@@ -1418,7 +1433,20 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 	}
 
 	gtk_widget_set_visible (GTK_WIDGET (self->developer_name_label), tmp != NULL);
-	gtk_widget_set_visible (GTK_WIDGET (self->developer_verified_image), gs_app_has_quirk (self->app, GS_APP_QUIRK_DEVELOPER_VERIFIED));
+	gtk_widget_set_visible (self->developer_verified_image, gs_app_has_quirk (self->app, GS_APP_QUIRK_DEVELOPER_VERIFIED));
+
+	if (gs_app_has_quirk (self->app, GS_APP_QUIRK_DEVELOPER_VERIFIED)) {
+		g_autofree gchar *tooltip = NULL;
+
+		if (tmp != NULL)
+			/* Translators: the first %s is replaced with the developer name, the second %s is replaced with the app id */
+			tooltip = g_strdup_printf (_("Developer %s has proven the ownership of %s"), tmp, gs_app_get_id (self->app));
+		else
+			/* Translators: the %s is replaced with the app id */
+			tooltip = g_strdup_printf (_("Developer has proven the ownership of %s"), gs_app_get_id (self->app));
+
+		gtk_widget_set_tooltip_text (self->developer_verified_image, tooltip);
+	}
 
 	/* set version history */
 	version_history = gs_app_get_version_history (self->app);
@@ -1942,6 +1970,7 @@ gs_details_page_load_stage2 (GsDetailsPage *self,
 				  "filter-func", gs_details_page_filter_origin,
 				  "sort-func", gs_utils_app_sort_priority,
 				  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
+				  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 				  NULL);
 	plugin_job2 = gs_plugin_job_list_apps_new (query,
 						   GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
@@ -1980,7 +2009,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 		g_autofree gchar *str = NULL;
 		const gchar *id = gs_app_get_id (self->app);
 		str = g_strdup_printf (_("Unable to find “%s”"), id == NULL ? gs_app_get_source_default (self->app) : id);
-		gtk_label_set_text (GTK_LABEL (self->label_failed), str);
+		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -1996,7 +2025,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 		g_autofree gchar *str = NULL;
 		const gchar *id = gs_app_get_id (self->app);
 		str = g_strdup_printf (_("Unable to find “%s”"), id == NULL ? gs_app_get_source_default (self->app) : id);
-		gtk_label_set_text (GTK_LABEL (self->label_failed), str);
+		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -2128,6 +2157,7 @@ gs_details_page_reload (GsPage *page)
 		/* Do not reload the page when the app is "doing something" */
 		if (state == GS_APP_STATE_INSTALLING ||
 		    state == GS_APP_STATE_REMOVING ||
+		    state == GS_APP_STATE_DOWNLOADING ||
 		    state == GS_APP_STATE_PURCHASING)
 			return;
 		gs_details_page_load_stage1 (self);
@@ -2525,6 +2555,7 @@ gs_details_page_dispose (GObject *object)
 	g_clear_pointer (&self->packaging_format_preference, g_strfreev);
 	g_clear_object (&self->origin_css_provider);
 	g_clear_object (&self->developer_verified_image_css_provider);
+	g_clear_object (&self->developer_verified_label_css_provider);
 	g_clear_object (&self->app_local_file);
 	g_clear_object (&self->app_reviews_dialog);
 	g_clear_object (&self->plugin_loader);
@@ -2661,7 +2692,8 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_progress_status);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, developer_name_label);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, developer_verified_image);
-	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_failed);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, developer_verified_label);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, page_failed);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_addons);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_featured_review);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_reviews_summary);
@@ -2884,7 +2916,7 @@ gs_details_page_metainfo_ready_cb (GObject *source_object,
 
 	app = g_task_propagate_pointer (G_TASK (result), &error);
 	if (error) {
-		gtk_label_set_text (GTK_LABEL (self->label_failed), error->message);
+		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), error->message);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -2902,8 +2934,6 @@ gs_details_page_metainfo_thread (GTask *task,
 				 gpointer task_data,
 				 GCancellable *cancellable)
 {
-	const gchar *const *locales;
-	g_autofree gchar *xml = NULL;
 	g_autofree gchar *path = NULL;
 	g_autofree gchar *icon_path = NULL;
 	g_autoptr(XbBuilder) builder = NULL;
@@ -2938,12 +2968,8 @@ gs_details_page_metainfo_thread (GTask *task,
 	}
 
 	builder = xb_builder_new ();
-	locales = g_get_language_names ();
 
-	/* add current locales */
-	for (guint i = 0; locales[i] != NULL; i++) {
-		xb_builder_add_locale (builder, locales[i]);
-	}
+	gs_appstream_add_current_locales (builder);
 
 	xb_builder_import_source (builder, builder_source);
 
@@ -2970,13 +2996,13 @@ gs_details_page_metainfo_thread (GTask *task,
 
 	component = g_ptr_array_index (nodes, 0);
 
-	app = gs_appstream_create_app (NULL, silo, component, &error);
+	app = gs_appstream_create_app (NULL, silo, component, NULL, AS_COMPONENT_SCOPE_UNKNOWN, &error);
 	if (app == NULL) {
 		g_task_return_error (task, g_steal_pointer (&error));
 		return;
 	}
 
-	if (!gs_appstream_refine_app (NULL, app, silo, component, GS_DETAILS_PAGE_REFINE_FLAGS, &error)) {
+	if (!gs_appstream_refine_app (NULL, app, silo, component, GS_DETAILS_PAGE_REFINE_FLAGS, NULL, NULL, AS_COMPONENT_SCOPE_UNKNOWN, &error)) {
 		g_task_return_error (task, g_steal_pointer (&error));
 		return;
 	}

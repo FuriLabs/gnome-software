@@ -45,6 +45,7 @@ src/gs-featured-carousel.c
 src/gs-featured-carousel.ui
 src/gs-hardware-support-context-dialog.c
 src/gs-hardware-support-context-dialog.ui
+src/gs-help-overlay.ui
 src/gs-installed-page.c
 src/gs-installed-page.ui
 src/gs-license-tile.c
@@ -52,7 +53,6 @@ src/gs-license-tile.ui
 src/gs-loading-page.c
 src/gs-loading-page.ui
 src/gs-main.c
-src/gs-metered-data-dialog.ui
 src/gs-moderate-page.ui
 lib/gs-odrs-provider.c
 src/gs-origin-popover-row.c
@@ -91,12 +91,14 @@ src/gs-storage-context-dialog.c
 src/gs-storage-context-dialog.ui
 src/gs-summary-tile.c
 src/gs-summary-tile.ui
+src/gs-toast.c
 src/gs-update-dialog.c
 src/gs-update-dialog.ui
 src/gs-update-list.c
 src/gs-update-monitor.c
 src/gs-updates-page.c
 src/gs-updates-page.ui
+src/gs-updates-paused-banner.c
 src/gs-updates-section.c
 src/gs-updates-section.ui
 src/gs-upgrade-banner.c
@@ -115,6 +117,7 @@ plugins/flatpak/gs-plugin-flatpak.c
 plugins/fwupd/gs-fwupd-app.c
 plugins/fwupd/gs-plugin-fwupd.c
 plugins/fwupd/org.gnome.Software.Plugin.Fwupd.metainfo.xml.in
+plugins/opensuse-distro-upgrade/gs-plugin-opensuse-distro-upgrade.c
 plugins/packagekit/gs-packagekit-task.c
 plugins/packagekit/gs-plugin-packagekit.c
 plugins/rpm-ostree/gs-plugin-rpm-ostree.c

@@ -79,6 +79,8 @@ struct _GsPluginLoader
 	gulong			 network_available_notify_handler;
 	gulong			 network_metered_notify_handler;
 
+	GPowerProfileMonitor	*power_profile_monitor;  /* (owned) (nullable) */
+
 	GsJobManager		*job_manager;  /* (owned) (not nullable) */
 	GsCategoryManager	*category_manager;
 	GsOdrsProvider		*odrs_provider;  /* (owned) (nullable) */
@@ -933,7 +935,9 @@ static gboolean
 gs_plugin_loader_app_is_valid_updatable (GsApp *app, gpointer user_data)
 {
 	return gs_plugin_loader_app_is_valid_filter (app, user_data) &&
-		(gs_app_is_updatable (app) || gs_app_get_state (app) == GS_APP_STATE_INSTALLING);
+		(gs_app_is_updatable (app) ||
+		 gs_app_get_state (app) == GS_APP_STATE_DOWNLOADING ||
+		 gs_app_get_state (app) == GS_APP_STATE_INSTALLING);
 }
 
 gboolean
@@ -1078,6 +1082,7 @@ gs_plugin_loader_pending_apps_remove (GsPluginLoader *plugin_loader,
 
 		/* check the app is not still in an action helper */
 		switch (gs_app_get_state (app)) {
+		case GS_APP_STATE_DOWNLOADING:
 		case GS_APP_STATE_INSTALLING:
 		case GS_APP_STATE_REMOVING:
 			g_warning ("application %s left in %s helper",
@@ -2523,6 +2528,7 @@ gs_plugin_loader_dispose (GObject *object)
 		plugin_loader->queued_ops_pool = NULL;
 	}
 	g_clear_object (&plugin_loader->network_monitor);
+	g_clear_object (&plugin_loader->power_profile_monitor);
 	g_clear_object (&plugin_loader->settings);
 	g_clear_object (&plugin_loader->pending_apps);
 	g_clear_object (&plugin_loader->job_manager);
@@ -2825,6 +2831,8 @@ gs_plugin_loader_init (GsPluginLoader *plugin_loader)
 	/* monitor the network as the many UI operations need the network */
 	gs_plugin_loader_monitor_network (plugin_loader);
 
+	plugin_loader->power_profile_monitor = g_power_profile_monitor_dup_default ();
+
 	/* by default we only show project-less apps or compatible projects */
 	tmp = g_getenv ("GNOME_SOFTWARE_COMPATIBLE_PROJECTS");
 	if (tmp == NULL) {
@@ -2905,6 +2913,43 @@ gs_plugin_loader_get_network_metered (GsPluginLoader *plugin_loader)
 		return FALSE;
 	}
 	return g_network_monitor_get_network_metered (plugin_loader->network_monitor);
+}
+
+gboolean
+gs_plugin_loader_get_power_saver (GsPluginLoader *plugin_loader)
+{
+	return plugin_loader->power_profile_monitor != NULL &&
+	       g_power_profile_monitor_get_power_saver_enabled (plugin_loader->power_profile_monitor);
+}
+
+gboolean
+gs_plugin_loader_get_game_mode (GsPluginLoader *plugin_loader)
+{
+	g_autoptr(GDBusProxy) proxy = NULL;
+	g_autoptr(GVariant) val = NULL;
+
+	/* This supports https://github.com/FeralInteractive/gamemode ;
+	   it's okay when it's not installed, nor running. */
+	proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+					       G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
+#if GLIB_CHECK_VERSION(2, 72, 0)
+					       G_DBUS_PROXY_FLAGS_NO_MATCH_RULE |
+#endif
+					       G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS,
+					       NULL,
+					       "com.feralinteractive.GameMode",
+					       "/com/feralinteractive/GameMode",
+					       "com.feralinteractive.GameMode",
+					       NULL,
+					       NULL);
+	if (proxy == NULL)
+		return FALSE;
+
+	val = g_dbus_proxy_get_cached_property (proxy, "ClientCount");
+	if (val != NULL)
+		return g_variant_get_int32 (val) > 0;
+
+	return FALSE;
 }
 
 static void

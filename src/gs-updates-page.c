@@ -149,7 +149,8 @@ _get_app_section (GsApp *app)
 
 	if (!gs_app_has_quirk (app, GS_APP_QUIRK_NEEDS_REBOOT) &&
 	    (gs_app_get_state (app) == GS_APP_STATE_UPDATABLE_LIVE ||
-	     gs_app_get_state (app) == GS_APP_STATE_INSTALLING)) {
+	     gs_app_get_state (app) == GS_APP_STATE_INSTALLING ||
+	     gs_app_get_state (app) == GS_APP_STATE_DOWNLOADING)) {
 		if (gs_app_get_kind (app) == AS_COMPONENT_KIND_FIRMWARE)
 			return GS_UPDATES_SECTION_KIND_ONLINE_FIRMWARE;
 		return GS_UPDATES_SECTION_KIND_ONLINE;
@@ -179,7 +180,8 @@ _get_num_updates (GsUpdatesPage *self)
 	for (guint i = 0; i < gs_app_list_length (apps); ++i) {
 		GsApp *app = gs_app_list_index (apps, i);
 		if (gs_app_is_updatable (app) ||
-		    gs_app_get_state (app) == GS_APP_STATE_INSTALLING)
+		    gs_app_get_state (app) == GS_APP_STATE_INSTALLING ||
+		    gs_app_get_state (app) == GS_APP_STATE_DOWNLOADING)
 			++count;
 	}
 	return count;
@@ -624,7 +626,6 @@ static void
 gs_updates_page_load (GsUpdatesPage *self)
 {
 	guint64 refine_flags;
-	g_autoptr(GsApp) app = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	if (self->action_cnt > 0)
@@ -1123,6 +1124,7 @@ gs_shell_update_are_updates_in_progress (GsUpdatesPage *self)
 		switch (gs_app_get_state (app)) {
 		case GS_APP_STATE_INSTALLING:
 		case GS_APP_STATE_REMOVING:
+		case GS_APP_STATE_DOWNLOADING:
 			return TRUE;
 			break;
 		default:
@@ -1156,21 +1158,6 @@ gs_updates_page_status_changed_cb (GsPluginLoader *plugin_loader,
                                    GsPluginStatus status,
                                    GsUpdatesPage *self)
 {
-	switch (status) {
-	case GS_PLUGIN_STATUS_INSTALLING:
-	case GS_PLUGIN_STATUS_REMOVING:
-		if (app == NULL ||
-		    (gs_app_get_kind (app) != AS_COMPONENT_KIND_OPERATING_SYSTEM &&
-		     gs_app_get_id (app) != NULL)) {
-			/* if we do a install or remove then make sure all new
-			 * packages are downloaded */
-			gs_updates_page_invalidate_downloaded_upgrade (self);
-		}
-		break;
-	default:
-		break;
-	}
-
 	gs_updates_page_update_ui_state (self);
 }
 

@@ -1,5 +1,5 @@
 project('gnome-software', 'c',
-  version : '45.3',
+  version : '46.beta',
   license : 'GPL-2.0-or-later',
   default_options : ['warning_level=1', 'c_std=c11'],
   meson_version : '>=0.58.0'
@@ -113,7 +113,7 @@ add_project_arguments('-D_GNU_SOURCE', language : 'c')
 conf.set('HAVE_LINUX_UNISTD_H', cc.has_header('linux/unistd.h'))
 
 appstream = dependency('appstream',
-  version : '>= 0.14.0',
+  version : '>= 0.16.4',
   fallback : ['appstream', 'appstream_dep'],
   default_options : [
     'docs=false',
@@ -121,33 +121,13 @@ appstream = dependency('appstream',
     'install-docs=false'
   ]
 )
-if appstream.type_name() == 'internal'
-else
-  if meson.get_compiler('c').has_header_symbol('appstream.h', 'AS_SEARCH_TOKEN_MATCH_MEDIATYPE', dependencies: appstream)
-    conf.set('HAVE_AS_SEARCH_TOKEN_MATCH_MEDIATYPE', '1')
-  endif
-  if meson.get_compiler('c').has_header_symbol('appstream.h', 'AS_FORMAT_STYLE_CATALOG', dependencies: appstream)
-    conf.set('HAVE_AS_FORMAT_STYLE_CATALOG', '1')
-  endif
-  if meson.get_compiler('c').has_function('as_metadata_components_to_catalog', prefix: '#include <appstream.h>', dependencies: appstream)
-    conf.set('HAVE_AS_METADATA_COMPONENTS_TO_CATALOG', '1')
-  endif
-  if meson.get_compiler('c').links('''#include <appstream.h>
-      int main (void)
-      {
-         as_gstring_replace (NULL, "a", "b", 0);
-         return 0;
-      }''', name: 'as_gstring_replace() has four arguments', dependencies: appstream)
-    conf.set('HAVE_AS_GSTRING_REPLACE_WITH_FOUR_ARGS', '1')
-  endif
-endif
 
 gdk_pixbuf = dependency('gdk-pixbuf-2.0', version : '>= 2.32.0')
 libxmlb = dependency('xmlb', version : '>= 0.1.7', fallback : ['libxmlb', 'libxmlb_dep'])
 gio_unix = dependency('gio-unix-2.0', version : '>= 2.56.0')
 gmodule = dependency('gmodule-2.0')
 gtk = dependency('gtk4',
-  version : '>= 4.10.0',
+  version : '>= 4.12.0',
   fallback: ['gtk', 'gtk_dep'],
   default_options: [
       'build-examples=false',
@@ -168,7 +148,7 @@ else
   libsoupapiversion = '3.0'
 endif
 libadwaita = dependency('libadwaita-1',
-  version: '>=1.3.alpha',
+  version: '>=1.4.0',
   fallback: ['libadwaita', 'libadwaita_dep'],
   default_options: [
     'examples=false',
@@ -230,7 +210,7 @@ if get_option('eos_updater')
 endif
 
 if get_option('fwupd')
-  fwupd = dependency('fwupd', version : '>= 1.5.6')
+  fwupd = dependency('fwupd', version : '>= 1.6.2')
 endif
 
 if get_option('flatpak')

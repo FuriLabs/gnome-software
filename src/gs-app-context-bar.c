@@ -267,6 +267,8 @@ static void
 update_safety_tile (GsAppContextBar *self)
 {
 	const gchar *icon_name, *title, *css_class;
+	/* keep @reviewd_by global for the function, because it's added as-is into the @descriptions array, not copied */
+	g_autofree gchar *reviewed_by = NULL;
 	g_autofree gchar *description = NULL;
 	g_autoptr(GPtrArray) descriptions = g_ptr_array_new_with_free_func (NULL);
 	g_autoptr(GsAppPermissions) permissions = NULL;
@@ -329,12 +331,33 @@ update_safety_tile (GsAppContextBar *self)
 					       * It’s used in a context tile, so should be short. */
 					      _("Can access hardware devices"));
 			break;
+		case GS_APP_PERMISSIONS_FLAGS_INPUT_DEVICES:
+			add_to_safety_rating (&chosen_rating, descriptions,
+					      SAFETY_PROBABLY_SAFE,
+					      /* Translators: This indicates an app can access input devices.
+					       * It’s used in a context tile, so should be short. */
+					      _("Can access input devices"));
+			break;
+		case GS_APP_PERMISSIONS_FLAGS_PULSEAUDIO_DEVICES:
+			add_to_safety_rating (&chosen_rating, descriptions,
+					      SAFETY_PROBABLY_SAFE,
+					      /* Translators: This indicates an app can access input devices.
+					       * It’s used in a context tile, so should be short. */
+					      _("Can access microphones"));
+			break;
 		case GS_APP_PERMISSIONS_FLAGS_SYSTEM_DEVICES:
 			add_to_safety_rating (&chosen_rating, descriptions,
 					      SAFETY_POTENTIALLY_UNSAFE,
 					      /* Translators: This indicates an app can access system devices such as /dev/shm.
 					       * It’s used in a context tile, so should be short. */
 					      _("Can access system devices"));
+			break;
+		case GS_APP_PERMISSIONS_FLAGS_SCREEN:
+			add_to_safety_rating (&chosen_rating, descriptions,
+					      SAFETY_POTENTIALLY_UNSAFE,
+					      /* Translators: This indicates an app can access the screen/display contents.
+					       * It’s used in a context tile, so should be short. */
+					      _("Can access screen contents"));
 			break;
 		case GS_APP_PERMISSIONS_FLAGS_HOME_FULL:
 		case GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL:
@@ -426,7 +449,6 @@ update_safety_tile (GsAppContextBar *self)
 	    gs_app_has_quirk (self->app, GS_APP_QUIRK_PROVENANCE)) {
 		/* It's a new key suggested at https://github.com/systemd/systemd/issues/27777 */
 		g_autofree gchar *name = g_get_os_info ("VENDOR_NAME");
-		g_autofree gchar *reviewed_by = NULL;
 		if (name == NULL) {
 			/* Translators: This indicates that an app has been packaged
 			 * by the user’s distribution and is probably safe.
@@ -476,29 +498,27 @@ update_safety_tile (GsAppContextBar *self)
 				      /* Translators: This indicates an app’s source code is freely available, so can be audited for security.
 				       * It’s used in a context tile, so should be short. */
 				      _("Auditable code"));
+	} else if (gs_app_get_license (self->app) == NULL) {
+		add_to_safety_rating_full (&chosen_rating, descriptions,
+					   SAFETY_PRIVILEGED,
+					   /* Translators: This indicates an app does not specify which license it's developed under.
+					    * It’s used in a context tile, so should be short. */
+					   _("Unknown license"),
+					   FALSE);
+	} else if (g_ascii_strncasecmp (gs_app_get_license (self->app), "LicenseRef-proprietary", strlen ("LicenseRef-proprietary")) == 0) {
+		add_to_safety_rating_full (&chosen_rating, descriptions,
+					   SAFETY_PROBABLY_SAFE,
+					   /* Translators: This indicates an app is not licensed under a free software license.
+					    * It’s used in a context tile, so should be short. */
+					   _("Proprietary code"),
+					   FALSE);
 	} else {
-		SafetyRating use_rating = SAFETY_PROBABLY_SAFE;
-
-		if (gs_app_get_license (self->app) == NULL) {
-			add_to_safety_rating_full (&chosen_rating, descriptions,
-						   use_rating,
-						   /* Translators: This indicates an app does not specify which license it's developed under.
-						    * It’s used in a context tile, so should be short. */
-						   _("Unknown license"),
-						   FALSE);
-		} else {
-			/* Proprietary apps are one level worse (less safe) than whichever rating
-			   had been determined from the provided permissions. */
-			if (chosen_rating < SAFETY_UNSAFE && chosen_rating >= use_rating)
-				use_rating = chosen_rating + 1;
-
-			add_to_safety_rating_full (&chosen_rating, descriptions,
-						   use_rating,
-						   /* Translators: This indicates an app is not licensed under a free software license.
-						    * It’s used in a context tile, so should be short. */
-						   _("Proprietary code"),
-						   FALSE);
-		}
+		add_to_safety_rating_full (&chosen_rating, descriptions,
+					   SAFETY_PROBABLY_SAFE,
+					   /* Translators: This indicates an app is not licensed under a free software license.
+					    * It’s used in a context tile, so should be short. */
+					   _("Special license"),
+					   FALSE);
 	}
 
 	g_assert (descriptions->len > 0);

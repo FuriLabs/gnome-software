@@ -88,6 +88,7 @@ struct _GsAppQuery
 	gchar *provides_tag;  /* (owned) (nullable) */
 	GsAppQueryProvidesType provides_type;
 	GsAppQueryLicenseType license_type;
+	GsAppQueryDeveloperVerifiedType developer_verified_type;
 };
 
 G_DEFINE_TYPE (GsAppQuery, gs_app_query, G_TYPE_OBJECT)
@@ -115,9 +116,46 @@ typedef enum {
 	PROP_PROVIDES_TAG,
 	PROP_PROVIDES_TYPE,
 	PROP_LICENSE_TYPE,
+	PROP_DEVELOPER_VERIFIED_TYPE,
 } GsAppQueryProperty;
 
-static GParamSpec *props[PROP_LICENSE_TYPE + 1] = { NULL, };
+static GParamSpec *props[PROP_DEVELOPER_VERIFIED_TYPE + 1] = { NULL, };
+
+static gchar **
+gs_app_query_sanitize_keywords (const gchar * const *terms)
+{
+	g_autoptr(GStrvBuilder) keywords = NULL;
+	gboolean any_added = FALSE;
+
+	if (terms == NULL || terms[0] == NULL)
+		return NULL;
+
+	keywords = g_strv_builder_new ();
+
+	/* If the caller already split the terms, then use it as is */
+	if (terms[1] != NULL) {
+		g_strv_builder_addv (keywords, (const gchar **) terms);
+		any_added = TRUE;
+	} else {
+		g_autofree gchar *term = g_strdup (terms[0]);
+		g_strstrip (term);
+		if (strchr (term, ' ')) {
+			g_auto(GStrv) split = g_strsplit (term, " ", -1);
+			for (guint i = 0; split[i] != NULL; i++) {
+				gchar *word = g_strstrip (split[i]);
+				if (*word != '\0') {
+					g_strv_builder_add (keywords, word);
+					any_added = TRUE;
+				}
+			}
+		} else if (*term != '\0') {
+			g_strv_builder_add (keywords, term);
+			any_added = TRUE;
+		}
+	}
+
+	return any_added ? g_strv_builder_end (keywords) : NULL;
+}
 
 static void
 gs_app_query_constructed (GObject *object)
@@ -203,6 +241,9 @@ gs_app_query_get_property (GObject    *object,
 		break;
 	case PROP_LICENSE_TYPE:
 		g_value_set_enum (value, self->license_type);
+		break;
+	case PROP_DEVELOPER_VERIFIED_TYPE:
+		g_value_set_enum (value, self->developer_verified_type);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -322,12 +363,7 @@ gs_app_query_set_property (GObject      *object,
 	case PROP_KEYWORDS:
 		/* Construct only. */
 		g_assert (self->keywords == NULL);
-		self->keywords = g_value_dup_boxed (value);
-
-		/* Squash empty arrays to %NULL. */
-		if (self->keywords != NULL && self->keywords[0] == NULL)
-			g_clear_pointer (&self->keywords, g_strfreev);
-
+		self->keywords = gs_app_query_sanitize_keywords (g_value_get_boxed (value));
 		break;
 	case PROP_ALTERNATE_OF:
 		/* Construct only. */
@@ -348,6 +384,11 @@ gs_app_query_set_property (GObject      *object,
 		/* Construct only. */
 		g_assert (self->license_type == GS_APP_QUERY_LICENSE_ANY);
 		self->license_type = g_value_get_enum (value);
+		break;
+	case PROP_DEVELOPER_VERIFIED_TYPE:
+		/* Construct only. */
+		g_assert (self->developer_verified_type == GS_APP_QUERY_DEVELOPER_VERIFIED_ANY);
+		self->developer_verified_type = g_value_get_enum (value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -798,6 +839,24 @@ gs_app_query_class_init (GsAppQueryClass *klass)
 				   G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 				   G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
+	/**
+	 * GsAppQuery:developer-verified-type:
+	 *
+	 * The type of developer verified state filter.
+	 *
+	 * If this is %GS_APP_QUERY_DEVELOPER_VERIFIED_ANY, apps are not filtered by
+	 * the developer verified state.
+	 *
+	 * Since: 46
+	 */
+	props[PROP_DEVELOPER_VERIFIED_TYPE] =
+		g_param_spec_enum ("developer-verified-type", "Developer Verified Type",
+				   "The type of developer verified state filter.",
+				   GS_TYPE_APP_QUERY_DEVELOPER_VERIFIED_TYPE,
+				   GS_APP_QUERY_DEVELOPER_VERIFIED_ANY,
+				   G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+				   G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
 	g_object_class_install_properties (object_class, G_N_ELEMENTS (props), props);
 }
 
@@ -809,6 +868,7 @@ gs_app_query_init (GsAppQuery *self)
 	self->is_installed = GS_APP_QUERY_TRISTATE_UNSET;
 	self->provides_type = GS_APP_QUERY_PROVIDES_UNKNOWN;
 	self->license_type = GS_APP_QUERY_LICENSE_ANY;
+	self->developer_verified_type = GS_APP_QUERY_DEVELOPER_VERIFIED_ANY;
 }
 
 /**
@@ -1217,4 +1277,22 @@ gs_app_query_get_license_type (GsAppQuery *self)
 	g_return_val_if_fail (GS_IS_APP_QUERY (self), GS_APP_QUERY_LICENSE_ANY);
 
 	return self->license_type;
+}
+
+/**
+ * gs_app_query_get_developer_verified_type:
+ * @self: a #GsAppQuery
+ *
+ * Get the value of #GsAppQuery:developer-verified-type.
+ *
+ * Returns: the type of developer verified state filter, or
+ *   %GS_APP_QUERY_DEVELOPER_VERIFIED_ANY to not filter by it
+ * Since: 46
+ */
+GsAppQueryDeveloperVerifiedType
+gs_app_query_get_developer_verified_type (GsAppQuery *self)
+{
+	g_return_val_if_fail (GS_IS_APP_QUERY (self), GS_APP_QUERY_DEVELOPER_VERIFIED_ANY);
+
+	return self->developer_verified_type;
 }

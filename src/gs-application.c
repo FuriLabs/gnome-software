@@ -136,7 +136,7 @@ gs_application_init (GsApplication *application)
 		  _("Open a local package file"), _("FILENAME") },
 		{ "interaction", '\0', 0, G_OPTION_ARG_STRING, NULL,
 		  _("The kind of interaction expected for this action: either "
-		    "‘none’, ‘notify’, or ‘full’"), NULL },
+		    "‘none’, ‘notify’, or ‘full’"), _("INTERACTION") },
 		{ "show-metainfo", '\0', 0, G_OPTION_ARG_FILENAME, NULL,
 		  _("Show a local metainfo or appdata file"), _("FILENAME") },
 		{ "verbose", '\0', 0, G_OPTION_ARG_NONE, NULL,
@@ -594,6 +594,7 @@ details_activated (GSimpleAction *action,
 							  GS_APP_LIST_FILTER_FLAG_KEY_ID_PROVIDES,
 					  "sort-func", gs_utils_app_sort_match_value,
 					  "license-type", gs_shell_get_query_license_type (app->shell),
+					  "developer-verified-type", gs_shell_get_query_developer_verified_type (app->shell),
 					  NULL);
 		plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 		gs_plugin_loader_job_process_async (app->plugin_loader, plugin_job,
@@ -692,7 +693,6 @@ install_activated (GSimpleAction *action,
 	const gchar *id;
 	GsShellInteraction interaction;
 	InstallActivatedHelper *helper;
-	g_autoptr (GsApp) a = NULL;
 	g_autofree gchar *data_id = NULL;
 
 	g_variant_get (parameter, "(&su)", &id, &interaction);
@@ -876,6 +876,7 @@ launch_activated (GSimpleAction *action,
 				  "dedupe-flags", GS_PLUGIN_JOB_DEDUPE_FLAGS_DEFAULT,
 				  "sort-func", gs_utils_app_sort_match_value,
 				  "license-type", gs_shell_get_query_license_type (self->shell),
+				  "developer-verified-type", gs_shell_get_query_developer_verified_type (self->shell),
 				  NULL);
 	search_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 	list = gs_plugin_loader_job_process (self->plugin_loader, search_job, self->cancellable, &error);
@@ -1083,7 +1084,6 @@ gs_application_startup (GApplication *application)
 	g_auto(GStrv) plugin_blocklist = NULL;
 	g_auto(GStrv) plugin_allowlist = NULL;
 	const gchar *tmp;
-	g_autoptr(GAsyncResult) setup_result = NULL;
 
 	G_APPLICATION_CLASS (gs_application_parent_class)->startup (application);
 
