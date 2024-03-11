@@ -911,7 +911,8 @@ check_directory_for_desktop_file (GsPlugin *plugin,
 	if (found && cb (plugin, app, filename, key_file)) {
 		g_autoptr(GDesktopAppInfo) appinfo = NULL;
 		g_debug ("Found '%s' for app '%s' and picked it", filename, desktop_id);
-		appinfo = g_desktop_app_info_new_from_keyfile (key_file);
+		/* use the filename, not the key_file, to enable bus activation from the .desktop file */
+		appinfo = g_desktop_app_info_new_from_filename (filename);
 		if (appinfo != NULL)
 			return g_steal_pointer (&appinfo);
 		g_debug ("Failed to load '%s' as a GDesktopAppInfo", filename);
@@ -927,7 +928,8 @@ check_directory_for_desktop_file (GsPlugin *plugin,
 		if (found && cb (plugin, app, desktop_filename, key_file)) {
 			g_autoptr(GDesktopAppInfo) appinfo = NULL;
 			g_debug ("Found '%s' for app '%s' and picked it", desktop_filename, desktop_id);
-			appinfo = g_desktop_app_info_new_from_keyfile (key_file);
+			/* use the filename, not the key_file, to enable bus activation from the .desktop file */
+			appinfo = g_desktop_app_info_new_from_filename (desktop_filename);
 			if (appinfo != NULL)
 				return g_steal_pointer (&appinfo);
 			g_debug ("Failed to load '%s' as a GDesktopAppInfo", desktop_filename);
@@ -1259,6 +1261,39 @@ gs_plugin_cache_invalidate (GsPlugin *plugin)
 
 	locker = g_mutex_locker_new (&priv->cache_mutex);
 	g_hash_table_remove_all (priv->cache);
+}
+
+/**
+ * gs_plugin_list_cached:
+ * @plugin: a #GsPlugin
+ *
+ * Lists all apps cached by the @plugin.
+ *
+ * Returns: (transfer full): a #GsAppList with all currently cached apps
+ *
+ * Since: 46
+ **/
+GsAppList *
+gs_plugin_list_cached (GsPlugin *plugin)
+{
+	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
+	GsAppList *list = NULL;
+	GHashTableIter iter;
+	gpointer value = NULL;
+	g_autoptr(GMutexLocker) locker = NULL;
+
+	g_return_val_if_fail (GS_IS_PLUGIN (plugin), NULL);
+
+	locker = g_mutex_locker_new (&priv->cache_mutex);
+	list = gs_app_list_new ();
+
+	g_hash_table_iter_init (&iter, priv->cache);
+	while (g_hash_table_iter_next (&iter, NULL, &value)) {
+		GsApp *app = value;
+		gs_app_list_add (list, app);
+	}
+
+	return list;
 }
 
 /**
