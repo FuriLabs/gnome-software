@@ -1,3 +1,9 @@
+gnome-software (46~rc-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 11 Mar 2024 09:53:57 -0400
+
 gnome-software (46~beta-1) unstable; urgency=medium
 
   * New upstream release
