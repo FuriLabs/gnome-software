@@ -121,7 +121,9 @@ format_version_update (GsApp *app, GtkTextDirection direction)
 static GtkWidget *
 create_app_row (GsApp *app)
 {
-	GtkWidget *row, *label;
+	GtkWidget *row, *row_container, *label;
+	const char *critical_update_message;
+	g_autofree char *a11y_row_label = NULL;
 
 	row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
 	g_object_set_data_full (G_OBJECT (row),
@@ -175,7 +177,31 @@ create_app_row (GsApp *app)
 	gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
 	gtk_box_append (GTK_BOX (row), label);
 
-	return row;
+	row_container = g_object_new (GTK_TYPE_LIST_BOX_ROW, "child", row, NULL);
+
+	critical_update_message = (gs_app_get_update_urgency (app) >= AS_URGENCY_KIND_CRITICAL) ? _("Critical update") : "";
+
+	/* This is the accessibility label for the row. Since it’s a textual
+	 * representation of the row for the screen reader, the order its
+	 * components appear in needs to vary with the text direction, just like
+	 * the widgets do. */
+	if (gtk_widget_get_direction (GTK_WIDGET (row_container)) == GTK_TEXT_DIR_RTL) {
+		a11y_row_label = g_strjoin (" ",
+					    gtk_label_get_text (GTK_LABEL (label)),
+					    critical_update_message,
+					    gs_app_get_source_default (app),
+					    NULL);
+	} else {
+		a11y_row_label = g_strjoin (" ",
+					    gs_app_get_source_default (app),
+					    critical_update_message,
+					    gtk_label_get_text (GTK_LABEL (label)),
+					    NULL);
+	}
+
+	gtk_accessible_update_property (GTK_ACCESSIBLE (row_container), GTK_ACCESSIBLE_PROPERTY_LABEL, a11y_row_label, -1);
+
+	return row_container;
 }
 
 static gboolean
