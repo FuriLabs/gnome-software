@@ -1,3 +1,10 @@
+gnome-software (46.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+    - Fix loading updates loop (Closes: #1064364)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sat, 16 Mar 2024 07:51:08 -0400
+
 gnome-software (46~rc-1) unstable; urgency=medium
 
   * New upstream release
