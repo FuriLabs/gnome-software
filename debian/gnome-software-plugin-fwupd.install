@@ -1,0 +1,2 @@
+usr/lib/*/gnome-software/plugins-*/libgs_plugin_fwupd*.so
+usr/share/applications/gnome-software-local-file-fwupd.desktop

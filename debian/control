@@ -55,8 +55,7 @@ Depends: gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin
          ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: sessioninstaller
-Recommends: fwupd [linux-any],
-            gnome-software-plugin-deb (= ${binary:Version})
+Recommends: ${plugin:Recommends}
 Suggests: gnome-software-plugin-deb,
           gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
           gnome-software-plugin-snap [amd64 arm64 armel armhf i386 ppc64el s390x]
@@ -129,6 +128,25 @@ Description: Flatpak support for GNOME Software
  appdata format.
  .
  This package contains the Flatpak plugin.
+
+Package: gnome-software-plugin-fwupd
+Architecture: linux-any
+Depends: fwupd,
+         gnome-software (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends}
+Breaks: gnome-software (<< 46.0-2~)
+Replaces: gnome-software (<< 46.0-2~)
+Description: Firmware updater support for GNOME Software
+ Software lets you install and update applications and system extensions.
+ .
+ Software uses a plugin architecture to separate the frontend from the
+ technologies that are used underneath. Currently, a PackageKit plugin provides
+ data from a number of traditional packaging systems, such as rpm or apt. An
+ appdata plugin provides additional metadata from locally installed data in the
+ appdata format.
+ .
+ This package contains the fwupd plugin to update firmware.
 
 Package: gnome-software-plugin-snap
 Architecture: amd64 arm64 armel armhf i386 ppc64el s390x

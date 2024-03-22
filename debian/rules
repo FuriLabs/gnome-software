@@ -74,10 +74,16 @@ override_dh_missing:
 	# These files are split out to separate packages
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_appstream*
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_flatpak*
+	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_fwupd*
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_packagekit*
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_snap*
 	rm -f debian/gnome-software/usr/share/metainfo/org.gnome.Software.Plugin.Flatpak.metainfo.xml
 	rm -f debian/gnome-software/usr/share/metainfo/org.gnome.Software.Plugin.Snap.metainfo.xml
+	rm -f debian/gnome-software/usr/share/applications/gnome-software-local-file-fwupd.desktop
+# Ubuntu doesn't need the autostart file
+ifeq ($(shell dpkg-vendor --query vendor),Ubuntu)
+	rm -rf debian/gnome-software/etc/xdg/autostart
+endif
 
 override_dh_makeshlibs:
 	dh_makeshlibs -Xlibgs_plugin
@@ -87,6 +93,14 @@ override_dh_shlibdeps:
 
 # DISABLED
 override_dh_auto_test:
+
+# Ubuntu doesn't need the fwupd plugin
+override_dh_gencontrol:
+ifeq ($(shell dpkg-vendor --query vendor),Ubuntu)
+	dh_gencontrol -- -Vplugin:Recommends='gnome-software-plugin-deb'
+else
+	dh_gencontrol -- -Vplugin:Recommends='gnome-software-plugin-fwupd [linux-any], gnome-software-plugin-deb'
+endif
 
 override_dh_clean:
 	rm -f debian/gnome-software.gsettings-override
