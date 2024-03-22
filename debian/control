@@ -49,18 +49,15 @@ X-Ubuntu-Use-Langpack: yes
 
 Package: gnome-software
 Architecture: any
-Depends: apt-config-icons,
-         gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin (= ${binary:Version}),
+Depends: gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin (= ${binary:Version}),
          gnome-software-common (= ${source:Version}),
          gsettings-desktop-schemas (>= 3.18),
-         libgtk3-perl,
          ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: sessioninstaller
 Recommends: fwupd [linux-any],
             gnome-software-plugin-deb (= ${binary:Version})
-Suggests: apt-config-icons-hidpi,
-          gnome-software-plugin-deb,
+Suggests: gnome-software-plugin-deb,
           gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
           gnome-software-plugin-snap [amd64 arm64 armel armhf i386 ppc64el s390x]
 Description: Software Center for GNOME
@@ -90,11 +87,14 @@ Description: Software Center for GNOME (common files)
 Package: gnome-software-plugin-deb
 Architecture: any
 Depends: appstream,
+         apt-config-icons,
          gnome-software (= ${binary:Version}),
+         libgtk3-perl,
          packagekit (>= 1.2.5),
          software-properties-gtk,
          ${misc:Depends},
          ${shlibs:Depends}
+Suggests: apt-config-icons-hidpi
 Provides: gnome-software-plugin (= ${binary:Version})
 Breaks: gnome-software (<< 46.0-2~)
 Replaces: gnome-software (<< 46.0-2~)
