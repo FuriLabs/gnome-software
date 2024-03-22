@@ -57,7 +57,8 @@ Depends: apt-config-icons,
          ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: sessioninstaller
-Recommends: fwupd [linux-any]
+Recommends: fwupd [linux-any],
+            gnome-software-plugin-deb (= ${binary:Version})
 Suggests: apt-config-icons-hidpi,
           gnome-software-plugin-deb,
           gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
