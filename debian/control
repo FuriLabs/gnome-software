@@ -50,7 +50,7 @@ X-Ubuntu-Use-Langpack: yes
 Package: gnome-software
 Architecture: any
 Depends: apt-config-icons,
-         gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin-flatpak (= ${binary:Version}) | gnome-software-plugin-snap (= ${binary:Version}),
+         gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin (= ${binary:Version}),
          gnome-software-common (= ${source:Version}),
          gsettings-desktop-schemas (>= 3.18),
          libgtk3-perl,
@@ -94,6 +94,7 @@ Depends: appstream,
          software-properties-gtk,
          ${misc:Depends},
          ${shlibs:Depends}
+Provides: gnome-software-plugin (= ${binary:Version})
 Breaks: gnome-software (<< 46.0-2~)
 Replaces: gnome-software (<< 46.0-2~)
 Description: Flatpak support for GNOME Software
@@ -114,6 +115,7 @@ Depends: flatpak (>= 1.14.0),
          gnome-software (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
+Provides: gnome-software-plugin (= ${binary:Version})
 Breaks: gnome-software (<< 46.0-2~)
 Replaces: gnome-software (<< 46.0-2~)
 Description: Flatpak support for GNOME Software
@@ -133,6 +135,7 @@ Depends: gnome-software (= ${binary:Version}),
          snapd [amd64 arm64 armel armhf i386 ppc64el],
          ${misc:Depends},
          ${shlibs:Depends}
+Provides: gnome-software-plugin (= ${binary:Version})
 Recommends: snapd [s390x]
 Breaks: gnome-software (<< 46.0-2~)
 Replaces: gnome-software (<< 46.0-2~)
