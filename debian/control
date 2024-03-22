@@ -59,7 +59,9 @@ Depends: apt-config-icons,
 Conflicts: sessioninstaller
 Recommends: fwupd [linux-any]
 Suggests: apt-config-icons-hidpi,
-          gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32]
+          gnome-software-plugin-deb,
+          gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
+          gnome-software-plugin-snap [amd64 arm64 armel armhf i386 ppc64el s390x]
 Description: Software Center for GNOME
  Software lets you install and update applications and system extensions.
  .
