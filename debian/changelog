@@ -1,9 +1,19 @@
-gnome-software (46.0-2) UNRELEASED; urgency=medium
+gnome-software (46.0-2) experimental; urgency=medium
 
+  * Split deb support into separate gnome-software-plugin-deb package
+    (Closes: #1066030) (LP: #2019137, #2056767)
+  * Have each plugin provide a virtual gnome-software-plugin package
+  * Suggest all the gnome-software plugins
+  * Recommend gnome-software-plugin-deb for upgrades
+  * Split firmware update support into separate fwupd plugin & recommend it
+    except on Ubuntu which provides a separate firmware-updater app
+    Intentionally, do not have this provides the virtual gnome-software-plugin
+    since it doesn't allow browsing apps.
   * Drop patch that hides upstreams Software Sources dialog (Closes: #1060803)
   * Drop Depends: software-properties-gtk
+  * Stop recommending gnome-software-plugin-snap on Ubuntu
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 21 Mar 2024 20:43:47 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 27 Mar 2024 18:33:03 -0400
 
 gnome-software (46.0-1) unstable; urgency=medium
 
