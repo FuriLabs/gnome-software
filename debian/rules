@@ -63,14 +63,9 @@ override_dh_installgsettings:
 	sed -i "s/@URL@/$(FREE_URL)/g" debian/gnome-software.gsettings-override
 	dh_installgsettings
 
-override_dh_install:
-	# Remove unused files
-	rm -f debian/tmp/usr/lib/*/gnome-software/plugins-*/libgs_plugin_fedora*
-	dh_install
-
-override_dh_missing:
-	dh_missing --fail-missing
-
+execute_after_dh_missing:
+	# Not useful for Debian
+	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_fedora*
 	# These files are split out to separate packages
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_appstream*
 	rm -f debian/gnome-software/usr/lib/*/gnome-software/plugins-*/libgs_plugin_flatpak*
@@ -102,8 +97,7 @@ else
 	dh_gencontrol -- -Vplugin:Recommends='gnome-software-plugin-fwupd [linux-any], gnome-software-plugin-deb'
 endif
 
-override_dh_clean:
+execute_before_dh_clean:
 	rm -f debian/gnome-software.gsettings-override
-	dh_clean
 
 override_dh_gnome_clean:
