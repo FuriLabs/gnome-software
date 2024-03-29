@@ -97,7 +97,7 @@ Suggests: apt-config-icons-hidpi
 Provides: gnome-software-plugin (= ${binary:Version})
 Breaks: gnome-software (<< 46.0-2~)
 Replaces: gnome-software (<< 46.0-2~)
-Description: Flatpak support for GNOME Software
+Description: .deb support for GNOME Software
  Software lets you install and update applications and system extensions.
  .
  Software uses a plugin architecture to separate the frontend from the
