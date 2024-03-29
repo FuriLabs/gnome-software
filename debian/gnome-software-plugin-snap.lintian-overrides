@@ -1,0 +1,2 @@
+# has Depends: gnome-software
+desktop-command-not-in-package gnome-software [usr/share/applications/gnome-software-local-file-snap.desktop]
