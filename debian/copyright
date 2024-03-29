@@ -13,9 +13,8 @@ Copyright: 2007-2016 Richard Hughes <richard@hughsie.com>
            2018-2021 Philip Withnall <pwithnall@endlessos.org>
 License: GPL-2+
 
-Files: data/metainfo/org.gnome.Software.appdata.xml*
-       plugins/*/*.appdata.xml
-       plugins/*/*.metainfo.xml
+Files: data/metainfo/org.gnome.Software.metainfo.xml*
+       plugins/*/*.metainfo.xml*
 Copyright: 2013-2021, Richard Hughes <richard@hughsie.com>
 License: CC0-1.0
 
