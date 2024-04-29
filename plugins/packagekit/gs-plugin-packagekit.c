@@ -711,13 +711,27 @@ gs_plugin_app_remove (GsPlugin *plugin,
 	return TRUE;
 }
 
+static void
+gs_plugin_packagekit_set_update_app_state (GsApp *app,
+					   PkPackage *package)
+{
+	if (pk_package_get_info (package) == PK_INFO_ENUM_REMOVING ||
+	    pk_package_get_info (package) == PK_INFO_ENUM_OBSOLETING) {
+		gs_app_set_state (app, GS_APP_STATE_INSTALLED);
+	} else if (pk_package_get_info (package) == PK_INFO_ENUM_INSTALLING) {
+		gs_app_set_state (app, GS_APP_STATE_AVAILABLE);
+	} else {
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
+	}
+}
+
 static GsApp *
 gs_plugin_packagekit_build_update_app (GsPlugin *plugin, PkPackage *package)
 {
 	GsApp *app = gs_plugin_cache_lookup (plugin, pk_package_get_id (package));
 	if (app != NULL) {
 		if (gs_app_get_state (app) == GS_APP_STATE_UNKNOWN)
-			gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
+			gs_plugin_packagekit_set_update_app_state (app, package);
 		return app;
 	}
 	app = gs_app_new (NULL);
@@ -736,7 +750,7 @@ gs_plugin_packagekit_build_update_app (GsPlugin *plugin, PkPackage *package)
 	gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
 	gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
 	gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
+	gs_plugin_packagekit_set_update_app_state (app, package);
 	gs_plugin_cache_add (plugin, pk_package_get_id (package), app);
 	return app;
 }
@@ -776,6 +790,11 @@ gs_plugin_packagekit_add_updates (GsPlugin *plugin,
 		PkPackage *package = g_ptr_array_index (array, i);
 		g_autoptr(GsApp) app = NULL;
 		guint64 size_download_bytes;
+
+		if (pk_package_get_info (package) == PK_INFO_ENUM_BLOCKED) {
+			g_debug ("Skipping blocked '%s' in list of packages to update", pk_package_get_id (package));
+			continue;
+		}
 
 		app = gs_plugin_packagekit_build_update_app (plugin, package);
 		all_downloaded = (all_downloaded &&
@@ -4062,7 +4081,7 @@ update_system_filter_cb (PkPackage *package,
 			 gpointer user_data)
 {
 	PkInfoEnum info = pk_package_get_info (package);
-	return info != PK_INFO_ENUM_OBSOLETING && info != PK_INFO_ENUM_REMOVING;
+	return info != PK_INFO_ENUM_OBSOLETING && info != PK_INFO_ENUM_REMOVING && info != PK_INFO_ENUM_BLOCKED;
 }
 
 static void
