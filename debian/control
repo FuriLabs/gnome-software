@@ -89,7 +89,6 @@ Depends: appstream,
          gnome-software (= ${binary:Version}),
          libgtk3-perl,
          packagekit (>= 1.2.5),
-         software-properties-gtk,
          ${misc:Depends},
          ${shlibs:Depends}
 Suggests: apt-config-icons-hidpi
