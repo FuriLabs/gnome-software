@@ -66,15 +66,15 @@ gs_app_notify_installed (GsApp *app)
 	case AS_COMPONENT_KIND_DESKTOP_APP:
 		/* TRANSLATORS: this is the summary of a notification that an app
 		 * has been successfully installed */
-		summary = g_strdup_printf (_("%s is now installed"), gs_app_get_name (app));
+		summary = g_strdup_printf (_("%s Installed"), gs_app_get_name (app));
 		if (gs_app_has_quirk (app, GS_APP_QUIRK_NEEDS_REBOOT)) {
 			/* TRANSLATORS: an app has been installed, but
 			 * needs a reboot to complete the installation */
-			body = _("A restart is required for the changes to take effect.");
+			body = _("A restart is required for the changes to take effect");
 		} else {
 			/* TRANSLATORS: this is the body of a notification that an app
 			 * has been successfully installed */
-			body = _("App is ready to be used.");
+			body = _("The app is ready to be used");
 		}
 		break;
 	default:
@@ -82,18 +82,18 @@ gs_app_notify_installed (GsApp *app)
 		    gs_app_get_special_kind (app) == GS_APP_SPECIAL_KIND_OS_UPDATE) {
 			/* TRANSLATORS: this is the summary of a notification that OS updates
 			* have been successfully installed */
-			summary = g_strdup (_("System updates are now installed"));
+			summary = g_strdup (_("System Updates Installed"));
 			/* TRANSLATORS: this is the body of a notification that OS updates
 			* have been successfully installed */
 			body = _("Recently installed updates are available to review");
 		} else {
 			/* TRANSLATORS: this is the summary of a notification that a component
 			* has been successfully installed */
-			summary = g_strdup_printf (_("%s is now installed"), gs_app_get_name (app));
+			summary = g_strdup_printf (_("%s Installed"), gs_app_get_name (app));
 			if (gs_app_has_quirk (app, GS_APP_QUIRK_NEEDS_REBOOT)) {
 				/* TRANSLATORS: an app has been installed, but
 				* needs a reboot to complete the installation */
-				body = _("A restart is required for the changes to take effect.");
+				body = _("A restart is required for the changes to take effect");
 			}
 		}
 		break;
@@ -115,6 +115,14 @@ gs_app_notify_installed (GsApp *app)
 						       gs_app_get_id (app),
 						       plugin_name);
 	}
+
+	if (gs_app_has_icons (app)) {
+		g_autoptr(GIcon) icon = NULL;
+		icon = gs_app_get_icon_for_size (app, 48, 1, NULL);
+		if (icon)
+			g_notification_set_icon (n, icon);
+	}
+
 	g_notification_set_default_action_and_target  (n, "app.details", "(ss)",
 						       gs_app_get_unique_id (app), "");
 	#ifdef TESTDATADIR
@@ -879,7 +887,7 @@ gs_utils_reboot_notify (GsAppList *list,
 	if (is_install) {
 		if (app_name) {
 			/* TRANSLATORS: The '%s' is replaced with the app name */
-			tmp = g_strdup_printf ("An app “%s” has been installed", app_name);
+			tmp = g_strdup_printf ("“%s” Installed", app_name);
 			title = tmp;
 		} else {
 			/* TRANSLATORS: we've just live-updated some apps */
@@ -889,18 +897,18 @@ gs_utils_reboot_notify (GsAppList *list,
 		}
 	} else if (app_name) {
 		/* TRANSLATORS: The '%s' is replaced with the app name */
-		tmp = g_strdup_printf ("An app “%s” has been removed", app_name);
+		tmp = g_strdup_printf ("“%s” Uninstalled", app_name);
 		title = tmp;
 	} else {
-		/* TRANSLATORS: we've just removed some apps */
-		title = ngettext ("An app has been removed",
-				  "Apps have been removed",
+		/* TRANSLATORS: we've just uninstalled some apps */
+		title = ngettext ("An app has been uninstalled",
+				  "Apps have been uninstalled",
 				  gs_app_list_length (list));
 	}
 
 	/* TRANSLATORS: the new apps will not be run until we restart */
-	body = ngettext ("A restart is required for it to take effect.",
-	                 "A restart is required for them to take effect.",
+	body = ngettext ("A restart is required for it to take effect",
+	                 "A restart is required for them to take effect",
 	                 gs_app_list_length (list));
 
 	n = g_notification_new (title);
@@ -1409,12 +1417,10 @@ void
 gs_show_uri (GtkWindow *parent,
 	     const char *uri)
 {
-	g_autoptr (GFile) file = NULL;
-	g_autoptr (GtkFileLauncher) launcher = NULL;
+	g_autoptr (GtkUriLauncher) launcher = NULL;
 
-	file = g_file_new_for_uri (uri);
-	launcher = gtk_file_launcher_new (file);
-	gtk_file_launcher_launch (launcher, parent, NULL, NULL, NULL);
+	launcher = gtk_uri_launcher_new (uri);
+	gtk_uri_launcher_launch (launcher, parent, NULL, NULL, NULL);
 }
 
 /**

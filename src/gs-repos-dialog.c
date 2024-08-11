@@ -22,7 +22,7 @@
 
 struct _GsReposDialog
 {
-	AdwWindow	 parent_instance;
+	AdwDialog	 parent_instance;
 	GSettings	*settings;
 	GsFedoraThirdParty *third_party;
 	gboolean	 third_party_enabled;
@@ -37,7 +37,7 @@ struct _GsReposDialog
 	GtkWidget	*stack;
 };
 
-G_DEFINE_TYPE (GsReposDialog, gs_repos_dialog, ADW_TYPE_WINDOW)
+G_DEFINE_TYPE (GsReposDialog, gs_repos_dialog, ADW_TYPE_DIALOG)
 
 static void reload_third_party_repos (GsReposDialog *dialog);
 
@@ -115,7 +115,7 @@ _enable_repo (InstallRemoveData *install_data)
 }
 
 static void
-enable_repo_response_cb (AdwMessageDialog *confirm_dialog,
+enable_repo_response_cb (AdwAlertDialog *confirm_dialog,
 			 const gchar *response,
 			 gpointer user_data)
 {
@@ -149,7 +149,7 @@ enable_repo (GsReposDialog *dialog,
 
 	/* user needs to confirm acceptance of an agreement */
 	if (gs_app_get_agreement (repo) != NULL) {
-		GtkWidget *confirm_dialog;
+		AdwDialog *confirm_dialog;
 		g_autofree gchar *message = NULL;
 		g_autoptr(GError) error = NULL;
 
@@ -167,23 +167,22 @@ enable_repo (GsReposDialog *dialog,
 		}
 
 		/* ask for confirmation */
-		confirm_dialog = adw_message_dialog_new (GTK_WINDOW (dialog),
-							 /* TRANSLATORS: window title */
-							 _("Enable Third-Party Software Repository?"),
-							 message);
-		adw_message_dialog_add_responses (ADW_MESSAGE_DIALOG (confirm_dialog),
-						  "cancel",  _("_Cancel"),
-						  /* TRANSLATORS: button to accept the agreement */
-						  "enable", _("_Enable"),
-						  NULL);
+		/* TRANSLATORS: "Enable Third-Party Software Repository?" is
+		 * the confirmation dialog title */
+		confirm_dialog = adw_alert_dialog_new (_("Enable Third-Party Software Repository?"),
+						       message);
+		adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (confirm_dialog),
+						"cancel",  _("_Cancel"),
+						/* TRANSLATORS: button to accept the agreement */
+						"enable", _("_Enable"),
+						NULL);
 
 		/* handle this async */
 		g_signal_connect (confirm_dialog, "response",
 				  G_CALLBACK (enable_repo_response_cb),
 				  g_steal_pointer (&install_data));
 
-		gtk_window_set_modal (GTK_WINDOW (confirm_dialog), TRUE);
-		gtk_window_present (GTK_WINDOW (confirm_dialog));
+		adw_dialog_present (confirm_dialog, GTK_WIDGET (dialog));
 		return;
 	}
 
@@ -192,7 +191,7 @@ enable_repo (GsReposDialog *dialog,
 }
 
 static void
-remove_repo_response_cb (AdwMessageDialog *confirm_dialog,
+remove_repo_response_cb (AdwAlertDialog *confirm_dialog,
                          const gchar *response,
                          gpointer user_data)
 {
@@ -232,7 +231,7 @@ remove_confirm_repo (GsReposDialog *dialog,
 		     GsPluginManageRepositoryFlags operation)
 {
 	InstallRemoveData *remove_data;
-	GtkWidget *confirm_dialog;
+	AdwDialog *confirm_dialog;
 	g_autofree gchar *message = NULL;
 
 	remove_data = g_slice_new0 (InstallRemoveData);
@@ -246,28 +245,26 @@ remove_confirm_repo (GsReposDialog *dialog,
 			gs_app_get_name (repo));
 
 	/* ask for confirmation */
-	confirm_dialog = adw_message_dialog_new (GTK_WINDOW (dialog),
-						 operation == GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_DISABLE ? _("Disable Repository?") : _("Remove Repository?"),
+	confirm_dialog = adw_alert_dialog_new (operation == GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_DISABLE ? _("Disable Repository?") : _("Remove Repository?"),
 						 message);
-	adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (confirm_dialog),
+	adw_alert_dialog_add_response (ADW_ALERT_DIALOG (confirm_dialog),
 					 "cancel",  _("_Cancel"));
 
 	if (operation == GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_DISABLE) {
 		/* TRANSLATORS: this is button text to disable a repo */
-		adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (confirm_dialog), "disable",  _("_Disable"));
-		adw_message_dialog_set_response_appearance (ADW_MESSAGE_DIALOG (confirm_dialog), "disable", ADW_RESPONSE_DESTRUCTIVE);
+		adw_alert_dialog_add_response (ADW_ALERT_DIALOG (confirm_dialog), "disable",  _("_Disable"));
+		adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (confirm_dialog), "disable", ADW_RESPONSE_DESTRUCTIVE);
 	} else {
 		/* TRANSLATORS: this is button text to remove a repo */
-		adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (confirm_dialog), "remove",  _("_Remove"));
-		adw_message_dialog_set_response_appearance (ADW_MESSAGE_DIALOG (confirm_dialog), "remove", ADW_RESPONSE_DESTRUCTIVE);
+		adw_alert_dialog_add_response (ADW_ALERT_DIALOG (confirm_dialog), "remove",  _("_Remove"));
+		adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (confirm_dialog), "remove", ADW_RESPONSE_DESTRUCTIVE);
 	}
 
 	/* handle this async */
 	g_signal_connect (confirm_dialog, "response",
 			  G_CALLBACK (remove_repo_response_cb), remove_data);
 
-	gtk_window_set_modal (GTK_WINDOW (confirm_dialog), TRUE);
-	gtk_window_present (GTK_WINDOW (confirm_dialog));
+	adw_dialog_present (confirm_dialog, GTK_WIDGET (dialog));
 
 	gs_repo_row_mark_busy (row);
 }
@@ -333,7 +330,7 @@ fedora_third_party_repos_switch_notify_cb (GObject *object,
 	GsReposDialog *self = user_data;
 
 	gs_fedora_third_party_switch (self->third_party,
-				      gtk_switch_get_active (GTK_SWITCH (object)),
+				      adw_switch_row_get_active (ADW_SWITCH_ROW (object)),
 				      TRUE,
 				      self->cancellable,
 				      fedora_third_party_switch_done_cb,
@@ -604,21 +601,15 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 		g_autofree gchar *hint = NULL;
 		g_autofree gchar *section_id = NULL;
 
-		widget = gtk_switch_new ();
-		gtk_widget_set_valign (widget, GTK_ALIGN_CENTER);
-		gtk_switch_set_active (GTK_SWITCH (widget), dialog->third_party_enabled);
-		g_signal_connect_object (widget, "notify::active",
+		row = adw_switch_row_new ();
+		adw_switch_row_set_active (ADW_SWITCH_ROW (row), dialog->third_party_enabled);
+		g_signal_connect_object (row, "notify::active",
 					 G_CALLBACK (fedora_third_party_repos_switch_notify_cb), dialog, 0);
-		gtk_widget_set_visible (widget, TRUE);
-
-		row = adw_action_row_new ();
 #if ADW_CHECK_VERSION(1,2,0)
 		adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (row), FALSE);
 #endif
 		adw_preferences_row_set_title (ADW_PREFERENCES_ROW (row), _("Enable New Repositories"));
-		adw_action_row_set_subtitle (ADW_ACTION_ROW (row), _("Turn on new repositories when they are added."));
-		adw_action_row_set_activatable_widget (ADW_ACTION_ROW (row), widget);
-		adw_action_row_add_suffix (ADW_ACTION_ROW (row), widget);
+		adw_action_row_set_subtitle (ADW_ACTION_ROW (row), _("Turn on new repositories when they are added"));
 		gtk_widget_set_visible (row, TRUE);
 
 		anchor = g_strdup_printf ("<a href=\"%s\">%s</a>",
@@ -682,14 +673,16 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 static void
 reload_sources (GsReposDialog *dialog)
 {
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	/* get the list of non-core software repositories */
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_SOURCES,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME |
-							 GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE,
-					 "dedupe-flags", GS_APP_LIST_FILTER_FLAG_NONE,
-					 NULL);
+	query = gs_app_query_new ("is-source", GS_APP_QUERY_TRISTATE_TRUE,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME |
+						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE,
+				  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_NONE,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (dialog->plugin_loader, plugin_job,
 					    dialog->cancellable,
 					    (GAsyncReadyCallback) get_sources_cb,
@@ -862,18 +855,14 @@ gs_repos_dialog_class_init (GsReposDialogClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, content_page);
 	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, spinner);
 	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, stack);
-
-	gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, 0, "window.close", NULL);
 }
 
 GtkWidget *
-gs_repos_dialog_new (GtkWindow *parent, GsPluginLoader *plugin_loader)
+gs_repos_dialog_new (GsPluginLoader *plugin_loader)
 {
 	GsReposDialog *dialog;
 
 	dialog = g_object_new (GS_TYPE_REPOS_DIALOG,
-			       "transient-for", parent,
-			       "modal", TRUE,
 			       NULL);
 	dialog->third_party = gs_fedora_third_party_new (plugin_loader);
 	set_plugin_loader (dialog, plugin_loader);

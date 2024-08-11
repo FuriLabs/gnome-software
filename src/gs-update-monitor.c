@@ -701,9 +701,9 @@ get_system_finished_cb (GObject *object, GAsyncResult *res, gpointer data)
 		return;
 
 	/* TRANSLATORS: this is when the current operating system version goes end-of-life */
-	n = g_notification_new (_("Operating System Updates Unavailable"));
+	n = g_notification_new (_("System Has Reached End of Life"));
 	/* TRANSLATORS: this is the message dialog for the distro EOL notice */
-	g_notification_set_body (n, _("Upgrade to continue receiving security updates."));
+	g_notification_set_body (n, _("Upgrade to continue receiving updates"));
 	g_notification_set_default_action_and_target (n, "app.set-mode", "s", "updates");
 	gs_application_send_notification (monitor->application, "eol", n, MINUTES_IN_A_DAY);
 }
@@ -772,6 +772,7 @@ static void
 get_updates (GsUpdateMonitor *monitor,
 	     gint64 check_timestamp)
 {
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 	g_autoptr(DownloadUpdatesData) download_updates_data = NULL;
 
@@ -787,9 +788,10 @@ get_updates (GsUpdateMonitor *monitor,
 
 	/* NOTE: this doesn't actually do any network access */
 	g_debug ("Getting updates");
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_UPDATES,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY,
-					 NULL);
+	query = gs_app_query_new ("is-for-update", GS_APP_QUERY_TRISTATE_TRUE,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (monitor->plugin_loader,
 					    plugin_job,
 					    monitor->update_cancellable,
@@ -913,9 +915,8 @@ get_language_pack_cb (GObject *object, GAsyncResult *res, gpointer data)
 
 		with_app_data = with_app_data_new (monitor, app);
 
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_INSTALL,
-							 "app", app,
-							 NULL);
+		plugin_job = gs_plugin_job_install_apps_new (app_list,
+							     GS_PLUGIN_INSTALL_APPS_FLAGS_NONE);
 		gs_plugin_loader_job_process_async (monitor->plugin_loader,
 						    plugin_job,
 						    monitor->update_cancellable,
@@ -1210,7 +1211,7 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 		/* TRANSLATORS: title when we offline updates have failed */
 		notification = g_notification_new (_("Software Updates Failed"));
 		/* TRANSLATORS: message when we offline updates have failed */
-		g_notification_set_body (notification, _("An important operating system update failed to be installed."));
+		g_notification_set_body (notification, _("Prepared updates were not installed"));
 		g_notification_add_button (notification, _("Show Details"), "app.show-offline-update-error");
 		g_notification_set_default_action (notification, "app.show-offline-update-error");
 		gs_application_send_notification (monitor->application, "offline-updates", notification, MINUTES_IN_A_DAY);
@@ -1301,15 +1302,18 @@ static gboolean
 cleanup_notifications_cb (gpointer user_data)
 {
 	GsUpdateMonitor *monitor = user_data;
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	/* this doesn't do any network access, and is only called once just
 	 * after startup, so don’t cancel it with refreshes/updates */
 	g_debug ("getting historical updates for fresh session");
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_UPDATES_HISTORICAL,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION,
-					 "propagate-error", TRUE,
-					 NULL);
+	query = gs_app_query_new ("is-historical-update", GS_APP_QUERY_TRISTATE_TRUE,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
+						  GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
+	gs_plugin_job_set_propagate_error (plugin_job, TRUE);
 	gs_plugin_loader_job_process_async (monitor->plugin_loader,
 					    plugin_job,
 					    monitor->shutdown_cancellable,

@@ -251,6 +251,40 @@ typedef enum {
 } GsPluginManageRepositoryFlags;
 
 /**
+ * GsPluginInstallAppsFlags:
+ * @GS_PLUGIN_INSTALL_APPS_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_INSTALL_APPS_FLAGS_INTERACTIVE: User initiated the job.
+ * @GS_PLUGIN_INSTALL_APPS_FLAGS_NO_DOWNLOAD: Only use locally cached resources,
+ *   and error if they don’t exist.
+ * @GS_PLUGIN_INSTALL_APPS_FLAGS_NO_APPLY: Only download the resources, and don’t
+ *   do the installation.
+ *
+ * Flags for an operation to download or install apps.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_INSTALL_APPS_FLAGS_NONE = 0,
+	GS_PLUGIN_INSTALL_APPS_FLAGS_INTERACTIVE = 1 << 0,
+	GS_PLUGIN_INSTALL_APPS_FLAGS_NO_DOWNLOAD = 1 << 1,
+	GS_PLUGIN_INSTALL_APPS_FLAGS_NO_APPLY = 1 << 2,
+} GsPluginInstallAppsFlags;
+
+/**
+ * GsPluginUninstallAppsFlags:
+ * @GS_PLUGIN_UNINSTALL_APPS_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_UNINSTALL_APPS_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for an operation to uninstall apps.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_UNINSTALL_APPS_FLAGS_NONE = 0,
+	GS_PLUGIN_UNINSTALL_APPS_FLAGS_INTERACTIVE = 1 << 0,
+} GsPluginUninstallAppsFlags;
+
+/**
  * GsPluginUpdateAppsFlags:
  * @GS_PLUGIN_UPDATE_APPS_FLAGS_NONE: No flags set.
  * @GS_PLUGIN_UPDATE_APPS_FLAGS_INTERACTIVE: User initiated the job.
@@ -269,6 +303,90 @@ typedef enum {
 	GS_PLUGIN_UPDATE_APPS_FLAGS_NO_DOWNLOAD = 1 << 1,
 	GS_PLUGIN_UPDATE_APPS_FLAGS_NO_APPLY = 1 << 2,
 } GsPluginUpdateAppsFlags;
+
+/**
+ * GsPluginCancelOfflineUpdateFlags:
+ * @GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for an operation to cancel a pending offline update.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_NONE		= 0,
+	GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE	= 1 << 0,
+} GsPluginCancelOfflineUpdateFlags;
+
+/**
+ * GsPluginDownloadUpgradeFlags:
+ * @GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for an operation to download an upgrade.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_NONE		= 0,
+	GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE	= 1 << 0,
+} GsPluginDownloadUpgradeFlags;
+
+/**
+ * GsPluginTriggerUpgradeFlags:
+ * @GS_PLUGIN_TRIGGER_UPGRADE_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_TRIGGER_UPGRADE_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for an operation to trigger an upgrade.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_TRIGGER_UPGRADE_FLAGS_NONE		= 0,
+	GS_PLUGIN_TRIGGER_UPGRADE_FLAGS_INTERACTIVE	= 1 << 0,
+} GsPluginTriggerUpgradeFlags;
+
+/**
+ * GsPluginLaunchFlags:
+ * @GS_PLUGIN_LAUNCH_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_LAUNCH_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for a launch operation.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_LAUNCH_FLAGS_NONE		= 0,
+	GS_PLUGIN_LAUNCH_FLAGS_INTERACTIVE	= 1 << 0,
+} GsPluginLaunchFlags;
+
+/**
+ * GsPluginFileToAppFlags:
+ * @GS_PLUGIN_FILE_TO_APP_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for a file-to-app operation.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_FILE_TO_APP_FLAGS_NONE	= 0,
+	GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE	= 1 << 0,
+} GsPluginFileToAppFlags;
+
+/**
+ * GsPluginUrlToAppFlags:
+ * @GS_PLUGIN_URL_TO_APP_FLAGS_NONE: No flags set.
+ * @GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE: User initiated the job.
+ *
+ * Flags for a url-to-app operation.
+ *
+ * Since: 47
+ */
+typedef enum {
+	GS_PLUGIN_URL_TO_APP_FLAGS_NONE	= 0,
+	GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE	= 1 << 0,
+} GsPluginUrlToAppFlags;
 
 /**
  * GsPluginProgressCallback:
@@ -332,16 +450,10 @@ typedef enum {
  * GsPluginAction:
  * @GS_PLUGIN_ACTION_UNKNOWN:			Action is unknown
  * @GS_PLUGIN_ACTION_INSTALL:			Install an app
- * @GS_PLUGIN_ACTION_REMOVE:			Remove an app
  * @GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD:		Download a distro upgrade
- * @GS_PLUGIN_ACTION_UPGRADE_TRIGGER:		Trigger a distro upgrade
  * @GS_PLUGIN_ACTION_LAUNCH:			Launch an app
- * @GS_PLUGIN_ACTION_UPDATE_CANCEL:		Cancel the update
- * @GS_PLUGIN_ACTION_GET_UPDATES:		Get the list of updates
- * @GS_PLUGIN_ACTION_GET_SOURCES:		Get the list of sources
  * @GS_PLUGIN_ACTION_FILE_TO_APP:		Convert the file to an app
  * @GS_PLUGIN_ACTION_URL_TO_APP:		Convert the URI to an app
- * @GS_PLUGIN_ACTION_GET_UPDATES_HISTORICAL:    Get the list of historical updates
  * @GS_PLUGIN_ACTION_GET_LANGPACKS:		Get appropriate language pack
  * @GS_PLUGIN_ACTION_INSTALL_REPO:		Install a repository (Since: 41)
  * @GS_PLUGIN_ACTION_REMOVE_REPO:		Remove a repository (Since: 41)
@@ -353,16 +465,10 @@ typedef enum {
 typedef enum {
 	GS_PLUGIN_ACTION_UNKNOWN,
 	GS_PLUGIN_ACTION_INSTALL,
-	GS_PLUGIN_ACTION_REMOVE,
 	GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD,
-	GS_PLUGIN_ACTION_UPGRADE_TRIGGER,
 	GS_PLUGIN_ACTION_LAUNCH,
-	GS_PLUGIN_ACTION_UPDATE_CANCEL,
-	GS_PLUGIN_ACTION_GET_UPDATES,
-	GS_PLUGIN_ACTION_GET_SOURCES,
 	GS_PLUGIN_ACTION_FILE_TO_APP,
 	GS_PLUGIN_ACTION_URL_TO_APP,
-	GS_PLUGIN_ACTION_GET_UPDATES_HISTORICAL,
 	GS_PLUGIN_ACTION_GET_LANGPACKS,
 	GS_PLUGIN_ACTION_INSTALL_REPO,
 	GS_PLUGIN_ACTION_REMOVE_REPO,

@@ -235,7 +235,7 @@ choose_top_carousel_apps (LoadCategoryData *data,
 		n_top_carousel_apps = 5;
 
 	/* The top carousel should contain @n_top_carousel_apps, taken from the
-	 * set of featured or recently updated apps which have hi-res icons.
+	 * set of featured apps which have hi-res icons.
 	 *
 	 * The apps in the top carousel should be changed on a fixed schedule,
 	 * once a week.
@@ -246,14 +246,13 @@ choose_top_carousel_apps (LoadCategoryData *data,
 
 	for (guint i = 0; i < gs_app_list_length (data->apps); i++) {
 		GsApp *app = gs_app_list_index (data->apps, i);
-		gboolean is_featured, is_recently_updated, is_hi_res;
+		gboolean is_featured, is_hi_res;
 
 		is_featured = (data->featured_app_ids != NULL &&
 			       g_hash_table_contains (data->featured_app_ids, gs_app_get_id (app)));
-		is_recently_updated = (gs_app_get_release_date (app) > recently_updated_cutoff_secs);
 		is_hi_res = app_has_hi_res_icon (data->page, app);
 
-		if ((is_featured || is_recently_updated) && is_hi_res)
+		if (is_featured && is_hi_res)
 			g_ptr_array_add (candidates, app);
 	}
 
@@ -658,25 +657,27 @@ gs_category_page_load_category (GsCategoryPage *self)
 	/* Add placeholders only when the content is not valid */
 	if (!self->content_valid) {
 		gs_featured_carousel_set_apps (GS_FEATURED_CAROUSEL (self->top_carousel), NULL);
-		gs_category_page_add_placeholders (self, GTK_FLOW_BOX (self->category_detail_box),
-						   MIN (30, gs_category_get_size (self->subcategory)));
-		gs_category_page_add_placeholders (self, GTK_FLOW_BOX (self->recently_updated_flow_box), MAX_RECENT_APPS_TO_DISPLAY);
-		gtk_widget_set_visible (self->top_carousel, TRUE);
-		gtk_widget_set_visible (self->category_detail_box, TRUE);
-		gtk_widget_set_visible (self->recently_updated_flow_box, TRUE);
-
-		if (gs_plugin_loader_get_enabled (self->plugin_loader, "epiphany"))
-			gs_category_page_add_placeholders (self, GTK_FLOW_BOX (self->web_apps_flow_box), 12);
+		gtk_widget_set_visible (self->web_apps_flow_box, FALSE);
+		gtk_widget_set_visible (self->other_heading, FALSE);
 
 		if (featured_subcat != NULL) {
+			gs_category_page_add_placeholders (self, GTK_FLOW_BOX (self->recently_updated_flow_box), MAX_RECENT_APPS_TO_DISPLAY);
+
 			/* set up the placeholders as having the featured category is a good
 			 * indicator that there will be featured apps */
 			gs_category_page_add_placeholders (self, GTK_FLOW_BOX (self->featured_flow_box), 6);
+			gtk_widget_set_visible (self->top_carousel, TRUE);
 			gtk_widget_set_visible (self->featured_flow_box, TRUE);
+			gtk_widget_set_visible (self->recently_updated_flow_box, TRUE);
+			gtk_widget_set_visible (self->category_detail_box, FALSE);
 		} else {
+			gs_category_page_add_placeholders (self, GTK_FLOW_BOX (self->category_detail_box),
+							   MIN (30, gs_category_get_size (self->subcategory)));
 			gs_widget_remove_all (self->featured_flow_box, (GsRemoveFunc) gtk_flow_box_remove);
-			gtk_widget_set_visible (self->featured_flow_box, FALSE);
 			gtk_widget_set_visible (self->top_carousel, FALSE);
+			gtk_widget_set_visible (self->featured_flow_box, FALSE);
+			gtk_widget_set_visible (self->recently_updated_flow_box, FALSE);
+			gtk_widget_set_visible (self->category_detail_box, TRUE);
 		}
 	}
 

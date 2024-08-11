@@ -223,6 +223,22 @@ typedef enum {
 } GsAppIconsState;
 
 /**
+ * GsColorScheme:
+ * @GS_COLOR_SCHEME_ANY: any color scheme
+ * @GS_COLOR_SCHEME_LIGHT: light color scheme
+ * @GS_COLOR_SCHEME_DARK: dark color scheme
+ *
+ * Define color scheme.
+ *
+ * Since: 47
+ **/
+typedef enum {
+	GS_COLOR_SCHEME_ANY = 0,
+	GS_COLOR_SCHEME_LIGHT = 1,
+	GS_COLOR_SCHEME_DARK = 2
+} GsColorScheme;
+
+/**
  * GS_APP_PROGRESS_UNKNOWN:
  *
  * A value returned by gs_app_get_progress() if the app’s progress is unknown
@@ -467,8 +483,15 @@ void		 gs_app_set_key_colors		(GsApp		*app,
 						 GArray		*key_colors);
 void		 gs_app_add_key_color		(GsApp		*app,
 						 GdkRGBA	*key_color);
-gboolean	gs_app_get_user_key_colors	(GsApp		*app);
-
+gboolean	 gs_app_get_user_key_colors	(GsApp		*app);
+void		 gs_app_set_key_color_for_color_scheme
+						(GsApp		*app,
+						 GsColorScheme	 for_color_scheme,
+						 const GdkRGBA	*rgba);
+gboolean	 gs_app_get_key_color_for_color_scheme
+						(GsApp		*app,
+						 GsColorScheme	 for_color_scheme,
+						 GdkRGBA	*out_rgba);
 G_DEPRECATED
 void            gs_app_set_is_update_downloaded (GsApp         *app,
                                                  gboolean       is_update_downloaded);
@@ -541,5 +564,8 @@ gboolean	 gs_app_is_downloaded		(GsApp		*app);
 
 GsAppIconsState	 gs_app_get_icons_state		(GsApp		*app);
 gboolean	 gs_app_is_application		(GsApp		*app);
+void		 gs_app_set_mok_key_pending	(GsApp          *app,
+						 gboolean        mok_key_pending);
+gboolean	 gs_app_get_mok_key_pending	(GsApp          *app);
 
 G_END_DECLS

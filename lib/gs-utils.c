@@ -377,6 +377,64 @@ gs_utils_get_content_type (GFile *file,
 }
 
 /**
+ * gs_utils_get_content_type_async:
+ * @file: a #GFile
+ * @cancellable: a #GCancellable, or %NULL
+ * @callback: callback for when the asynchronous operation is complete
+ * @user_data: data to pass to @callback
+ *
+ * Asynchronously get the standard content type for the @file.
+ * Finish the operation with @gs_utils_get_content_type_finish.
+ *
+ * Since: 47
+ */
+void
+gs_utils_get_content_type_async (GFile *file,
+				 GCancellable *cancellable,
+				 GAsyncReadyCallback callback,
+				 gpointer user_data)
+{
+	g_return_if_fail (G_IS_FILE (file));
+
+	g_file_query_info_async (file,
+				 G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
+				 G_FILE_QUERY_INFO_NONE,
+				 G_PRIORITY_DEFAULT,
+				 cancellable,
+				 callback,
+				 user_data);
+}
+
+/**
+ * gs_utils_get_content_type_finish:
+ * @file: a #GFile
+ * @result: result of the asynchronous operation
+ * @error: return location for a #GError, or %NULL
+ *
+ * Finish an asynchronous operation started with gs_utils_get_content_type_async().
+ *
+ * Returns: the content type, or %NULL, e.g. "text/plain"
+ *
+ * Since: 47
+ **/
+gchar *
+gs_utils_get_content_type_finish (GFile *file,
+				  GAsyncResult *result,
+				  GError **error)
+{
+	const gchar *tmp;
+	g_autoptr(GFileInfo) info = NULL;
+
+	info = g_file_query_info_finish (file, result, error);
+	if (info == NULL)
+		return NULL;
+	tmp = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE);
+	if (tmp == NULL)
+		return NULL;
+	return g_strdup (tmp);
+}
+
+/**
  * gs_utils_strv_fnmatch:
  * @strv: A NUL-terminated list of strings
  * @str: A string
@@ -1699,4 +1757,60 @@ gs_utils_gstring_replace (GString *str,
 #else
 	as_gstring_replace2 (str, find, replace, 0);
 #endif
+}
+
+static gint
+get_app_kind_rank (GsApp *app)
+{
+	switch (gs_app_get_kind (app)) {
+	case AS_COMPONENT_KIND_DESKTOP_APP:
+		return 2;
+	case AS_COMPONENT_KIND_WEB_APP:
+		return 3;
+	case AS_COMPONENT_KIND_RUNTIME:
+		return 4;
+	case AS_COMPONENT_KIND_ADDON:
+		return 5;
+	case AS_COMPONENT_KIND_CODEC:
+	case AS_COMPONENT_KIND_FONT:
+		return 6;
+	case AS_COMPONENT_KIND_INPUT_METHOD:
+		return 7;
+	default:
+		if (gs_app_get_special_kind (app) == GS_APP_SPECIAL_KIND_OS_UPDATE)
+			return 1;
+		else
+			return 8;
+	}
+}
+
+/**
+ * gs_utils_app_sort_kind:
+ * @app1: a #GsApp
+ * @app2: another #GsApp
+ *
+ * Comparison function to sort apps by Appstream kind, then by
+ * increasing alphabetical order of name.
+ *
+ * This is useful for sorting apps with multiple kinds (E.g Updates /
+ * Updated pages), as opposed to category pages where all apps are of
+ * the same kind.
+ *
+ * Returns: < 0 if app1 is before app2, 0 if equal, > 0 if app1 is after app2
+ *
+ * Since: 47
+ **/
+gint
+gs_utils_app_sort_kind (GsApp *app1, GsApp *app2)
+{
+	gint rank1, rank2;
+
+	rank1 = get_app_kind_rank (app1);
+	rank2 = get_app_kind_rank (app2);
+
+	/* sort apps by name if they are of same kind */
+	if (rank1 == rank2)
+		return gs_utils_app_sort_name (app1, app2, NULL);
+
+	return rank1 < rank2 ? -1 : 1;
 }

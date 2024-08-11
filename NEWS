@@ -1,61 +1,55 @@
-Version 46.4
-~~~~~~~~~~~~
+Version 47~beta
+~~~~~~~~~~~~~~~
 Released: 2024-08-02
 
-This is a stable release with the following changes:
- * Correct broken formatting when using <code> in AppStream metadata
+This is an unstable release with the following changes:
+ * Shorten text in some notifications
+ * Fix Orca not reading the contents in Preferences dialog
+ * Enhance behavior of a review row
+ * Added plugin to ease installation of DKMS and akmods key with enabled Secure Boot
 
 This release also updates translations:
  * Greek, Modern (1453-) (Efstathios Iosifidis)
+ * Hebrew (Yaron Shahrabani, Yosef Or Boczko)
  * Hindi (Scrambled 777)
+ * Slovenian (Martin)
 
-Version 46.3
-~~~~~~~~~~~~
+Version 47~alpha
+~~~~~~~~~~~~~~~~
 Released: 2024-06-28
 
-This is a stable release with the following changes:
- * Show "Install All" button only for codecs
- * Prefer vendor name from os release in app origin
-
-This release also updates translations:
- * Catalan (Jordi Mas i Hernandez)
-
-Version 46.2
-~~~~~~~~~~~~
-Released: 2024-05-24
-
-This is a stable release with the following changes:
- * Fix a crash when no appstream data is found
- * Correct app safety calculation
- * Correct Flatpak system and user apps recognition
- * Slightly speed-up rpm-ostree metadata refresh
-
-This release also updates translations:
- * Kabyle (Rachida SACI)
- * Portuguese (Hugo Carvalho)
- * Spanish (Daniel Mustieles)
-
-Version 46.1
-~~~~~~~~~~~~
-Released: 2024-04-25
-
-This is a stable release with the following changes:
+This is an unstable release with the following changes:
  * Fix a crash when updating apps when built with Mogwai
  * Fix a crash when installing flatpak application
  * Correct desktop/mobile hardware support detection
  * Correct state of Fedora upgrade
  * Several fixes in historical updates for rpm-ostree
+ * Fix a crash when no appstream data is found
+ * Correct app safety calculation
+ * Correct Flatpak system and user apps recognition
+ * Slightly speed-up rpm-ostree metadata refresh
+ * Show "Install All" button only for codecs
+ * Prefer vendor name from os release in app origin
+ * Make more jobs asynchronous
+ * Port to recent Adwaita widgets
 
 This release also updates translations:
  * Catalan (Jordi Mas i Hernandez)
+ * Chinese (China) (Boyuan Yang)
  * Czech (Daniel Rusek)
  * Dutch (Nathan Follens)
  * Friulian (Fabio Tomat)
- * Hindi (Guntupalli Karunakar)
+ * Georgian (Ekaterine Papava)
+ * Hebrew (Yosef Or Boczko)
  * Kabyle (Athmane MOKRAOUI)
  * Panjabi (A S Alam)
+ * Portuguese (Hugo Carvalho)
  * Russian (Artur S0)
  * Serbian (Милош Поповић)
+ * Slovenian (Martin)
+ * Spanish (Daniel Mustieles)
+ * Turkish (Sabri Ünal)
+ * Ukrainian (Yuri Chornoivan)
 
 Version 46.0
 ~~~~~~~~~~~~

@@ -254,7 +254,14 @@ manage_storage_activate_link_cb (GtkLabel    *label,
 static void
 gs_storage_context_dialog_init (GsStorageContextDialog *self)
 {
+	const gchar *label = NULL;
+
 	gtk_widget_init_template (GTK_WIDGET (self));
+
+	/* TRANSLATORS: "<a href='#'>" and "</a>" should not be touched. */
+  	label = _("Cached data can be cleared from the <a href='#'>_app settings</a>");
+
+	gtk_label_set_label (self->manage_storage_label, label);
 }
 
 static void

@@ -20,7 +20,7 @@
 
 struct _GsUpdateDialog
 {
-	AdwWindow	 parent_instance;
+	AdwDialog	 parent_instance;
 
 	GCancellable	*cancellable;
 	GsPluginLoader	*plugin_loader;
@@ -34,7 +34,7 @@ struct _GsUpdateDialog
 	gboolean	 showing_installed_updates;
 };
 
-G_DEFINE_TYPE (GsUpdateDialog, gs_update_dialog, ADW_TYPE_WINDOW)
+G_DEFINE_TYPE (GsUpdateDialog, gs_update_dialog, ADW_TYPE_DIALOG)
 
 typedef enum {
 	PROP_PLUGIN_LOADER = 1,
@@ -122,6 +122,7 @@ get_installed_updates_cb (GsPluginLoader *plugin_loader,
 static void
 gs_update_dialog_show_installed_updates (GsUpdateDialog *dialog)
 {
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	dialog->showing_installed_updates = TRUE;
@@ -132,11 +133,13 @@ gs_update_dialog_show_installed_updates (GsUpdateDialog *dialog)
 	gtk_spinner_start (GTK_SPINNER (dialog->spinner));
 	gtk_stack_set_visible_child_name (GTK_STACK (dialog->stack), "spinner");
 
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_UPDATES_HISTORICAL,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY |
-							 GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-							 GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION,
-					 NULL);
+	query = gs_app_query_new ("is-historical-update", GS_APP_QUERY_TRISTATE_TRUE,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY |
+						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
+						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
+						  GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (dialog->plugin_loader, plugin_job,
 	                                    dialog->cancellable,
 	                                    (GAsyncReadyCallback) get_installed_updates_cb,
@@ -148,7 +151,7 @@ unset_focus (GtkWidget *widget)
 {
 	GtkWidget *focus;
 
-	focus = gtk_window_get_focus (GTK_WINDOW (widget));
+	focus = adw_dialog_get_focus (ADW_DIALOG (widget));
 	if (GTK_IS_LABEL (focus))
 		gtk_label_select_region (GTK_LABEL (focus), 0, 0);
 }
@@ -328,8 +331,6 @@ gs_update_dialog_class_init (GsUpdateDialogClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsUpdateDialog, stack);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdateDialog, window_title);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdateDialog, default_page);
-
-	gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, 0, "window.close", NULL);
 }
 
 GtkWidget *

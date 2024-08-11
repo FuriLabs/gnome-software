@@ -56,7 +56,6 @@ gnome_software_sources = [
   'gs-loading-page.c',
   'gs-lozenge.c',
   'gs-main.c',
-  'gs-moderate-page.c',
   'gs-overview-page.c',
   'gs-origin-popover-row.c',
   'gs-os-update-page.c',
@@ -105,6 +104,13 @@ gnome_software_dependencies = [
   libsoup,
   libxmlb,
 ]
+
+if get_option('dkms')
+  gnome_software_sources += [
+    'gs-dkms-dialog.h',
+    'gs-dkms-dialog.c',
+  ]
+endif
 
 if get_option('packagekit')
   gnome_software_sources += [
