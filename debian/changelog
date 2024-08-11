@@ -1,8 +1,9 @@
-gnome-software (46.4-1) UNRELEASED; urgency=medium
+gnome-software (46.4-1) unstable; urgency=medium
 
   * New upstream release
+  * Bump Standards Version to 4.7.0
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 11 Aug 2024 08:10:35 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 11 Aug 2024 08:16:42 -0400
 
 gnome-software (46.3-1) unstable; urgency=medium
 
