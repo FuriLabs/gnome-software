@@ -1,5 +1,10 @@
 @define-color flatpak_packaging_color @blue_4;
 
+/* Fix for padding in updates-paused-banner */
+toolbarview.undershoot-top > revealer > windowhandle > box {
+	padding-bottom: 0px;
+}
+
 .details-page {
 	margin: 24px 0px;
 }
@@ -30,10 +35,6 @@ screenshot-carousel button,
 	margin-bottom: 12px;
 	margin-left: 6px;
 	margin-right: 6px;
-}
-
-.app-tile-label {
-	font-size: 105%;
 }
 
 gs-summary-tile image.loading-icon {
@@ -313,18 +314,9 @@ star-image > image.starred {
 	transition-duration: 200ms;
 }
 
-star-image > image.starred:hover {
-	color: @yellow_3;
-}
-
 star-image > image.non-starred {
 	opacity: 0.2;
 	transition-duration: 200ms;
-}
-
-star-image > image.non-starred:hover {
-	color: @yellow_5;
-	opacity: 0.7;
 }
 
 .dimmer-label {
@@ -391,7 +383,6 @@ clamp.status-page .iconbox {
 }
 
 clamp.status-page .icon {
-	color: alpha(@theme_fg_color, 0.5);
 	min-height: 32px;
 	min-width: 32px;
 }
@@ -517,11 +508,6 @@ app-context-bar.vertical box:first-child .context-tile {
 .context-tile-lozenge.details-rating-18 {
 	color: @red_4;
 	background-color: alpha(@red_2, .25);
-}
-
-.eol-red {
-	font-weight: bold;
-	color: @error_color;
 }
 
 window.narrow .app-title {

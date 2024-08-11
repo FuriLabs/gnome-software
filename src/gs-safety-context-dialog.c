@@ -56,16 +56,13 @@ struct _GsSafetyContextDialog
 	GtkLabel		*title;
 	GtkListBox		*permissions_list;
 
-	GtkLabel		*license_label;
+	AdwActionRow		*license_row;
 	GBinding		*license_label_binding;  /* (owned) (nullable) */
-	GtkLabel		*source_label;
+	AdwActionRow		*source_row;
 	GBinding		*source_label_binding;  /* (owned) (nullable) */
 	GtkWidget		*packagename_row;
-	GtkLabel		*packagename_title;
-	GtkLabel		*packagename_value;
-	GtkLabel		*sdk_label;
-	GtkImage		*sdk_eol_image;
 	GtkWidget		*sdk_row;
+	GtkWidget		*sdk_eol_button;
 };
 
 G_DEFINE_TYPE (GsSafetyContextDialog, gs_safety_context_dialog, GS_TYPE_INFO_WINDOW)
@@ -175,7 +172,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 				    (perm_flags == GS_APP_PERMISSIONS_FLAGS_NONE) &&
 				    filesystem_read == NULL && filesystem_full == NULL,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_UNIMPORTANT,
-				    "folder-documents-symbolic",
+				    "permissions-sandboxed-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("No Permissions"),
 				    _("App is fully sandboxed"),
@@ -233,7 +230,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_PULSEAUDIO_DEVICES) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_INFORMATION,
-				    "audio-input-microphone-symbolic",
+				    "permissions-microphone-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Microphone Access"),
 				    _("Can listen using microphones without asking permission"),
@@ -241,7 +238,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_SYSTEM_DEVICES) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "computer-chip-symbolic",
+				    "permissions-system-devices-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("System Device Access"),
 				    _("Can access system devices which require elevated permissions"),
@@ -249,7 +246,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_SCREEN) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "screen-privacy-symbolic",
+				    "permissions-screen-contents-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Screen Contents Access"),
 				    _("Can access the contents of the screen or other windows"),
@@ -257,7 +254,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_X11) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "desktop-symbolic",
+				    "permissions-legacy-windowing-system-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Legacy Windowing System"),
 				    _("Uses a legacy windowing system"),
@@ -265,7 +262,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "dialog-warning-symbolic",
+				    "permissions-warning-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Arbitrary Permissions"),
 				    _("Can acquire arbitrary permissions"),
@@ -273,7 +270,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_SETTINGS) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "preferences-system-symbolic",
+				    "emblem-system-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("User Settings"),
 				    _("Can access and change user settings"),
@@ -285,7 +282,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    (perm_flags & GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL) != 0,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "folder-documents-symbolic",
+				    "folder-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Full File System Read/Write Access"),
 				    _("Can read and write all data on the file system"),
@@ -303,7 +300,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 				    ((perm_flags & GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_READ) != 0 &&
 				     !(perm_flags & GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL)),
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-				    "folder-documents-symbolic",
+				    "folder-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Full File System Read Access"),
 				    _("Can read all data on the file system"),
@@ -346,7 +343,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 			add_permission_row (self->permissions_list, &chosen_rating,
 					    TRUE,
 					    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-					    "folder-documents-symbolic",
+					    "folder-symbolic",
 					    fs_title,
 					    _("Can read and write all data in the directory"),
 					    NULL, NULL, NULL);
@@ -357,7 +354,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 			add_permission_row (self->permissions_list, &chosen_rating,
 					    TRUE,
 					    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-					    "folder-documents-symbolic",
+					    "folder-symbolic",
 					    fs_title,
 					    _("Can read all data in the directory"),
 					    NULL, NULL, NULL);
@@ -373,7 +370,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 						    GS_APP_PERMISSIONS_FLAGS_DOWNLOADS_READ)) &&
 				    filesystem_read == NULL && filesystem_full == NULL,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_UNIMPORTANT,
-				    "folder-documents-symbolic",
+				    "folder-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("No File System Access"),
 				    _("Cannot access the file system at all"),
@@ -383,7 +380,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 	add_permission_row (self->permissions_list, &chosen_rating,
 			    gs_app_has_quirk (self->app, GS_APP_QUIRK_DEVELOPER_VERIFIED),
 			    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_UNIMPORTANT,
-			    "app-installed-symbolic",
+			    "app-verified-symbolic",
 			    /* Translators: This indicates an app was written and released by a developer who has been verified.
 			     * It’s used in a context tile, so should be short. */
 			    _("App developer is verified"),
@@ -395,7 +392,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 			    gs_app_get_runtime (self->app) != NULL &&
 			    gs_app_get_metadata_item (gs_app_get_runtime (self->app), "GnomeSoftware::EolReason") != NULL),
 			    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING,
-			    "dialog-warning-symbolic",
+			    "permissions-warning-symbolic",
 			    /* Translators: This indicates an app uses an outdated SDK.
 			     * It’s used in a context tile, so should be short. */
 			    _("Insecure Dependencies"),
@@ -408,7 +405,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    TRUE,
 				    GS_CONTEXT_DIALOG_ROW_IMPORTANCE_NEUTRAL,
-				    "dialog-warning-symbolic",
+				    "permissions-warning-symbolic",
 				    /* Translators: This indicates an app does not specify which license it's developed under. */
 				    _("Unknown License"),
 				    gs_app_is_application (self->app) ?
@@ -424,7 +421,7 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    TRUE,
 				    license_rating,
-				    "dialog-warning-symbolic",
+				    "proprietary-code-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Proprietary Code"),
 				    _("The source code is not public, so it cannot be independently audited and might be unsafe"),
@@ -445,11 +442,11 @@ update_permissions_list (GsSafetyContextDialog *self)
 		add_permission_row (self->permissions_list, &chosen_rating,
 				    !gs_app_get_license_is_free (self->app),
 				    license_rating,
-				    "dialog-warning-symbolic",
+				    "software-license-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Special License"),
 				    description,
-				    "app-installed-symbolic",
+				    "auditable-code-symbolic",
 				    /* Translators: This refers to permissions (for example, from flatpak) which an app requests from the user. */
 				    _("Auditable Code"),
 				    _("The source code is public and can be independently audited, which makes the app more likely to be safe"));
@@ -458,35 +455,35 @@ update_permissions_list (GsSafetyContextDialog *self)
 	/* Update the UI. */
 	switch (chosen_rating) {
 	case GS_CONTEXT_DIALOG_ROW_IMPORTANCE_NEUTRAL:
-		icon_name = "safety-symbolic";
+		icon_name = "app-safety-ok-symbolic";
 		/* Translators: The app is considered privileged, aka provided by the distribution.
 		 * The placeholder is the app name. */
 		title = g_strdup_printf (_("%s is privileged"), gs_app_get_name (self->app));
 		css_class = "grey";
 		break;
 	case GS_CONTEXT_DIALOG_ROW_IMPORTANCE_UNIMPORTANT:
-		icon_name = "safety-symbolic";
+		icon_name = "app-safety-ok-symbolic";
 		/* Translators: The app is considered safe to install and run.
 		 * The placeholder is the app name. */
 		title = g_strdup_printf (_("%s is safe"), gs_app_get_name (self->app));
 		css_class = "green";
 		break;
 	case GS_CONTEXT_DIALOG_ROW_IMPORTANCE_INFORMATION:
-		icon_name = "safety-symbolic";
+		icon_name = "app-safety-ok-symbolic";
 		/* Translators: The app is considered probably safe to install and run.
 		 * The placeholder is the app name. */
 		title = g_strdup_printf (_("%s is probably safe"), gs_app_get_name (self->app));
 		css_class = "yellow";
 		break;
 	case GS_CONTEXT_DIALOG_ROW_IMPORTANCE_WARNING:
-		icon_name = "dialog-question-symbolic";
+		icon_name = "app-safety-unknown-symbolic";
 		/* Translators: The app is considered potentially unsafe to install and run.
 		 * The placeholder is the app name. */
 		title = g_strdup_printf (_("%s is potentially unsafe"), gs_app_get_name (self->app));
 		css_class = "orange";
 		break;
 	case GS_CONTEXT_DIALOG_ROW_IMPORTANCE_IMPORTANT:
-		icon_name = "dialog-warning-symbolic";
+		icon_name = "permissions-warning-symbolic";
 		/* Translators: The app is considered unsafe to install and run.
 		 * The placeholder is the app name. */
 		title = g_strdup_printf (_("%s is unsafe"), gs_app_get_name (self->app));
@@ -543,17 +540,9 @@ update_sdk (GsSafetyContextDialog *self)
 			label = g_strdup (gs_app_get_name (runtime));
 		}
 
-		gtk_label_set_label (self->sdk_label, label);
+		adw_action_row_set_subtitle (ADW_ACTION_ROW (self->sdk_row), label);
 
-		if (is_eol) {
-			gtk_widget_add_css_class (GTK_WIDGET (self->sdk_label), "eol-red");
-			gtk_widget_remove_css_class (GTK_WIDGET (self->sdk_label), "dim-label");
-		} else {
-			gtk_widget_add_css_class (GTK_WIDGET (self->sdk_label), "dim-label");
-			gtk_widget_remove_css_class (GTK_WIDGET (self->sdk_label), "eol-red");
-		}
-
-		gtk_widget_set_visible (GTK_WIDGET (self->sdk_eol_image), is_eol);
+		gtk_widget_set_visible (self->sdk_eol_button, is_eol);
 	}
 
 	/* Only show the row if a runtime was found. */
@@ -588,6 +577,15 @@ sanitize_license_text_cb (GBinding *binding,
 		g_value_set_string (to_value, license);
 
 	return TRUE;
+}
+
+static void
+contribute_info_row_activated_cb (AdwButtonRow *row,
+				  GsSafetyContextDialog *self)
+{
+	GtkWidget *toplevel = GTK_WIDGET (gtk_widget_get_root (GTK_WIDGET (self)));
+
+	gs_show_uri (GTK_WINDOW (toplevel), "help:gnome-software/software-metadata#safety");
 }
 
 static void
@@ -676,14 +674,13 @@ gs_safety_context_dialog_class_init (GsSafetyContextDialogClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, lozenge);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, title);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, permissions_list);
-	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, license_label);
-	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, source_label);
+	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, license_row);
+	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, source_row);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, packagename_row);
-	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, packagename_title);
-	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, packagename_value);
-	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_label);
-	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_eol_image);
 	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_row);
+	gtk_widget_class_bind_template_child (widget_class, GsSafetyContextDialog, sdk_eol_button);
+
+	gtk_widget_class_bind_template_callback (widget_class, contribute_info_row_activated_cb);
 }
 
 /**
@@ -764,9 +761,9 @@ gs_safety_context_dialog_set_app (GsSafetyContextDialog *self,
 
 		self->app_notify_handler_related = g_signal_connect (self->app, "notify::related", G_CALLBACK (app_notify_related_cb), self);
 
-		self->license_label_binding = g_object_bind_property_full (self->app, "license", self->license_label, "label", G_BINDING_SYNC_CREATE,
+		self->license_label_binding = g_object_bind_property_full (self->app, "license", self->license_row, "subtitle", G_BINDING_SYNC_CREATE,
 									   sanitize_license_text_cb, NULL, NULL, NULL);
-		self->source_label_binding = g_object_bind_property (self->app, "origin-ui", self->source_label, "label", G_BINDING_SYNC_CREATE);
+		self->source_label_binding = g_object_bind_property (self->app, "origin-ui", self->source_row, "subtitle", G_BINDING_SYNC_CREATE);
 
 		packagename_value = gs_app_get_metadata_item (app, "GnomeSoftware::packagename-value");
 		if (packagename_value != NULL && *packagename_value != '\0') {
@@ -775,8 +772,8 @@ gs_safety_context_dialog_set_app (GsSafetyContextDialog *self,
 				/* Translators: This is a heading for a row showing the package name of an app (such as ‘gnome-software-46.0-1’). */
 				packagename_title = _("Package");
 			}
-			gtk_label_set_label (self->packagename_title, packagename_title);
-			gtk_label_set_label (self->packagename_value, packagename_value);
+			adw_preferences_row_set_title (ADW_PREFERENCES_ROW (self->packagename_row), packagename_title);
+			adw_action_row_set_subtitle (ADW_ACTION_ROW (self->packagename_row), packagename_value);
 		}
 
 		gtk_widget_set_visible (self->packagename_row, packagename_value != NULL && *packagename_value != '\0');

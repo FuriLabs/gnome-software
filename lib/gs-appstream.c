@@ -646,6 +646,7 @@ gs_appstream_find_description_and_issues_nodes (XbNode *release_node,
 
 typedef enum {
 	ELEMENT_KIND_UNKNOWN = -1,
+	ELEMENT_KIND_BRANDING,
 	ELEMENT_KIND_BUNDLE,
 	ELEMENT_KIND_CATEGORIES,
 	ELEMENT_KIND_CONTENT_RATING,
@@ -683,6 +684,7 @@ gs_appstream_get_element_kind (const gchar *element_name)
 		const gchar *name;
 		ElementKind kind;
 	} kinds[] = {
+		{ "branding", ELEMENT_KIND_BRANDING },
 		{ "bundle", ELEMENT_KIND_BUNDLE },
 		{ "categories", ELEMENT_KIND_CATEGORIES },
 		{ "content_rating", ELEMENT_KIND_CONTENT_RATING },
@@ -815,6 +817,35 @@ gs_appstream_refine_app (GsPlugin *plugin,
 		switch (gs_appstream_get_element_kind (xb_node_get_element (child))) {
 		default:
 		case ELEMENT_KIND_UNKNOWN:
+			break;
+		case ELEMENT_KIND_BRANDING:
+			{
+				g_autoptr(XbNode) branding_child = NULL;
+				g_autoptr(XbNode) branding_next = NULL;
+				for (branding_child = xb_node_get_child (child);
+				     branding_child != NULL;
+				     g_object_unref (branding_child), branding_child = g_steal_pointer (&branding_next)) {
+					branding_next = xb_node_get_next (branding_child);
+					if (g_strcmp0 (xb_node_get_element (branding_child), "color") == 0) {
+						const gchar *type = xb_node_get_attr (branding_child, "type");
+						if (g_strcmp0 (type, "primary") == 0) {
+							const gchar *color = xb_node_get_text (branding_child);
+							GdkRGBA rgba;
+							if (color != NULL && gdk_rgba_parse (&rgba, color)) {
+								const gchar *scheme_preference = xb_node_get_attr (branding_child, "scheme_preference");
+								GsColorScheme color_scheme = GS_COLOR_SCHEME_ANY;
+
+								if (g_strcmp0 (scheme_preference, "light") == 0)
+									color_scheme = GS_COLOR_SCHEME_LIGHT;
+								else if (g_strcmp0 (scheme_preference, "dark") == 0)
+									color_scheme = GS_COLOR_SCHEME_DARK;
+
+								gs_app_set_key_color_for_color_scheme (app, color_scheme, &rgba);
+							}
+						}
+					}
+				}
+			}
 			break;
 		case ELEMENT_KIND_BUNDLE:
 			if (!had_sources) {
@@ -1179,7 +1210,7 @@ gs_appstream_refine_app (GsPlugin *plugin,
 			gboolean needs_update_details = (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS) != 0 &&
 							silo != NULL && gs_app_is_updatable (app);
 			/* set the release date */
-			if (gs_app_get_release_date (app) == G_MAXUINT64) {
+			if (gs_app_get_release_date (app) == 0) {
 				g_autoptr(XbNode) release = xb_node_get_child (child);
 				if (release != NULL && g_strcmp0 (xb_node_get_element (release), "release") == 0) {
 					guint64 timestamp;
@@ -1605,14 +1636,9 @@ gs_appstream_silo_search_component2 (GPtrArray *array, XbNode *component, const 
 	for (guint i = 0; i < array->len; i++) {
 		g_autoptr(GPtrArray) n = NULL;
 		GsAppstreamSearchHelper *helper = g_ptr_array_index (array, i);
-#if LIBXMLB_CHECK_VERSION(0, 3, 0)
 		g_auto(XbQueryContext) context = XB_QUERY_CONTEXT_INIT ();
 		xb_value_bindings_bind_str (xb_query_context_get_bindings (&context), 0, search, NULL);
 		n = xb_node_query_with_context (component, helper->query, &context, NULL);
-#else
-		xb_query_bind_str (helper->query, 0, search, NULL);
-		n = xb_node_query_full (component, helper->query, NULL);
-#endif
 		if (n != NULL)
 			match_value |= helper->match_value;
 	}
@@ -2292,8 +2318,8 @@ gs_appstream_load_desktop_fn (XbBuilder     *builder,
 	g_autoptr(XbBuilderSource) source = xb_builder_source_new ();
 
 	/* add support for desktop files */
-	xb_builder_source_add_adapter (source, "application/x-desktop",
-				       gs_appstream_load_desktop_cb, NULL, NULL);
+	xb_builder_source_add_simple_adapter (source, "application/x-desktop",
+					      gs_appstream_load_desktop_cb, NULL, NULL);
 
 	/* add source */
 	if (!xb_builder_source_load_file (source, file, 0, cancellable, error))

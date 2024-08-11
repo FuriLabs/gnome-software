@@ -331,7 +331,7 @@ gs_os_release_get_logo (GsOsRelease *os_release)
  *
  * Returns: (nullable): a string, or %NULL
  *
- * Since: 46.3
+ * Since: 47
  **/
 const gchar *
 gs_os_release_get_vendor_name (GsOsRelease *os_release)

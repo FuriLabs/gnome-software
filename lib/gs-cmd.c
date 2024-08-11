@@ -169,34 +169,6 @@ gs_cmd_parse_refine_flags (const gchar *extra, GError **error)
 	return refine_flags;
 }
 
-static guint
-gs_cmd_prompt_for_number (guint maxnum)
-{
-	gint retval;
-	guint answer = 0;
-
-	do {
-		char buffer[64];
-
-		/* swallow the \n at end of line too */
-		if (!fgets (buffer, sizeof (buffer), stdin))
-			break;
-		if (strlen (buffer) == sizeof (buffer) - 1)
-			continue;
-
-		/* get a number */
-		retval = sscanf (buffer, "%u", &answer);
-
-		/* positive */
-		if (retval == 1 && answer > 0 && answer <= maxnum)
-			break;
-
-		/* TRANSLATORS: the user isn't reading the question */
-		g_print (_("Please enter a number from 1 to %u: "), maxnum);
-	} while (TRUE);
-	return answer;
-}
-
 static GsPluginListAppsFlags
 get_list_apps_flags (GsCmdSelf *self)
 {
@@ -217,7 +189,7 @@ get_query_license_type (GsCmdSelf *self)
 }
 
 static gboolean
-gs_cmd_action_exec (GsCmdSelf *self, GsPluginAction action, const gchar *name, GError **error)
+gs_cmd_install_remove_exec (GsCmdSelf *self, gboolean is_install, const gchar *name, GError **error)
 {
 	g_autoptr(GsApp) app = NULL;
 	g_autoptr(GsAppList) list = NULL;
@@ -255,7 +227,7 @@ gs_cmd_action_exec (GsCmdSelf *self, GsPluginAction action, const gchar *name, G
 	}
 
 	/* filter */
-	if (action == GS_PLUGIN_ACTION_INSTALL)
+	if (is_install)
 		show_installed = FALSE;
 	list_filtered = gs_app_list_new ();
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
@@ -270,32 +242,19 @@ gs_cmd_action_exec (GsCmdSelf *self, GsPluginAction action, const gchar *name, G
 			     GS_PLUGIN_ERROR,
 			     GS_PLUGIN_ERROR_FAILED,
 			     "no components were in the correct state for '%s %s'",
-			     gs_plugin_action_to_string (action), name);
+			     is_install ? "install" : "remove", name);
 		return FALSE;
 	}
 
-	/* get one GsApp */
-	if (gs_app_list_length (list_filtered) == 1) {
-		app = g_object_ref (gs_app_list_index (list_filtered, 0));
+	/* install */
+	if (is_install) {
+		plugin_job2 = gs_plugin_job_install_apps_new (list_filtered,
+							      self->interactive ? GS_PLUGIN_INSTALL_APPS_FLAGS_INTERACTIVE : GS_PLUGIN_INSTALL_APPS_FLAGS_NONE);
 	} else {
-		guint idx;
-		/* TRANSLATORS: asking the user to choose an app from a list */
-		g_print ("%s\n", _("Choose an app:"));
-		for (guint i = 0; i < gs_app_list_length (list_filtered); i++) {
-			GsApp *app_tmp = gs_app_list_index (list_filtered, i);
-			g_print ("%u.\t%s\n",
-				 i + 1,
-				 gs_app_get_unique_id (app_tmp));
-		}
-		idx = gs_cmd_prompt_for_number (gs_app_list_length (list_filtered));
-		app = g_object_ref (gs_app_list_index (list_filtered, idx - 1));
+		plugin_job2 = gs_plugin_job_uninstall_apps_new (list_filtered,
+								self->interactive ? GS_PLUGIN_UNINSTALL_APPS_FLAGS_INTERACTIVE : GS_PLUGIN_UNINSTALL_APPS_FLAGS_NONE);
 	}
 
-	/* install */
-	plugin_job2 = gs_plugin_job_newv (action,
-					  "app", app,
-					  "interactive", self->interactive,
-					  NULL);
 	return gs_plugin_loader_job_action (self->plugin_loader, plugin_job2,
 					    NULL, error);
 }
@@ -508,25 +467,17 @@ main (int argc, char **argv)
 				break;
 			}
 		}
-	} else if (argc == 4 && g_strcmp0 (argv[1], "action") == 0) {
-		GsPluginAction action = gs_plugin_action_from_string (argv[2]);
-		if (action == GS_PLUGIN_ACTION_UNKNOWN) {
-			ret = FALSE;
-			g_set_error (&error,
-				     GS_PLUGIN_ERROR,
-				     GS_PLUGIN_ERROR_FAILED,
-				     "Did not recognise action '%s'", argv[2]);
-		} else {
-			ret = gs_cmd_action_exec (self, action, argv[3], &error);
-		}
+	} else if (argc == 3 && g_strcmp0 (argv[1], "install") == 0) {
+		ret = gs_cmd_install_remove_exec (self, TRUE, argv[2], &error);
+	} else if (argc == 3 && g_strcmp0 (argv[1], "remove") == 0) {
+		ret = gs_cmd_install_remove_exec (self, FALSE, argv[2], &error);
 	} else if (argc == 3 && g_strcmp0 (argv[1], "action-upgrade-download") == 0) {
 		g_autoptr(GsPluginJob) plugin_job = NULL;
 		app = gs_app_new (argv[2]);
 		gs_app_set_kind (app, AS_COMPONENT_KIND_OPERATING_SYSTEM);
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD,
-						 "app", app,
-						 "interactive", self->interactive,
-						 NULL);
+		plugin_job = gs_plugin_job_download_upgrade_new (app,
+								 self->interactive ? GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE :
+								 GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_NONE);
 		ret = gs_plugin_loader_job_action (self->plugin_loader, plugin_job,
 						    NULL, &error);
 		if (ret)
@@ -547,10 +498,9 @@ main (int argc, char **argv)
 		app = gs_app_new (argv[2]);
 		for (i = 0; i < repeat; i++) {
 			g_autoptr(GsPluginJob) plugin_job = NULL;
-			plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_LAUNCH,
-							 "app", app,
-							 "interactive", self->interactive,
-							 NULL);
+			plugin_job = gs_plugin_job_launch_new (app,
+							       self->interactive ? GS_PLUGIN_LAUNCH_FLAGS_INTERACTIVE :
+							       GS_PLUGIN_LAUNCH_FLAGS_NONE);
 			ret = gs_plugin_loader_job_action (self->plugin_loader, plugin_job,
 							    NULL, &error);
 			if (!ret)
@@ -559,12 +509,11 @@ main (int argc, char **argv)
 	} else if (argc == 3 && g_strcmp0 (argv[1], "filename-to-app") == 0) {
 		g_autoptr(GsPluginJob) plugin_job = NULL;
 		file = g_file_new_for_path (argv[2]);
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_FILE_TO_APP,
-						 "file", file,
-						 "refine-flags", self->refine_flags,
-						 "max-results", self->max_results,
-						 "interactive", self->interactive,
-						 NULL);
+		plugin_job = gs_plugin_job_file_to_app_new (file,
+							    self->interactive ? GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE :
+							    GS_PLUGIN_FILE_TO_APP_FLAGS_NONE);
+		gs_plugin_job_set_refine_flags (plugin_job, self->refine_flags);
+		gs_plugin_job_set_max_results (plugin_job, self->max_results);
 		app = gs_plugin_loader_job_process_app (self->plugin_loader, plugin_job, NULL, &error);
 		if (app == NULL) {
 			ret = FALSE;
@@ -574,12 +523,11 @@ main (int argc, char **argv)
 		}
 	} else if (argc == 3 && g_strcmp0 (argv[1], "url-to-app") == 0) {
 		g_autoptr(GsPluginJob) plugin_job = NULL;
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_URL_TO_APP,
-						 "search", argv[2],
-						 "refine-flags", self->refine_flags,
-						 "max-results", self->max_results,
-						 "interactive", self->interactive,
-						 NULL);
+		plugin_job = gs_plugin_job_url_to_app_new (argv[2],
+							   self->interactive ? GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE :
+							   GS_PLUGIN_URL_TO_APP_FLAGS_NONE);
+		gs_plugin_job_set_refine_flags (plugin_job, self->refine_flags);
+		gs_plugin_job_set_max_results (plugin_job, self->max_results);
 		app = gs_plugin_loader_job_process_app (self->plugin_loader, plugin_job,
 						    NULL, &error);
 		if (app == NULL) {
@@ -590,14 +538,17 @@ main (int argc, char **argv)
 		}
 	} else if (argc == 2 && g_strcmp0 (argv[1], "updates") == 0) {
 		for (i = 0; i < repeat; i++) {
+			g_autoptr(GsAppQuery) query = NULL;
 			g_autoptr(GsPluginJob) plugin_job = NULL;
 			if (list != NULL)
 				g_object_unref (list);
-			plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_UPDATES,
-							 "refine-flags", self->refine_flags,
-							 "max-results", self->max_results,
-							 "interactive", self->interactive,
-							 NULL);
+			query = gs_app_query_new ("is-for-update", GS_APP_QUERY_TRISTATE_TRUE,
+						  "refine-flags", self->refine_flags,
+						  "max-results", self->max_results,
+						  NULL);
+			plugin_job = gs_plugin_job_list_apps_new (query, self->interactive ?
+								  GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE :
+								  GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 			list = gs_plugin_loader_job_process (self->plugin_loader, plugin_job,
 							     NULL, &error);
 			if (list == NULL) {
@@ -625,12 +576,13 @@ main (int argc, char **argv)
 			}
 		}
 	} else if (argc == 2 && g_strcmp0 (argv[1], "sources") == 0) {
+		g_autoptr(GsAppQuery) query = NULL;
 		g_autoptr(GsPluginJob) plugin_job = NULL;
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_SOURCES,
-						 "refine-flags", self->refine_flags,
-						 "max-results", self->max_results,
-						 "interactive", self->interactive,
-						 NULL);
+		query = gs_app_query_new ("is-source", GS_APP_QUERY_TRISTATE_TRUE,
+					  "refine-flags", self->refine_flags,
+					  "max-results", self->max_results,
+					  NULL);
+		plugin_job = gs_plugin_job_list_apps_new (query, self->interactive ? GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE : GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 		list = gs_plugin_loader_job_process (self->plugin_loader,
 						     plugin_job,
 						     NULL,
@@ -824,7 +776,7 @@ main (int argc, char **argv)
 				     "Did not recognise option, use 'installed', "
 				     "'updates', 'popular', 'get-categories', "
 				     "'get-category-apps', 'get-alternates', 'filename-to-app', "
-				     "'action install', 'action remove', "
+				     "'install', 'remove', "
 				     "'sources', 'refresh', 'launch' or 'search'");
 	}
 	if (!ret) {

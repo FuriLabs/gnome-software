@@ -37,6 +37,11 @@
 #include "gs-review-dialog.h"
 #include "gs-review-row.h"
 
+#ifdef ENABLE_DKMS
+#include "gs-dkms-private.h"
+#include "gs-dkms-dialog.h"
+#endif
+
 /* the number of reviews to show before clicking the 'More Reviews' button */
 #define SHOW_NR_REVIEWS_INITIAL		4
 
@@ -151,12 +156,12 @@ struct _GsDetailsPage
 	GtkWidget		*list_box_reviews_summary;
 	GtkWidget		*list_box_version_history;
 	GtkWidget		*row_latest_version;
-	GtkWidget		*version_history_button;
+	GtkWidget		*version_history_button_row;
 	GtkWidget		*box_reviews;
 	GtkWidget		*box_reviews_internal;
 	GtkWidget		*histogram;
 	GtkWidget		*histogram_row;
-	GtkWidget		*button_review;
+	GtkWidget		*write_review_button_row;
 	GtkWidget		*scrolledwindow_details;
 	GtkWidget		*spinner_details;
 	GtkWidget		*stack_details;
@@ -301,7 +306,7 @@ gs_details_page_update_origin_button (GsDetailsPage *self,
 
 	packaging_icon = gs_app_get_metadata_item (self->app, "GnomeSoftware::PackagingIcon");
 	if (packaging_icon == NULL)
-		packaging_icon = "package-x-generic-symbolic";
+		packaging_icon = "package-generic-symbolic";
 
 	packaging_base_css_color = gs_app_get_metadata_item (self->app, "GnomeSoftware::PackagingBaseCssColor");
 
@@ -414,16 +419,15 @@ gs_details_page_refresh_progress (GsDetailsPage *self)
 		break;
 	}
 	if (gs_details_page_app_has_pending_action (self)) {
-		GsPluginAction action = gs_app_get_pending_action (self->app);
 		gtk_widget_set_visible (self->label_progress_status, TRUE);
 
-		if (action == GS_PLUGIN_ACTION_INSTALL) {
+		if (gs_job_manager_app_has_pending_job_type (job_manager, self->app, GS_TYPE_PLUGIN_JOB_INSTALL_APPS)) {
 			gtk_label_set_label (GTK_LABEL (self->label_progress_status),
 					     /* TRANSLATORS: This is a label on top of the app's progress
 					      * bar to inform the user that the app should be installed soon */
 					     _("Pending installation…"));
 		} else if (gs_job_manager_app_has_pending_job_type (job_manager, self->app, GS_TYPE_PLUGIN_JOB_UPDATE_APPS) ||
-			   action == GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD) {
+			   gs_job_manager_app_has_pending_job_type (job_manager, self->app, GS_TYPE_PLUGIN_JOB_DOWNLOAD_UPGRADE)) {
 			gtk_label_set_label (GTK_LABEL (self->label_progress_status),
 					     /* TRANSLATORS: This is a label on top of the app's progress
 					      * bar to inform the user that the app should be updated soon */
@@ -622,7 +626,7 @@ gs_details_page_license_tile_get_involved_activated_cb (GsLicenseTile *license_t
 			uri = gs_app_get_url (self->app, AS_URL_KIND_HOMEPAGE);
 	} else {
 		if (gs_app_get_license (self->app) == NULL) {
-			uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/software-metadata#license";
+			uri = "help:gnome-software/software-metadata#license";
 		} else {
 			license_url = as_get_license_url (gs_app_get_license (self->app));
 
@@ -637,7 +641,7 @@ gs_details_page_license_tile_get_involved_activated_cb (GsLicenseTile *license_t
 				 * Ultimately, we could ship a user manual page to explain the
 				 * differences (so that it’s available offline), but that’s too
 				 * much work for right now. */
-				uri = "https://gitlab.gnome.org/GNOME/gnome-software/-/wikis/Software-licensing";
+				uri = "help:gnome-software/software-licensing";
 			}
 		}
 	}
@@ -648,10 +652,10 @@ gs_details_page_license_tile_get_involved_activated_cb (GsLicenseTile *license_t
 static void
 gs_details_page_translation_banner_clicked_cb (GsDetailsPage *self)
 {
-	GtkWindow *window;
+	AdwDialog *dialog;
 
-	window = GTK_WINDOW (gs_app_translation_dialog_new (self->app));
-	gs_shell_modal_dialog_present (self->shell, window);
+	dialog = ADW_DIALOG (gs_app_translation_dialog_new (self->app));
+	adw_dialog_present (dialog, GTK_WIDGET (self));
 }
 
 static void
@@ -1042,6 +1046,7 @@ gs_details_page_refresh_buttons (GsDetailsPage *self)
 	};
 	GtkWidget *highlighted_button = NULL;
 	gboolean remove_is_destructive = TRUE;
+	gboolean is_mok_key_related = FALSE;
 
 	state = gs_app_get_state (self->app);
 
@@ -1070,6 +1075,14 @@ gs_details_page_refresh_buttons (GsDetailsPage *self)
 		if (gs_app_has_quirk (self->app, GS_APP_QUIRK_NEEDS_REBOOT)) {
 			gtk_widget_set_visible (self->button_install, TRUE);
 			gtk_button_set_label (GTK_BUTTON (self->button_install), _("_Restart"));
+			#ifdef ENABLE_DKMS
+			if (g_strcmp0 (gs_app_get_metadata_item (self->app, "GnomeSoftware::requires-akmods-key"), "True") == 0 ||
+			    g_strcmp0 (gs_app_get_metadata_item (self->app, "GnomeSoftware::requires-dkms-key"), "True") == 0) {
+				is_mok_key_related = TRUE;
+				if (!gs_app_get_mok_key_pending (self->app))
+					gtk_button_set_label (GTK_BUTTON (self->button_install), _("_Enable…"));
+			}
+			#endif
 		} else {
 			gtk_widget_set_visible (self->button_install, FALSE);
 		}
@@ -1131,6 +1144,10 @@ gs_details_page_refresh_buttons (GsDetailsPage *self)
 			gtk_widget_set_visible (self->button_remove, TRUE);
 			gtk_widget_set_sensitive (self->button_remove, TRUE);
 			break;
+		case GS_APP_STATE_PENDING_INSTALL:
+			gtk_widget_set_visible (self->button_remove, is_mok_key_related);
+			gtk_widget_set_sensitive (self->button_remove, is_mok_key_related);
+			break;
 		case GS_APP_STATE_AVAILABLE_LOCAL:
 		case GS_APP_STATE_AVAILABLE:
 		case GS_APP_STATE_INSTALLING:
@@ -1139,7 +1156,6 @@ gs_details_page_refresh_buttons (GsDetailsPage *self)
 		case GS_APP_STATE_UNAVAILABLE:
 		case GS_APP_STATE_UNKNOWN:
 		case GS_APP_STATE_QUEUED_FOR_INSTALL:
-		case GS_APP_STATE_PENDING_INSTALL:
 		case GS_APP_STATE_PENDING_REMOVE:
 			gtk_widget_set_visible (self->button_remove, FALSE);
 			break;
@@ -1374,7 +1390,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 			{ 128, NULL },
 			{ 96, NULL },
 			{ 64, NULL },
-			{ 128, "application-x-executable" },
+			{ 128, "org.gnome.Software.Generic" },
 		};
 
 		for (gsize i = 0; i < G_N_ELEMENTS (icon_fallbacks) && icon == NULL; i++) {
@@ -1489,7 +1505,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 		gtk_widget_set_visible (self->list_box_version_history, TRUE);
 	}
 
-	gtk_widget_set_visible (self->version_history_button, version_history != NULL && version_history->len > 1);
+	gtk_widget_set_visible (self->version_history_button_row, version_history != NULL && version_history->len > 1);
 
 	/* are we trying to replace something in the baseos */
 	gtk_widget_set_visible (self->infobar_details_package_baseos,
@@ -1588,9 +1604,8 @@ version_history_list_row_activated_cb (GtkListBox *list_box,
 	if (GS_IS_APP_VERSION_HISTORY_ROW (row))
 		return;
 
-	dialog = gs_app_version_history_dialog_new (GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (list_box), GTK_TYPE_WINDOW)),
-						    self->app);
-	gs_shell_modal_dialog_present (self->shell, GTK_WINDOW (dialog));
+	dialog = gs_app_version_history_dialog_new (self->app);
+	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (self));
 }
 
 static void gs_details_page_refresh_reviews (GsDetailsPage *self);
@@ -1613,12 +1628,8 @@ featured_review_list_row_activated_cb (GtkListBox *list_box,
 	g_assert (GS_IS_ODRS_PROVIDER (self->odrs_provider));
 
 	if (self->app_reviews_dialog == NULL) {
-		GtkWindow *parent;
-
-		parent = GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (list_box), GTK_TYPE_WINDOW));
-
 		self->app_reviews_dialog =
-			gs_app_reviews_dialog_new (parent, self->app,
+			gs_app_reviews_dialog_new (self->app,
 						   self->odrs_provider, self->plugin_loader);
 		g_object_bind_property (self, "odrs-provider",
 					self->app_reviews_dialog, "odrs-provider", 0);
@@ -1628,7 +1639,7 @@ featured_review_list_row_activated_cb (GtkListBox *list_box,
 					  G_CALLBACK (app_reviews_dialog_destroy_cb), self);
 	}
 
-	gs_shell_modal_dialog_present (self->shell, GTK_WINDOW (self->app_reviews_dialog));
+	adw_dialog_present (ADW_DIALOG (self->app_reviews_dialog), GTK_WIDGET (self));
 }
 
 static void gs_details_page_addon_install_cb (GsAppAddonRow *row, gpointer user_data);
@@ -1809,19 +1820,19 @@ gs_details_page_refresh_reviews (GsDetailsPage *self)
 	}
 
 	/* show the button only if the user never reviewed */
-	gtk_widget_set_visible (self->button_review, show_review_button);
+	gtk_widget_set_visible (self->write_review_button_row, show_review_button);
 	if (!gs_app_is_installed (self->app)) {
-		gtk_widget_set_visible (self->button_review, FALSE);
-		gtk_widget_set_sensitive (self->button_review, FALSE);
+		gtk_widget_set_visible (self->write_review_button_row, FALSE);
+		gtk_widget_set_sensitive (self->write_review_button_row, FALSE);
 		gtk_widget_set_sensitive (self->star, FALSE);
 	} else if (gs_plugin_loader_get_network_available (self->plugin_loader)) {
-		gtk_widget_set_sensitive (self->button_review, TRUE);
+		gtk_widget_set_sensitive (self->write_review_button_row, TRUE);
 		gtk_widget_set_sensitive (self->star, TRUE);
-		gtk_widget_set_tooltip_text (self->button_review, NULL);
+		gtk_widget_set_tooltip_text (self->write_review_button_row, NULL);
 	} else {
-		gtk_widget_set_sensitive (self->button_review, FALSE);
+		gtk_widget_set_sensitive (self->write_review_button_row, FALSE);
 		gtk_widget_set_sensitive (self->star, FALSE);
-		gtk_widget_set_tooltip_text (self->button_review,
+		gtk_widget_set_tooltip_text (self->write_review_button_row,
 					     /* TRANSLATORS: we need a remote server to process */
 					     _("You need internet access to write a review"));
 	}
@@ -1832,7 +1843,7 @@ gs_details_page_refresh_reviews (GsDetailsPage *self)
 	gtk_widget_set_visible (self->list_box_reviews_summary,
 				show_reviews &&
 				(gtk_widget_get_visible (self->histogram_row) ||
-				 gtk_widget_get_visible (self->button_review)));
+				 gtk_widget_get_visible (self->write_review_button_row)));
 	gtk_widget_set_visible (self->box_reviews,
 				reviews->len > 0 ||
 				gtk_widget_get_visible (self->list_box_reviews_summary));
@@ -2020,7 +2031,8 @@ gs_details_page_load_stage1_cb (GObject *source,
 	    gs_app_get_state (self->app) == GS_APP_STATE_UNKNOWN) {
 		g_autofree gchar *str = NULL;
 		const gchar *id = gs_app_get_id (self->app);
-		str = g_strdup_printf (_("Unable to find “%s”"), id == NULL ? gs_app_get_source_default (self->app) : id);
+		str = g_strdup_printf (_("Software failed to retrieve information for “%s” and is unable to show the details for this app."),
+				       id == NULL ? gs_app_get_source_default (self->app) : id);
 		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
@@ -2036,7 +2048,8 @@ gs_details_page_load_stage1_cb (GObject *source,
 	    gs_app_has_quirk (self->app, GS_APP_QUIRK_PARENTAL_FILTER)) {
 		g_autofree gchar *str = NULL;
 		const gchar *id = gs_app_get_id (self->app);
-		str = g_strdup_printf (_("Unable to find “%s”"), id == NULL ? gs_app_get_source_default (self->app) : id);
+		str = g_strdup_printf (_("Software failed to retrieve information for “%s” and is unable to show the details for this app."),
+				       id == NULL ? gs_app_get_source_default (self->app) : id);
 		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
@@ -2104,10 +2117,8 @@ gs_details_page_set_local_file (GsDetailsPage *self, GFile *file)
 	g_clear_object (&self->app_local_file);
 	_set_app (self, NULL);
 	self->origin_by_packaging_format = FALSE;
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_FILE_TO_APP,
-					 "file", file,
-					 "refine-flags", GS_DETAILS_PAGE_REFINE_FLAGS,
-					 NULL);
+	plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_NONE);
+	gs_plugin_job_set_refine_flags (plugin_job, GS_DETAILS_PAGE_REFINE_FLAGS);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    gs_details_page_file_to_app_cb,
@@ -2122,11 +2133,9 @@ gs_details_page_set_url (GsDetailsPage *self, const gchar *url)
 	g_clear_object (&self->app_local_file);
 	_set_app (self, NULL);
 	self->origin_by_packaging_format = FALSE;
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_URL_TO_APP,
-					 "search", url,
-					 "refine-flags", GS_DETAILS_PAGE_REFINE_FLAGS |
-							 GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES,
-					 NULL);
+	plugin_job = gs_plugin_job_url_to_app_new (url, GS_PLUGIN_URL_TO_APP_FLAGS_NONE);
+	gs_plugin_job_set_refine_flags (plugin_job, GS_DETAILS_PAGE_REFINE_FLAGS |
+						    GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    gs_details_page_url_to_app_cb,
@@ -2293,6 +2302,16 @@ gs_details_page_app_install_button_cb (GtkWidget *widget, GsDetailsPage *self)
 {
 	switch (gs_app_get_state (self->app)) {
 	case GS_APP_STATE_PENDING_INSTALL:
+		#ifdef ENABLE_DKMS
+		if (gs_app_has_quirk (self->app, GS_APP_QUIRK_NEEDS_REBOOT) &&
+		    (g_strcmp0 (gs_app_get_metadata_item (self->app, "GnomeSoftware::requires-akmods-key"), "True") == 0 ||
+		     g_strcmp0 (gs_app_get_metadata_item (self->app, "GnomeSoftware::requires-dkms-key"), "True") == 0) &&
+		    !gs_app_get_mok_key_pending (self->app)) {
+			gs_dkms_dialog_run (GTK_WIDGET (self), self->app);
+			return;
+		}
+		#endif
+	/* falls through */
 	case GS_APP_STATE_PENDING_REMOVE:
 		g_return_if_fail (gs_app_has_quirk (self->app, GS_APP_QUIRK_NEEDS_REBOOT));
 		gs_utils_invoke_reboot_async (NULL, NULL, NULL);
@@ -2355,8 +2374,8 @@ gs_details_page_app_launch_button_cb (GtkWidget *widget, GsDetailsPage *self)
 }
 
 static void
-gs_details_page_review_send_cb (GtkDialog *dialog,
-				GsDetailsPage *self)
+gs_details_page_review_send_cb (GsReviewDialog *dialog,
+				GsDetailsPage  *self)
 {
 	g_autofree gchar *text = NULL;
 	g_autoptr(GDateTime) now = NULL;
@@ -2392,7 +2411,7 @@ gs_details_page_review_send_cb (GtkDialog *dialog,
 	gs_details_page_refresh_reviews (self);
 
 	/* unmap the dialog */
-	gtk_window_destroy (GTK_WINDOW (dialog));
+	adw_dialog_force_close (ADW_DIALOG (dialog));
 }
 
 static void
@@ -2402,7 +2421,7 @@ gs_details_page_write_review (GsDetailsPage *self)
 	dialog = gs_review_dialog_new ();
 	g_signal_connect (dialog, "send",
 			  G_CALLBACK (gs_details_page_review_send_cb), self);
-	gs_shell_modal_dialog_present (self->shell, GTK_WINDOW (dialog));
+	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (self));
 }
 
 static void
@@ -2722,12 +2741,12 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_reviews_summary);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_version_history);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, row_latest_version);
-	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, version_history_button);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, version_history_button_row);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_reviews);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_reviews_internal);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, histogram);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, histogram_row);
-	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_review);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, write_review_button_row);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, scrolledwindow_details);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, spinner_details);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, stack_details);

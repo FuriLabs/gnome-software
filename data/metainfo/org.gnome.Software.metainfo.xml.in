@@ -66,70 +66,60 @@
    Validate with `appstreamcli validate *.metainfo.xml`
   -->
   <releases>
-    <release date="2024-08-02" version="46.4" type="stable">
+    <release date="2024-08-02" version="47~beta" type="development">
       <description>
-        <p>This is a stable release with the following changes:</p>
+        <p>This is an unstable release with the following changes:</p>
         <ul>
-          <li>Correct broken formatting when using &lt;code&gt; in AppStream metadata</li>
+          <li>Shorten text in some notifications</li>
+          <li>Fix Orca not reading the contents in Preferences dialog</li>
+          <li>Enhance behavior of a review row</li>
+          <li>Added plugin to ease installation of DKMS and akmods key with enabled Secure Boot</li>
         </ul>
         <p>This release also updates translations:</p>
         <ul>
           <li>Greek, Modern (1453-) (Efstathios Iosifidis)</li>
+          <li>Hebrew (Yaron Shahrabani, Yosef Or Boczko)</li>
           <li>Hindi (Scrambled 777)</li>
+          <li>Slovenian (Martin)</li>
         </ul>
       </description>
     </release>
-    <release date="2024-06-28" version="46.3" type="stable">
+    <release date="2024-06-28" version="47~alpha" type="development">
       <description>
-        <p>This is a stable release with the following changes:</p>
-        <ul>
-          <li>Show "Install All" button only for codecs</li>
-          <li>Prefer vendor name from os release in app origin</li>
-        </ul>
-        <p>This release also updates translations:</p>
-        <ul>
-          <li>Catalan (Jordi Mas i Hernandez)</li>
-        </ul>
-      </description>
-    </release>
-    <release date="2024-05-24" version="46.2" type="stable">
-      <description>
-        <p>This is a stable release with the following changes:</p>
-        <ul>
-          <li>Fix a crash when no appstream data is found</li>
-          <li>Correct app safety calculation</li>
-          <li>Correct Flatpak system and user apps recognition</li>
-          <li>Slightly speed-up rpm-ostree metadata refresh</li>
-        </ul>
-        <p>This release also updates translations:</p>
-        <ul>
-          <li>Kabyle (Rachida SACI)</li>
-          <li>Portuguese (Hugo Carvalho)</li>
-          <li>Spanish (Daniel Mustieles)</li>
-        </ul>
-      </description>
-    </release>
-    <release date="2024-04-25" version="46.1" type="stable">
-      <description>
-        <p>This is a stable release with the following changes:</p>
+        <p>This is an unstable release with the following changes:</p>
         <ul>
           <li>Fix a crash when updating apps when built with Mogwai</li>
           <li>Fix a crash when installing flatpak application</li>
           <li>Correct desktop/mobile hardware support detection</li>
           <li>Correct state of Fedora upgrade</li>
           <li>Several fixes in historical updates for rpm-ostree</li>
+          <li>Fix a crash when no appstream data is found</li>
+          <li>Correct app safety calculation</li>
+          <li>Correct Flatpak system and user apps recognition</li>
+          <li>Slightly speed-up rpm-ostree metadata refresh</li>
+          <li>Show "Install All" button only for codecs</li>
+          <li>Prefer vendor name from os release in app origin</li>
+          <li>Make more jobs asynchronous</li>
+          <li>Port to recent Adwaita widgets</li>
         </ul>
         <p>This release also updates translations:</p>
         <ul>
           <li>Catalan (Jordi Mas i Hernandez)</li>
+          <li>Chinese (China) (Boyuan Yang)</li>
           <li>Czech (Daniel Rusek)</li>
           <li>Dutch (Nathan Follens)</li>
           <li>Friulian (Fabio Tomat)</li>
-          <li>Hindi (Guntupalli Karunakar)</li>
+          <li>Georgian (Ekaterine Papava)</li>
+          <li>Hebrew (Yosef Or Boczko)</li>
           <li>Kabyle (Athmane MOKRAOUI)</li>
           <li>Panjabi (A S Alam)</li>
+          <li>Portuguese (Hugo Carvalho)</li>
           <li>Russian (Artur S0)</li>
           <li>Serbian (Милош Поповић)</li>
+          <li>Slovenian (Martin)</li>
+          <li>Spanish (Daniel Mustieles)</li>
+          <li>Turkish (Sabri Ünal)</li>
+          <li>Ukrainian (Yuri Chornoivan)</li>
         </ul>
       </description>
     </release>
@@ -2560,6 +2550,7 @@
     <kudo>SearchProvider</kudo>
   </kudos>
   <url type="bugtracker">https://gitlab.gnome.org/GNOME/gnome-software/-/issues</url>
+  <url type="contact">https://discourse.gnome.org/tag/gnome-software</url>
   <url type="contribute">https://welcome.gnome.org/app/Software/</url>
   <url type="donation">https://www.gnome.org/donate/</url>
   <url type="homepage">https://apps.gnome.org/Software</url>

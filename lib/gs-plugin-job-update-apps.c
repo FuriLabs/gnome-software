@@ -85,6 +85,7 @@ struct _GsPluginJobUpdateApps
 	guint n_pending_ops;
 	GHashTable *plugins_progress;  /* (element-type GsPlugin guint) (owned) (nullable) */
 	GSource *progress_source;  /* (owned) (nullable) */
+	guint last_reported_progress;
 
 #ifdef HAVE_SYSPROF
 	gint64 begin_time_nsec;
@@ -161,6 +162,7 @@ gs_plugin_job_update_apps_set_property (GObject      *object,
 		/* Construct only. */
 		g_assert (self->apps == NULL);
 		self->apps = g_value_dup_object (value);
+		g_assert (self->apps != NULL);
 		g_object_notify_by_pspec (object, props[prop_id]);
 		break;
 	case PROP_FLAGS:
@@ -233,7 +235,8 @@ gs_plugin_job_update_apps_run_async (GsPluginJob         *job,
 	 * an overall progress for all the parallel operations. */
 	self->plugins_progress = g_hash_table_new (g_direct_hash, g_direct_equal);
 	self->progress_source = g_timeout_source_new (progress_update_period_ms);
-	g_source_set_callback (self->progress_source, progress_cb, g_object_ref (self), g_object_unref);
+	self->last_reported_progress = GS_APP_PROGRESS_UNKNOWN;
+	g_source_set_callback (self->progress_source, progress_cb, self, NULL);
 	g_source_attach (self->progress_source, g_main_context_get_thread_default ());
 
 	/* run each plugin, keeping a counter of pending operations which is
@@ -336,11 +339,14 @@ progress_cb (gpointer user_data)
 	if (all_unknown)
 		progress = GS_APP_PROGRESS_UNKNOWN;
 
-	/* Report progress via signal emission. */
-	/* FIXME: In future we could add explicit signals to notify that a
-	 * download operation is blocked on waiting for metered data permission
-	 * to download, so the UI can represent that better. */
-	g_signal_emit (self, signals[SIGNAL_PROGRESS], 0, (guint) progress);
+	if ((guint) progress != self->last_reported_progress) {
+		/* Report progress via signal emission. */
+		/* FIXME: In future we could add explicit signals to notify that a
+		 * download operation is blocked on waiting for metered data permission
+		 * to download, so the UI can represent that better. */
+		g_signal_emit (self, signals[SIGNAL_PROGRESS], 0, (guint) progress);
+		self->last_reported_progress = progress;
+	}
 
 	return G_SOURCE_CONTINUE;
 }
@@ -560,6 +566,8 @@ GsPluginJob *
 gs_plugin_job_update_apps_new (GsAppList               *apps,
                                GsPluginUpdateAppsFlags  flags)
 {
+	g_return_val_if_fail (GS_IS_APP_LIST (apps), NULL);
+
 	return g_object_new (GS_TYPE_PLUGIN_JOB_UPDATE_APPS,
 			     "apps", apps,
 			     "flags", flags,

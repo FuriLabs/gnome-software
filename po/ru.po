@@ -13,8 +13,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnome-software master\n"
 "Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/gnome-software/issues\n"
-"POT-Creation-Date: 2024-03-27 10:08+0000\n"
-"PO-Revision-Date: 2024-04-01 18:25+0300\n"
+"POT-Creation-Date: 2024-03-28 08:38+0000\n"
+"PO-Revision-Date: 2024-04-01 14:10+0300\n"
 "Last-Translator: Artur So <arturios2005@mail.ru>\n"
 "Language-Team: Russian <gnome-cyr@gnome.org>\n"
 "Language: ru\n"
@@ -1412,7 +1412,7 @@ msgid "Unsafe"
 msgstr "Небезопасно"
 
 #: src/gs-app-context-bar.c:648 src/gs-app-context-bar.c:680
-#: src/gs-hardware-support-context-dialog.c:608
+#: src/gs-hardware-support-context-dialog.c:615
 msgid "Mobile Only"
 msgstr "Только для мобильных устройств"
 
@@ -1422,7 +1422,7 @@ msgstr "Работает только на небольших экранах"
 
 #: src/gs-app-context-bar.c:654 src/gs-app-context-bar.c:687
 #: src/gs-app-context-bar.c:694 src/gs-app-context-bar.c:744
-#: src/gs-app-context-bar.c:749 src/gs-hardware-support-context-dialog.c:588
+#: src/gs-app-context-bar.c:749 src/gs-hardware-support-context-dialog.c:595
 msgid "Desktop Only"
 msgstr "Только для ПК"
 
@@ -1430,21 +1430,21 @@ msgstr "Только для ПК"
 msgid "Only works on a large screen"
 msgstr "Работает только на больших экранах"
 
-#: src/gs-app-context-bar.c:659 src/gs-hardware-support-context-dialog.c:626
+#: src/gs-app-context-bar.c:659 src/gs-hardware-support-context-dialog.c:633
 msgid "Screen Size Mismatch"
 msgstr "Ошибка с размером экрана"
 
-#: src/gs-app-context-bar.c:660 src/gs-hardware-support-context-dialog.c:627
+#: src/gs-app-context-bar.c:660 src/gs-hardware-support-context-dialog.c:634
 msgid "Doesn’t support your current screen size"
 msgstr "Не поддерживает текущий размер экрана"
 
-#: src/gs-app-context-bar.c:681 src/gs-hardware-support-context-dialog.c:679
-#: src/gs-hardware-support-context-dialog.c:685
+#: src/gs-app-context-bar.c:681 src/gs-hardware-support-context-dialog.c:686
+#: src/gs-hardware-support-context-dialog.c:692
 msgid "Requires a touchscreen"
 msgstr "Требуется сенсорный экран"
 
-#: src/gs-app-context-bar.c:688 src/gs-hardware-support-context-dialog.c:639
-#: src/gs-hardware-support-context-dialog.c:645
+#: src/gs-app-context-bar.c:688 src/gs-hardware-support-context-dialog.c:646
+#: src/gs-hardware-support-context-dialog.c:652
 msgid "Requires a keyboard"
 msgstr "Требуется клавиатура"
 
@@ -2878,210 +2878,210 @@ msgstr "Следующая"
 msgid "Featured Apps List"
 msgstr "Рекомендуемые приложения"
 
-#: src/gs-hardware-support-context-dialog.c:582
-#: src/gs-hardware-support-context-dialog.c:591
+#: src/gs-hardware-support-context-dialog.c:589
+#: src/gs-hardware-support-context-dialog.c:598
 msgid "Desktop Support"
 msgstr "Поддержка ПК"
 
-#: src/gs-hardware-support-context-dialog.c:583
-#: src/gs-hardware-support-context-dialog.c:592
+#: src/gs-hardware-support-context-dialog.c:590
+#: src/gs-hardware-support-context-dialog.c:599
 msgid "Supports being used on a large screen"
 msgstr "Поддерживает использование на большом экране"
 
-#: src/gs-hardware-support-context-dialog.c:585
+#: src/gs-hardware-support-context-dialog.c:592
 msgid "Desktop Support Unknown"
 msgstr "Поддержка ПК неизвестна"
 
-#: src/gs-hardware-support-context-dialog.c:586
+#: src/gs-hardware-support-context-dialog.c:593
 msgid "Not enough information to know if large screens are supported"
 msgstr ""
 "Недостаточно информации, чтобы понять, поддерживаются ли большие экраны"
 
-#: src/gs-hardware-support-context-dialog.c:589
+#: src/gs-hardware-support-context-dialog.c:596
 msgid "Requires a large screen"
 msgstr "Требуется большой экран"
 
-#: src/gs-hardware-support-context-dialog.c:594
+#: src/gs-hardware-support-context-dialog.c:601
 msgid "Desktop Not Supported"
 msgstr "ПК не поддерживается"
 
-#: src/gs-hardware-support-context-dialog.c:595
+#: src/gs-hardware-support-context-dialog.c:602
 msgid "Cannot be used on a large screen"
 msgstr "Невозможно использовать на большом экране"
 
-#: src/gs-hardware-support-context-dialog.c:602
-#: src/gs-hardware-support-context-dialog.c:611
+#: src/gs-hardware-support-context-dialog.c:609
+#: src/gs-hardware-support-context-dialog.c:618
 msgid "Mobile Support"
 msgstr "Поддержка мобильных устройств"
 
-#: src/gs-hardware-support-context-dialog.c:603
-#: src/gs-hardware-support-context-dialog.c:612
+#: src/gs-hardware-support-context-dialog.c:610
+#: src/gs-hardware-support-context-dialog.c:619
 msgid "Supports being used on a small screen"
 msgstr "Поддерживает использование на маленьком экране"
 
-#: src/gs-hardware-support-context-dialog.c:605
+#: src/gs-hardware-support-context-dialog.c:612
 msgid "Mobile Support Unknown"
 msgstr "Поддержка мобильных устройств неизвестна"
 
-#: src/gs-hardware-support-context-dialog.c:606
+#: src/gs-hardware-support-context-dialog.c:613
 msgid "Not enough information to know if small screens are supported"
 msgstr ""
 "Недостаточно информации, чтобы понять, поддерживаются ли маленькие экраны"
 
-#: src/gs-hardware-support-context-dialog.c:609
+#: src/gs-hardware-support-context-dialog.c:616
 msgid "Requires a small screen"
 msgstr "Требуется маленький экран"
 
-#: src/gs-hardware-support-context-dialog.c:614
+#: src/gs-hardware-support-context-dialog.c:621
 msgid "Mobile Not Supported"
 msgstr "Мобильные устройства не поддерживается"
 
-#: src/gs-hardware-support-context-dialog.c:615
+#: src/gs-hardware-support-context-dialog.c:622
 msgid "Cannot be used on a small screen"
 msgstr "Невозможно использовать на маленьком экране"
 
-#: src/gs-hardware-support-context-dialog.c:638
-#: src/gs-hardware-support-context-dialog.c:647
+#: src/gs-hardware-support-context-dialog.c:645
+#: src/gs-hardware-support-context-dialog.c:654
 msgid "Keyboard Support"
 msgstr "Поддержка клавиатуры"
 
-#: src/gs-hardware-support-context-dialog.c:641
+#: src/gs-hardware-support-context-dialog.c:648
 msgid "Keyboard Support Unknown"
 msgstr "Поддержка клавиатуры не известна"
 
-#: src/gs-hardware-support-context-dialog.c:642
+#: src/gs-hardware-support-context-dialog.c:649
 msgid "Not enough information to know if keyboards are supported"
 msgstr "Недостаточно информации, чтобы понять, поддерживаются ли клавиатуры"
 
-#: src/gs-hardware-support-context-dialog.c:644
+#: src/gs-hardware-support-context-dialog.c:651
 msgid "Keyboard Required"
 msgstr "Требуется клавиатура"
 
-#: src/gs-hardware-support-context-dialog.c:648
+#: src/gs-hardware-support-context-dialog.c:655
 msgid "Supports keyboards"
 msgstr "Поддерживает клавиатуры"
 
-#: src/gs-hardware-support-context-dialog.c:650
+#: src/gs-hardware-support-context-dialog.c:657
 msgid "Keyboard Not Supported"
 msgstr "Клавиатура не поддерживается"
 
-#: src/gs-hardware-support-context-dialog.c:651
+#: src/gs-hardware-support-context-dialog.c:658
 msgid "Cannot be used with a keyboard"
 msgstr "Невозможно использовать с клавиатурой"
 
-#: src/gs-hardware-support-context-dialog.c:658
-#: src/gs-hardware-support-context-dialog.c:667
+#: src/gs-hardware-support-context-dialog.c:665
+#: src/gs-hardware-support-context-dialog.c:674
 msgid "Mouse Support"
 msgstr "Поддержка мыши"
 
-#: src/gs-hardware-support-context-dialog.c:659
-#: src/gs-hardware-support-context-dialog.c:665
+#: src/gs-hardware-support-context-dialog.c:666
+#: src/gs-hardware-support-context-dialog.c:672
 msgid "Requires a mouse or pointing device"
 msgstr "Требуется мышь или указатель"
 
-#: src/gs-hardware-support-context-dialog.c:661
+#: src/gs-hardware-support-context-dialog.c:668
 msgid "Mouse Support Unknown"
 msgstr "Поддержка мыши неизвестна"
 
-#: src/gs-hardware-support-context-dialog.c:662
+#: src/gs-hardware-support-context-dialog.c:669
 msgid ""
 "Not enough information to know if mice or pointing devices are supported"
 msgstr ""
 "Недостаточно информации, чтобы понять, поддерживаются ли мыши или указатели"
 
-#: src/gs-hardware-support-context-dialog.c:664
+#: src/gs-hardware-support-context-dialog.c:671
 msgid "Mouse Required"
 msgstr "Требуется мышь"
 
-#: src/gs-hardware-support-context-dialog.c:668
+#: src/gs-hardware-support-context-dialog.c:675
 msgid "Supports mice and pointing devices"
 msgstr "Поддержка мышей и указателей"
 
-#: src/gs-hardware-support-context-dialog.c:670
+#: src/gs-hardware-support-context-dialog.c:677
 msgid "Mouse Not Supported"
 msgstr "Мышь не поддерживается"
 
-#: src/gs-hardware-support-context-dialog.c:671
+#: src/gs-hardware-support-context-dialog.c:678
 msgid "Cannot be used with a mouse or pointing device"
 msgstr "Невозможно использовать с мышью или указателем"
 
-#: src/gs-hardware-support-context-dialog.c:678
-#: src/gs-hardware-support-context-dialog.c:687
+#: src/gs-hardware-support-context-dialog.c:685
+#: src/gs-hardware-support-context-dialog.c:694
 msgid "Touchscreen Support"
 msgstr "Поддержка сенсорного экрана"
 
-#: src/gs-hardware-support-context-dialog.c:681
+#: src/gs-hardware-support-context-dialog.c:688
 msgid "Touchscreen Support Unknown"
 msgstr "Поддержка сенсорного экрана не известна"
 
-#: src/gs-hardware-support-context-dialog.c:682
+#: src/gs-hardware-support-context-dialog.c:689
 msgid "Not enough information to know if touchscreens are supported"
 msgstr ""
 "Недостаточно информации, чтобы понять, поддерживаются ли сенсорные экраны"
 
-#: src/gs-hardware-support-context-dialog.c:684
+#: src/gs-hardware-support-context-dialog.c:691
 msgid "Touchscreen Required"
 msgstr "Требуется сенсорный экран"
 
-#: src/gs-hardware-support-context-dialog.c:688
+#: src/gs-hardware-support-context-dialog.c:695
 msgid "Supports touchscreens"
 msgstr "Поддерживает сенсорные экраны"
 
-#: src/gs-hardware-support-context-dialog.c:690
+#: src/gs-hardware-support-context-dialog.c:697
 msgid "Touchscreen Not Supported"
 msgstr "Сенсорный экран не поддерживается"
 
-#: src/gs-hardware-support-context-dialog.c:691
+#: src/gs-hardware-support-context-dialog.c:698
 msgid "Cannot be used with a touchscreen"
 msgstr "Невозможно использовать с сенсорным экраном"
 
-#: src/gs-hardware-support-context-dialog.c:704
+#: src/gs-hardware-support-context-dialog.c:711
 msgid "Gamepad Required"
 msgstr "Требуется игровой контроллер"
 
-#: src/gs-hardware-support-context-dialog.c:705
+#: src/gs-hardware-support-context-dialog.c:712
 msgid "Requires a gamepad"
 msgstr "Требуется игровой контроллер"
 
-#: src/gs-hardware-support-context-dialog.c:707
+#: src/gs-hardware-support-context-dialog.c:714
 msgid "Gamepad Support"
 msgstr "Поддержка игрового контроллера"
 
-#: src/gs-hardware-support-context-dialog.c:708
+#: src/gs-hardware-support-context-dialog.c:715
 msgid "Supports gamepads"
 msgstr "Поддерживает игровые контроллеры"
 
 #. Translators: It’s unknown whether this app is supported on
 #. * the current hardware. The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:717
+#: src/gs-hardware-support-context-dialog.c:724
 #, c-format
 msgid "%s probably works on this device"
 msgstr "«%s», вероятно, работает на этом устройстве"
 
 #. Translators: The app will work on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:724
+#: src/gs-hardware-support-context-dialog.c:731
 #, c-format
 msgid "%s works on this device"
 msgstr "«%s» работает на этом устройстве"
 
 #. Translators: The app will possbily work on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:731
+#: src/gs-hardware-support-context-dialog.c:738
 #, c-format
 msgid "%s possibly works on this device"
 msgstr "%s, вероятно, работает на этом устройстве"
 
 #. Translators: The app may not work fully on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:738
+#: src/gs-hardware-support-context-dialog.c:745
 #, c-format
 msgid "%s will not work properly on this device"
 msgstr "«%s» не будет работать должным образом на этом устройстве"
 
 #. Translators: The app will not work properly on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:745
+#: src/gs-hardware-support-context-dialog.c:752
 #, c-format
 msgid "%s will not work on this device"
 msgstr "«%s» не будет работать на этом устройстве"
@@ -3352,8 +3352,8 @@ msgstr ""
 
 #. TRANSLATORS: initial start
 #: src/gs-loading-page.c:56
-msgid "Downloading Software Catalog"
-msgstr "Загрузка каталога приложений"
+msgid "Refreshing Data"
+msgstr "Обновление данных"
 
 #: src/gs-loading-page.ui:6
 msgid "Loading page"
@@ -5903,6 +5903,13 @@ msgstr "Поддержка Snap"
 msgid "A snap is a universal Linux package"
 msgstr "Snap — универсальный формат пакетов для Linux"
 
+#~ msgid "Downloading Software Catalog"
+#~ msgstr "Загрузка каталога приложений"
+
+#, c-format
+#~ msgid "%s %s %s"
+#~ msgstr "%s %s %s"
+
 #~ msgid "An important software update is ready to be installed."
 #~ msgstr "Важное обновление ПО готово к установке."
 
@@ -6165,9 +6172,6 @@ msgstr "Snap — универсальный формат пакетов для L
 #~ msgid "Updates"
 #~ msgstr "Обновления"
 
-#~ msgid "Stop Refreshing"
-#~ msgstr "Остановить обновление"
-
 #~ msgid "Refresh"
 #~ msgstr "Обновить"
 
@@ -6257,10 +6261,6 @@ msgstr "Snap — универсальный формат пакетов для L
 
 #~ msgid "Version"
 #~ msgstr "Версия"
-
-#, c-format
-#~ msgid "%s %s"
-#~ msgstr "%s %s"
 
 #~ msgid "Software catalog is being downloaded"
 #~ msgstr "Загрузка списка приложений"

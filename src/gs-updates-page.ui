@@ -114,6 +114,18 @@
                                 <property name="spacing">24</property>
                               </object>
                             </child>
+                            <child>
+                              <object class="GtkLabel" id="label_last_checked">
+                                <property name="wrap">True</property>
+                                <property name="wrap-mode">word-char</property>
+                                <property name="justify">center</property>
+                                <property name="use-markup">True</property>
+                                <property name="label">Last checked: HH:MM</property>
+                                <style>
+                                  <class name="dim-label"/>
+                                </style>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
@@ -222,6 +234,9 @@
                         <property name="label" translatable="yes">_Check Anyway</property>
                         <property name="use_underline">True</property>
                         <property name="halign">center</property>
+                        <style>
+                          <class name="pill"/>
+                        </style>
                       </object>
                     </child>
                   </object>

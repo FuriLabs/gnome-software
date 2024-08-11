@@ -257,41 +257,20 @@ about_activated (GSimpleAction *action,
 		NULL
 	};
 
-#if ADW_CHECK_VERSION(1,2,0)
-	adw_show_about_window (app->main_window,
-			       "application-name", g_get_application_name (),
-			       "application-icon", APPLICATION_ID,
-			       "developer-name", _("The GNOME Project"),
-			       "version", get_version(),
-			       "website", "https://apps.gnome.org/Software",
-			       "support-url", "https://discourse.gnome.org/tag/gnome-software",
-			       "issue-url", "https://gitlab.gnome.org/GNOME/gnome-software/-/issues",
-			       "developers", developers,
-			       "designers", designers,
-			       "copyright", _("Copyright \xc2\xa9 2016–2023 GNOME Software contributors"),
-			       "license-type", GTK_LICENSE_GPL_2_0,
-			       "translator-credits", _("translator-credits"),
-			       NULL);
-#else
-	GtkAboutDialog *dialog;
-	dialog = GTK_ABOUT_DIALOG (gtk_about_dialog_new ());
-	gtk_about_dialog_set_authors (dialog, developers);
-	gtk_about_dialog_set_copyright (dialog, _("Copyright \xc2\xa9 2016–2023 GNOME Software contributors"));
-	gtk_about_dialog_set_license_type (dialog, GTK_LICENSE_GPL_2_0);
-	gtk_about_dialog_set_logo_icon_name (dialog, APPLICATION_ID);
-	gtk_about_dialog_set_translator_credits (dialog, _("translator-credits"));
-	gtk_about_dialog_set_version (dialog, get_version ());
-	gtk_about_dialog_set_program_name (dialog, g_get_application_name ());
-
-	/* TRANSLATORS: this is the title of the about window */
-	gtk_window_set_title (GTK_WINDOW (dialog), _("About Software"));
-
-	/* TRANSLATORS: well, we seem to think so, anyway */
-	gtk_about_dialog_set_comments (dialog, _("A nice way to manage the "
-						 "software on your system."));
-
-	gs_shell_modal_dialog_present (app->shell, GTK_WINDOW (dialog));
-#endif
+adw_show_about_dialog (GTK_WIDGET (app->main_window),
+		       "application-name", g_get_application_name (),
+		       "application-icon", APPLICATION_ID,
+		       "developer-name", _("The GNOME Project"),
+		       "version", get_version(),
+		       "website", "https://apps.gnome.org/Software",
+		       "support-url", "https://discourse.gnome.org/tag/gnome-software",
+		       "issue-url", "https://gitlab.gnome.org/GNOME/gnome-software/-/issues",
+		       "developers", developers,
+		       "designers", designers,
+		       "copyright", _("Copyright \xc2\xa9 2016–2023 GNOME Software contributors"),
+		       "license-type", GTK_LICENSE_GPL_2_0,
+		       "translator-credits", _("translator-credits"),
+		       NULL);
 }
 
 static void
@@ -322,7 +301,7 @@ reboot_failed_cb (GObject *source, GAsyncResult *res, gpointer user_data)
 		g_warning ("Calling reboot failed: %s", error->message);
 
 	/* cancel trigger */
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPDATE_CANCEL, NULL);
+	plugin_job = gs_plugin_job_cancel_offline_update_new (GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (app->plugin_loader, plugin_job,
 					    app->cancellable,
 					    cancel_trigger_failed_cb,
@@ -484,8 +463,6 @@ set_mode_activated (GSimpleAction *action,
 		gs_shell_set_mode (app->shell, GS_SHELL_MODE_UPDATES);
 	} else if (g_strcmp0 (mode, "installed") == 0) {
 		gs_shell_set_mode (app->shell, GS_SHELL_MODE_INSTALLED);
-	} else if (g_strcmp0 (mode, "moderate") == 0) {
-		gs_shell_set_mode (app->shell, GS_SHELL_MODE_MODERATE);
 	} else if (g_strcmp0 (mode, "overview") == 0) {
 		gs_shell_set_mode (app->shell, GS_SHELL_MODE_OVERVIEW);
 	} else if (g_strcmp0 (mode, "updated") == 0) {
@@ -901,9 +878,7 @@ launch_activated (GSimpleAction *action,
 		return;
 	}
 
-	launch_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_LAUNCH,
-					 "app", app,
-					 NULL);
+	launch_job = gs_plugin_job_launch_new (app, GS_PLUGIN_LAUNCH_FLAGS_NONE);
 	if (!gs_plugin_loader_job_action (self->plugin_loader, launch_job, self->cancellable, &error)) {
 		g_warning ("Failed to launch app: %s", error->message);
 		return;
@@ -1139,6 +1114,9 @@ gs_application_startup (GApplication *application)
 	g_application_withdraw_notification (application, "upgrades-downloaded");
 	g_application_withdraw_notification (application, "offline-updates");
 	g_application_withdraw_notification (application, "eol");
+	#ifdef ENABLE_DKMS
+	g_application_withdraw_notification (application, "dkms-key-pending");
+	#endif
 
 	/* Set up the plugins. */
 	gs_plugin_loader_setup_async (app->plugin_loader,

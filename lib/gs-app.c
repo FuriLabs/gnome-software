@@ -142,6 +142,11 @@ typedef struct
 	GPtrArray		*relations;  /* (nullable) (element-type AsRelation) (owned) */
 	gboolean		 has_translations;
 	GsAppIconsState		 icons_state;
+	gboolean		 key_color_for_light_set;
+	GdkRGBA			 key_color_for_light;
+	gboolean		 key_color_for_dark_set;
+	GdkRGBA			 key_color_for_dark;
+	gboolean		 mok_key_pending;
 } GsAppPrivate;
 
 typedef enum {
@@ -183,21 +188,12 @@ typedef enum {
 	PROP_ORIGIN_UI,
 	PROP_HAS_TRANSLATIONS,
 	PROP_ICONS_STATE,
+	PROP_MOK_KEY_PENDING,
 } GsAppProperty;
 
-static GParamSpec *obj_props[PROP_ICONS_STATE + 1] = { NULL, };
+static GParamSpec *obj_props[PROP_MOK_KEY_PENDING + 1] = { NULL, };
 
 G_DEFINE_TYPE_WITH_PRIVATE (GsApp, gs_app, G_TYPE_OBJECT)
-
-static gboolean
-_g_set_str (gchar **str_ptr, const gchar *new_str)
-{
-	if (*str_ptr == new_str || g_strcmp0 (*str_ptr, new_str) == 0)
-		return FALSE;
-	g_free (*str_ptr);
-	*str_ptr = g_strdup (new_str);
-	return TRUE;
-}
 
 static gboolean
 _g_set_strv (gchar ***strv_ptr, gchar **new_strv)
@@ -754,6 +750,18 @@ gs_app_to_string_append (GsApp *app, GString *str)
 				  color->green * 255.f,
 				  color->blue * 255.f);
 	}
+	if (priv->key_color_for_light_set) {
+		gs_app_kv_printf (str, "key-color-for-light-scheme", "%.0f,%.0f,%.0f",
+				  priv->key_color_for_light.red * 255.f,
+				  priv->key_color_for_light.green * 255.f,
+				  priv->key_color_for_light.blue * 255.f);
+	}
+	if (priv->key_color_for_dark_set) {
+		gs_app_kv_printf (str, "key-color-for-dark-scheme", "%.0f,%.0f,%.0f",
+				  priv->key_color_for_dark.red * 255.f,
+				  priv->key_color_for_dark.green * 255.f,
+				  priv->key_color_for_dark.blue * 255.f);
+	}
 	keys = g_hash_table_get_keys (priv->metadata);
 	for (GList *l = keys; l != NULL; l = l->next) {
 		GVariant *val;
@@ -860,7 +868,7 @@ gs_app_set_id (GsApp *app, const gchar *id)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	if (_g_set_str (&priv->id, id))
+	if (g_set_str (&priv->id, id))
 		priv->unique_id_valid = FALSE;
 }
 
@@ -1087,129 +1095,10 @@ static gboolean
 gs_app_set_state_internal (GsApp *app, GsAppState state)
 {
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	gboolean state_change_ok = FALSE;
 
 	/* same */
 	if (priv->state == state)
 		return FALSE;
-
-	/* check the state change is allowed */
-	switch (priv->state) {
-	case GS_APP_STATE_UNKNOWN:
-		/* unknown has to go into one of the stable states */
-		if (state == GS_APP_STATE_INSTALLED ||
-		    state == GS_APP_STATE_QUEUED_FOR_INSTALL ||
-		    state == GS_APP_STATE_AVAILABLE ||
-		    state == GS_APP_STATE_AVAILABLE_LOCAL ||
-		    state == GS_APP_STATE_UPDATABLE ||
-		    state == GS_APP_STATE_UPDATABLE_LIVE ||
-		    state == GS_APP_STATE_UNAVAILABLE ||
-		    state == GS_APP_STATE_PENDING_INSTALL ||
-		    state == GS_APP_STATE_PENDING_REMOVE)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_INSTALLED:
-		/* installed has to go into an action state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_REMOVING ||
-		    state == GS_APP_STATE_UNAVAILABLE ||
-		    state == GS_APP_STATE_UPDATABLE ||
-		    state == GS_APP_STATE_UPDATABLE_LIVE)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_QUEUED_FOR_INSTALL:
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_DOWNLOADING ||
-		    state == GS_APP_STATE_AVAILABLE)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_AVAILABLE:
-		/* available has to go into an action state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_QUEUED_FOR_INSTALL ||
-		    state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_DOWNLOADING)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_DOWNLOADING:
-		/* downloading is similar to the installing state, to which it can go too */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_UPDATABLE ||
-		    state == GS_APP_STATE_UPDATABLE_LIVE ||
-		    state == GS_APP_STATE_AVAILABLE ||
-		    state == GS_APP_STATE_PENDING_INSTALL)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_INSTALLING:
-		/* installing has to go into an stable state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_INSTALLED ||
-		    state == GS_APP_STATE_UPDATABLE ||
-		    state == GS_APP_STATE_UPDATABLE_LIVE ||
-		    state == GS_APP_STATE_AVAILABLE ||
-		    state == GS_APP_STATE_PENDING_INSTALL)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_REMOVING:
-		/* removing has to go into an stable state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_UNAVAILABLE ||
-		    state == GS_APP_STATE_AVAILABLE ||
-		    state == GS_APP_STATE_INSTALLED ||
-		    state == GS_APP_STATE_PENDING_REMOVE)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_UPDATABLE:
-		/* updatable has to go into an action state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_REMOVING ||
-		    state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_DOWNLOADING ||
-		    state == GS_APP_STATE_PENDING_INSTALL)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_UPDATABLE_LIVE:
-		/* updatable-live has to go into an action state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_REMOVING ||
-		    state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_DOWNLOADING)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_UNAVAILABLE:
-		/* updatable has to go into an action state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_AVAILABLE)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_AVAILABLE_LOCAL:
-		/* local has to go into an action state */
-		if (state == GS_APP_STATE_UNKNOWN ||
-		    state == GS_APP_STATE_QUEUED_FOR_INSTALL ||
-		    state == GS_APP_STATE_INSTALLING ||
-		    state == GS_APP_STATE_DOWNLOADING)
-			state_change_ok = TRUE;
-		break;
-	case GS_APP_STATE_PENDING_INSTALL:
-	case GS_APP_STATE_PENDING_REMOVE:
-		state_change_ok = TRUE;
-		break;
-	default:
-		g_warning ("state %s unhandled",
-			   gs_app_state_to_string (priv->state));
-		g_assert_not_reached ();
-	}
-
-	/* this state change was unexpected */
-	if (!state_change_ok) {
-		g_warning ("State change on %s (%s) from %s to %s is not OK",
-			   gs_app_get_unique_id_unlocked (app),
-			   priv->name,
-			   gs_app_state_to_string (priv->state),
-			   gs_app_state_to_string (state));
-	}
 
 	priv->state = state;
 
@@ -1541,7 +1430,7 @@ gs_app_set_name (GsApp *app, GsAppQuality quality, const gchar *name)
 	if (quality < priv->name_quality)
 		return;
 	priv->name_quality = quality;
-	if (_g_set_str (&priv->name, name))
+	if (g_set_str (&priv->name, name))
 		gs_app_queue_notify (app, obj_props[PROP_NAME]);
 }
 
@@ -1580,7 +1469,7 @@ gs_app_set_renamed_from (GsApp *app, const gchar *renamed_from)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	_g_set_str (&priv->renamed_from, renamed_from);
+	g_set_str (&priv->renamed_from, renamed_from);
 }
 
 /**
@@ -1617,7 +1506,7 @@ gs_app_set_branch (GsApp *app, const gchar *branch)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	if (_g_set_str (&priv->branch, branch))
+	if (g_set_str (&priv->branch, branch))
 		priv->unique_id_valid = FALSE;
 }
 
@@ -1869,7 +1758,7 @@ gs_app_set_project_group (GsApp *app, const gchar *project_group)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	_g_set_str (&priv->project_group, project_group);
+	g_set_str (&priv->project_group, project_group);
 }
 
 /**
@@ -1888,7 +1777,7 @@ gs_app_set_developer_name (GsApp *app, const gchar *developer_name)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	_g_set_str (&priv->developer_name, developer_name);
+	g_set_str (&priv->developer_name, developer_name);
 }
 
 static GtkIconTheme *
@@ -2241,7 +2130,7 @@ gs_app_set_agreement (GsApp *app, const gchar *agreement)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	_g_set_str (&priv->agreement, agreement);
+	g_set_str (&priv->agreement, agreement);
 }
 
 /**
@@ -2550,7 +2439,7 @@ gs_app_set_version (GsApp *app, const gchar *version)
 
 	locker = g_mutex_locker_new (&priv->mutex);
 
-	if (_g_set_str (&priv->version, version)) {
+	if (g_set_str (&priv->version, version)) {
 		gs_app_ui_versions_invalidate (app);
 		gs_app_queue_notify (app, obj_props[PROP_VERSION]);
 	}
@@ -2597,7 +2486,7 @@ gs_app_set_summary (GsApp *app, GsAppQuality quality, const gchar *summary)
 	if (quality < priv->summary_quality)
 		return;
 	priv->summary_quality = quality;
-	if (_g_set_str (&priv->summary, summary))
+	if (g_set_str (&priv->summary, summary))
 		gs_app_queue_notify (app, obj_props[PROP_SUMMARY]);
 }
 
@@ -2642,7 +2531,7 @@ gs_app_set_description (GsApp *app, GsAppQuality quality, const gchar *descripti
 	if (quality < priv->description_quality)
 		return;
 	priv->description_quality = quality;
-	_g_set_str (&priv->description, description);
+	g_set_str (&priv->description, description);
 }
 
 /**
@@ -2871,7 +2760,7 @@ gs_app_set_license (GsApp *app, GsAppQuality quality, const gchar *license)
 
 	priv->license_is_free = as_license_is_free_license (license);
 
-	if (_g_set_str (&priv->license, license))
+	if (g_set_str (&priv->license, license))
 		gs_app_queue_notify (app, obj_props[PROP_LICENSE]);
 }
 
@@ -2909,7 +2798,7 @@ gs_app_set_summary_missing (GsApp *app, const gchar *summary_missing)
 	g_autoptr(GMutexLocker) locker = NULL;
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
-	_g_set_str (&priv->summary_missing, summary_missing);
+	g_set_str (&priv->summary_missing, summary_missing);
 }
 
 static gboolean
@@ -3258,7 +3147,7 @@ static void
 gs_app_set_update_version_internal (GsApp *app, const gchar *update_version)
 {
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	if (_g_set_str (&priv->update_version, update_version))
+	if (g_set_str (&priv->update_version, update_version))
 		gs_app_ui_versions_invalidate (app);
 }
 
@@ -3320,7 +3209,7 @@ gs_app_set_update_details_markup (GsApp *app,
 	g_return_if_fail (GS_IS_APP (app));
 	locker = g_mutex_locker_new (&priv->mutex);
 	priv->update_details_set = TRUE;
-	_g_set_str (&priv->update_details_markup, markup);
+	g_set_str (&priv->update_details_markup, markup);
 }
 
 /**
@@ -3345,7 +3234,7 @@ gs_app_set_update_details_text (GsApp *app,
 	locker = g_mutex_locker_new (&priv->mutex);
 	priv->update_details_set = TRUE;
 	if (text == NULL) {
-		_g_set_str (&priv->update_details_markup, NULL);
+		g_set_str (&priv->update_details_markup, NULL);
 	} else {
 		gchar *markup = g_markup_escape_text (text, -1);
 		g_free (priv->update_details_markup);
@@ -4766,6 +4655,8 @@ calculate_key_colors (GsApp *app)
 	 *   </custom>
 	 * </component>
 	 * ]|
+	 *
+	 * Note it's ignored when the appstream data defines `<branding/>` colors.
 	 */
 	overrides_str = gs_app_get_metadata_item (app, "GnomeSoftware::key-colors");
 	if (overrides_str != NULL) {
@@ -4945,6 +4836,121 @@ gs_app_get_user_key_colors (GsApp *app)
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
 	g_return_val_if_fail (GS_IS_APP (app), FALSE);
 	return priv->user_key_colors;
+}
+
+/**
+ * gs_app_set_key_color_for_color_scheme:
+ * @app: a #GsApp
+ * @for_color_scheme: for which #GsColorScheme
+ * @rgba: (nullable): a #GdkRGBA to use, or %NULL to unset
+ *
+ * Sets preferred app color (key color) for the specified color scheme.
+ * When the @for_color_scheme is %GS_COLOR_SCHEME_ANY, then covers both
+ * color schemes, unless they've been previously set.
+ *
+ * Use %NULL @rgba to unset the color.
+ *
+ * Since: 47
+ **/
+void
+gs_app_set_key_color_for_color_scheme (GsApp *app,
+				       GsColorScheme for_color_scheme,
+				       const GdkRGBA *rgba)
+{
+	GsAppPrivate *priv = gs_app_get_instance_private (app);
+	g_return_if_fail (GS_IS_APP (app));
+	switch (for_color_scheme) {
+	case GS_COLOR_SCHEME_ANY:
+		if (rgba != NULL) {
+			if (!priv->key_color_for_light_set) {
+				priv->key_color_for_light = *rgba;
+				priv->key_color_for_light_set = TRUE;
+			}
+			if (!priv->key_color_for_dark_set) {
+				priv->key_color_for_dark = *rgba;
+				priv->key_color_for_dark_set = TRUE;
+			}
+		} else {
+			priv->key_color_for_light_set = FALSE;
+			priv->key_color_for_dark_set = FALSE;
+		}
+		break;
+	case GS_COLOR_SCHEME_LIGHT:
+		if (rgba != NULL) {
+			priv->key_color_for_light = *rgba;
+			priv->key_color_for_light_set = TRUE;
+		} else {
+			priv->key_color_for_light_set = FALSE;
+		}
+		break;
+	case GS_COLOR_SCHEME_DARK:
+		if (rgba != NULL) {
+			priv->key_color_for_dark = *rgba;
+			priv->key_color_for_dark_set = TRUE;
+		} else {
+			priv->key_color_for_dark_set = FALSE;
+		}
+		break;
+	default:
+		g_assert_not_reached ();
+	}
+}
+
+/**
+ * gs_app_get_key_color_for_color_scheme:
+ * @app: a #GsApp
+ * @for_color_scheme: for which #GsColorScheme
+ * @out_rgba: (out caller-allocates): a #GdkRGBA to store the value in
+ *
+ * Gets preferred app color (key color) previously set by
+ * the gs_app_set_key_color_for_color_scheme().
+ *
+ * When the @for_color_scheme is %GS_COLOR_SCHEME_ANY, then returns whichever
+ * color scheme's color is set, in no particular order.
+ *
+ * The @out_rgba is left untouched when no color for the @for_color_scheme
+ * had been set and returns %FALSE.
+ *
+ * Returns: %TRUE, when the color for the @for_color_scheme had been previously set
+ *    and the @out_rgba had been populated, %FALSE otherwise
+ *
+ * Since: 47
+ **/
+gboolean
+gs_app_get_key_color_for_color_scheme (GsApp *app,
+				       GsColorScheme for_color_scheme,
+				       GdkRGBA *out_rgba)
+{
+	GsAppPrivate *priv = gs_app_get_instance_private (app);
+	g_return_val_if_fail (GS_IS_APP (app), FALSE);
+	switch (for_color_scheme) {
+	case GS_COLOR_SCHEME_ANY:
+		if (priv->key_color_for_light_set) {
+			*out_rgba = priv->key_color_for_light;
+			return TRUE;
+		}
+		if (priv->key_color_for_dark_set) {
+			*out_rgba = priv->key_color_for_dark;
+			return TRUE;
+		}
+		break;
+	case GS_COLOR_SCHEME_LIGHT:
+		if (priv->key_color_for_light_set) {
+			*out_rgba = priv->key_color_for_light;
+			return TRUE;
+		}
+		break;
+	case GS_COLOR_SCHEME_DARK:
+		if (priv->key_color_for_dark_set) {
+			*out_rgba = priv->key_color_for_dark;
+			return TRUE;
+		}
+		break;
+	default:
+		g_assert_not_reached ();
+	}
+
+	return FALSE;
 }
 
 /**
@@ -5491,6 +5497,9 @@ gs_app_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *
 	case PROP_ICONS_STATE:
 		g_value_set_enum (value, priv->icons_state);
 		break;
+	case PROP_MOK_KEY_PENDING:
+		g_value_set_boolean (value, gs_app_get_mok_key_pending (app));
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -5624,6 +5633,9 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 	case PROP_ICONS_STATE:
 		/* Read-only */
 		g_assert_not_reached ();
+		break;
+	case PROP_MOK_KEY_PENDING:
+		gs_app_set_mok_key_pending (app, g_value_get_boolean (value));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -6164,6 +6176,20 @@ gs_app_class_init (GsAppClass *klass)
 					GS_TYPE_APP_ICONS_STATE,
 					GS_APP_ICONS_STATE_UNKNOWN,
 					G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+	/**
+	 * GsApp:mok-key-pending
+	 *
+	 * Set to %TRUE, when the app requires restart to enroll a Machine
+	 * Owner Key (MOK). The property is always %FALSE when the project is
+	 * not built with enabled DKMS support.
+	 *
+	 * Since: 47
+	 */
+	obj_props[PROP_MOK_KEY_PENDING] =
+		g_param_spec_boolean ("mok-key-pending", NULL, NULL,
+				      FALSE,
+				      G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
 	g_object_class_install_properties (object_class, G_N_ELEMENTS (obj_props), obj_props);
 }
@@ -6939,4 +6965,68 @@ gs_app_is_application (GsApp *app)
 	return priv->kind == AS_COMPONENT_KIND_DESKTOP_APP ||
 	       priv->kind == AS_COMPONENT_KIND_CONSOLE_APP ||
 	       priv->kind == AS_COMPONENT_KIND_WEB_APP;
+}
+
+/**
+ * gs_app_get_mok_key_pending:
+ * @app: a #GsApp
+ *
+ * Get the value of #GsApp:mok-key-pending.
+ *
+ * Note: It returns always %FALSE, when the project is not built with
+ * enabled DKMS support.
+ *
+ * Returns: %TRUE, if the app requires restart to enroll a Machine
+ *    Owner Key (MOK).
+ *
+ * Since: 47
+ */
+gboolean
+gs_app_get_mok_key_pending (GsApp *app)
+{
+	#ifdef ENABLE_DKMS
+	GsAppPrivate *priv = gs_app_get_instance_private (app);
+
+	g_return_val_if_fail (GS_IS_APP (app), FALSE);
+
+	return priv->mok_key_pending;
+	#else
+	g_return_val_if_fail (GS_IS_APP (app), FALSE);
+	return FALSE;
+	#endif
+}
+
+/**
+ * gs_app_set_mok_key_pending:
+ * @app: a #GsApp
+ * @mok_key_pending: value to set
+ *
+ * Set the value of #GsApp:mok-key-pending. Set to %TRUE, when the @app requires
+ * restart to enroll a Machine Owner Key (MOK).
+ *
+ * Note: The value is ignored, when the project is not built with
+ * enabled DKMS support.
+ *
+ * Since: 47
+ */
+void
+gs_app_set_mok_key_pending (GsApp    *app,
+                            gboolean  mok_key_pending)
+{
+	#ifdef ENABLE_DKMS
+	GsAppPrivate *priv = gs_app_get_instance_private (app);
+	g_autoptr(GMutexLocker) locker = NULL;
+
+	g_return_if_fail (GS_IS_APP (app));
+
+	locker = g_mutex_locker_new (&priv->mutex);
+
+	if (priv->mok_key_pending == mok_key_pending)
+		return;
+
+	priv->mok_key_pending = mok_key_pending;
+	gs_app_queue_notify (app, obj_props[PROP_MOK_KEY_PENDING]);
+	#else
+	g_return_if_fail (GS_IS_APP (app));
+	#endif
 }

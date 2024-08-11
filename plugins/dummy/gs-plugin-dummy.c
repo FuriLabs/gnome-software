@@ -31,6 +31,12 @@ struct _GsPluginDummy {
 
 G_DEFINE_TYPE (GsPluginDummy, gs_plugin_dummy, GS_TYPE_PLUGIN)
 
+static gboolean refine_app (GsPluginDummy        *self,
+                            GsApp                *app,
+                            GsPluginRefineFlags   flags,
+                            GCancellable         *cancellable,
+                            GError              **error);
+
 /* just flip-flop this every few seconds */
 static gboolean
 gs_plugin_dummy_allow_updates_cb (gpointer user_data)
@@ -143,33 +149,6 @@ gs_plugin_adopt_app (GsPlugin *plugin, GsApp *app)
 		gs_app_set_management_plugin (app, plugin);
 }
 
-static gboolean
-gs_plugin_dummy_delay (GsPlugin *plugin,
-		       GsApp *app,
-		       guint timeout_ms,
-		       GCancellable *cancellable,
-		       GError **error)
-{
-	gboolean ret = TRUE;
-	guint i;
-	guint timeout_us = timeout_ms * 10;
-
-	/* do blocking delay in 1% increments */
-	for (i = 0; i < 100; i++) {
-		g_usleep (timeout_us);
-		if (g_cancellable_set_error_if_cancelled (cancellable, error)) {
-			gs_utils_error_convert_gio (error);
-			ret = FALSE;
-			break;
-		}
-		if (app != NULL)
-			gs_app_set_progress (app, i);
-		gs_plugin_status_update (plugin, app,
-					 GS_PLUGIN_STATUS_DOWNLOADING);
-	}
-	return ret;
-}
-
 typedef struct {
 	GsApp *app;  /* (owned) (nullable) */
 	guint percent_complete;
@@ -280,30 +259,45 @@ gs_plugin_dummy_poll_cb (gpointer user_data)
 	return TRUE;
 }
 
-gboolean
-gs_plugin_url_to_app (GsPlugin *plugin,
-		      GsAppList *list,
-		      const gchar *url,
-		      GCancellable *cancellable,
-		      GError **error)
+
+static void
+gs_plugin_dummy_url_to_app_async (GsPlugin              *plugin,
+                                  const gchar           *url,
+                                  GsPluginUrlToAppFlags  flags,
+                                  GCancellable          *cancellable,
+                                  GAsyncReadyCallback    callback,
+                                  gpointer               user_data)
 {
-	g_autofree gchar *path = NULL;
-	g_autofree gchar *scheme = NULL;
+	g_autoptr(GTask) task = NULL;
+	g_autoptr(GsAppList) list = gs_app_list_new ();
 	g_autoptr(GsApp) app = NULL;
+	g_autofree gchar *scheme = NULL;
 
-	/* not us */
+	task = gs_plugin_url_to_app_data_new_task (plugin, url, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_dummy_url_to_app_async);
+
+	/* it's us */
 	scheme = gs_utils_get_url_scheme (url);
-	if (g_strcmp0 (scheme, "dummy") != 0)
-		return TRUE;
+	if (g_strcmp0 (scheme, "dummy") == 0) {
+		g_autofree gchar *path = NULL;
+		/* create app */
+		path = gs_utils_get_url_path (url);
+		app = gs_app_new (path);
+		gs_app_set_management_plugin (app, plugin);
+		gs_app_set_metadata (app, "GnomeSoftware::Creator",
+				     gs_plugin_get_name (plugin));
+		gs_app_list_add (list, app);
+	}
 
-	/* create app */
-	path = gs_utils_get_url_path (url);
-	app = gs_app_new (path);
-	gs_app_set_management_plugin (app, plugin);
-	gs_app_set_metadata (app, "GnomeSoftware::Creator",
-			     gs_plugin_get_name (plugin));
-	gs_app_list_add (list, app);
-	return TRUE;
+	g_task_return_pointer (task, g_steal_pointer (&list), g_object_unref);
+}
+
+static GsAppList *
+gs_plugin_dummy_url_to_app_finish (GsPlugin      *plugin,
+                                   GAsyncResult  *result,
+                                   GError       **error)
+{
+	return g_task_propagate_pointer (G_TASK (result), error);
 }
 
 static gboolean timeout_cb (gpointer user_data);
@@ -354,168 +348,376 @@ gs_plugin_dummy_timeout_finish (GsPluginDummy  *self,
 	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
-gboolean
-gs_plugin_add_updates (GsPlugin *plugin,
-		       GsAppList *list,
-		       GCancellable *cancellable,
-		       GError **error)
+typedef struct {
+	/* Input data. */
+	guint n_apps;
+	GsPluginProgressCallback progress_callback;
+	gpointer progress_user_data;
+
+	/* In-progress data. */
+	guint n_pending_ops;
+	GError *saved_error;  /* (owned) (nullable) */
+
+	/* For progress reporting. */
+	guint n_uninstalls_started;
+} UninstallAppsData;
+
+static void
+uninstall_apps_data_free (UninstallAppsData *data)
 {
-	GsApp *app;
-	GsApp *proxy;
-	g_autoptr(GIcon) ic = NULL;
+	/* Error should have been propagated by now, and all pending ops completed. */
+	g_assert (data->saved_error == NULL);
+	g_assert (data->n_pending_ops == 0);
 
-	/* update UI as this might take some time */
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_WAITING);
-
-	/* spin */
-	if (!gs_plugin_dummy_delay (plugin, NULL, 2000, cancellable, error))
-		return FALSE;
-
-	/* use a generic stock icon */
-	ic = g_themed_icon_new ("system-component-driver");
-
-	/* add a live updatable normal application */
-	app = gs_app_new ("chiron.desktop");
-	gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "Chiron");
-	gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "A teaching application");
-	gs_app_set_update_details_text (app, "Do not crash when using libvirt.");
-	gs_app_set_update_urgency (app, AS_URGENCY_KIND_HIGH);
-	gs_app_add_icon (app, ic);
-	gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
-	gs_app_set_management_plugin (app, plugin);
-	gs_app_list_add (list, app);
-	g_object_unref (app);
-
-	/* add a offline OS update */
-	app = gs_app_new (NULL);
-	gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "libvirt-glib-devel");
-	gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "Development files for libvirt");
-	gs_app_set_update_details_text (app, "Fix several memory leaks.");
-	gs_app_set_update_urgency (app, AS_URGENCY_KIND_LOW);
-	gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
-	gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
-	gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
-	gs_app_add_source (app, "libvirt-glib-devel");
-	gs_app_add_source_id (app, "libvirt-glib-devel;0.0.1;noarch;fedora");
-	gs_app_set_management_plugin (app, plugin);
-	gs_app_list_add (list, app);
-	g_object_unref (app);
-
-	/* add a live OS update */
-	app = gs_app_new (NULL);
-	gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "chiron-libs");
-	gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "library for chiron");
-	gs_app_set_update_details_text (app, "Do not crash when using libvirt.");
-	gs_app_set_update_urgency (app, AS_URGENCY_KIND_HIGH);
-	gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
-	gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
-	gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
-	gs_app_add_source (app, "chiron-libs");
-	gs_app_add_source_id (app, "chiron-libs;0.0.1;i386;updates-testing");
-	gs_app_set_management_plugin (app, plugin);
-	gs_app_list_add (list, app);
-	g_object_unref (app);
-
-	/* add a proxy app update */
-	proxy = gs_app_new ("proxy.desktop");
-	gs_app_set_name (proxy, GS_APP_QUALITY_NORMAL, "Proxy");
-	gs_app_set_summary (proxy, GS_APP_QUALITY_NORMAL, "A proxy app");
-	gs_app_set_update_details_text (proxy, "Update all related apps.");
-	gs_app_set_update_urgency (proxy, AS_URGENCY_KIND_HIGH);
-	gs_app_add_icon (proxy, ic);
-	gs_app_set_kind (proxy, AS_COMPONENT_KIND_DESKTOP_APP);
-	gs_app_add_quirk (proxy, GS_APP_QUIRK_IS_PROXY);
-	gs_app_set_state (proxy, GS_APP_STATE_UPDATABLE_LIVE);
-	gs_app_set_management_plugin (proxy, plugin);
-	gs_app_list_add (list, proxy);
-	g_object_unref (proxy);
-
-	/* add a proxy related app */
-	app = gs_app_new ("proxy-related-app.desktop");
-	gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "Related app");
-	gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "A related app");
-	gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
-	gs_app_set_management_plugin (app, plugin);
-	gs_app_add_related (proxy, app);
-	g_object_unref (app);
-
-	/* add another proxy related app */
-	app = gs_app_new ("proxy-another-related-app.desktop");
-	gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "Another Related app");
-	gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "A related app");
-	gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
-	gs_app_set_management_plugin (app, plugin);
-	gs_app_add_related (proxy, app);
-	g_object_unref (app);
-
-	return TRUE;
+	g_free (data);
 }
 
-gboolean
-gs_plugin_app_remove (GsPlugin *plugin,
-		      GsApp *app,
-		      GCancellable *cancellable,
-		      GError **error)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (UninstallAppsData, uninstall_apps_data_free)
+
+typedef struct {
+	GTask *task;  /* (owned) */
+	GsApp *app;  /* (owned) */
+} UninstallSingleAppData;
+
+static void
+uninstall_single_app_data_free (UninstallSingleAppData *data)
+{
+	g_clear_object (&data->app);
+	g_clear_object (&data->task);
+	g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (UninstallSingleAppData, uninstall_single_app_data_free)
+
+static void uninstall_cb (GObject      *source_object,
+                          GAsyncResult *result,
+                          gpointer      user_data);
+static void finish_uninstall_apps_op (GTask  *task,
+                                      GError *error);
+
+static void
+gs_plugin_dummy_uninstall_apps_async (GsPlugin                           *plugin,
+                                      GsAppList                          *apps,
+                                      GsPluginUninstallAppsFlags          flags,
+                                      GsPluginProgressCallback            progress_callback,
+                                      gpointer                            progress_user_data,
+                                      GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
+                                      gpointer                            app_needs_user_action_data,
+                                      GCancellable                       *cancellable,
+                                      GAsyncReadyCallback                 callback,
+                                      gpointer                            user_data)
 {
 	GsPluginDummy *self = GS_PLUGIN_DUMMY (plugin);
+	g_autoptr(GTask) task = NULL;
+	UninstallAppsData *data;
+	g_autoptr(UninstallAppsData) data_owned = NULL;
+	g_autoptr(GError) local_error = NULL;
 
-	/* only process this app if was created by this plugin */
-	if (!gs_app_has_management_plugin (app, plugin))
-		return TRUE;
+	task = g_task_new (self, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_dummy_uninstall_apps_async);
 
-	/* remove app */
-	if (g_strcmp0 (gs_app_get_id (app), "chiron.desktop") == 0) {
+	data = data_owned = g_new0 (UninstallAppsData, 1);
+	data->progress_callback = progress_callback;
+	data->progress_user_data = progress_user_data;
+	data->n_apps = gs_app_list_length (apps);
+	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) uninstall_apps_data_free);
+
+	/* Start a load of operations in parallel to uninstall the apps.
+	 *
+	 * When all uninstalls are finished for all apps, finish_uninstall_apps_op()
+	 * will return success/error for the overall #GTask. */
+	data->n_pending_ops = 1;
+	data->n_uninstalls_started = 0;
+
+	for (guint i = 0; i < data->n_apps; i++) {
+		GsApp *app = gs_app_list_index (apps, i);
+		g_autoptr(UninstallSingleAppData) app_data = NULL;
+
+		/* only process this app if was created by this plugin */
+		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
+			continue;
+
+		if (!g_str_equal (gs_app_get_id (app), "chiron.desktop"))
+			continue;
+
+		app_data = g_new0 (UninstallSingleAppData, 1);
+		app_data->task = g_object_ref (task);
+		app_data->app = g_object_ref (app);
+
 		gs_app_set_state (app, GS_APP_STATE_REMOVING);
-		if (!gs_plugin_dummy_delay (plugin, app, 500, cancellable, error)) {
-			gs_app_set_state_recover (app);
-			return FALSE;
-		}
-		gs_app_set_state (app, GS_APP_STATE_UNKNOWN);
+
+		data->n_pending_ops++;
+		data->n_uninstalls_started++;
+		gs_plugin_dummy_delay_async (GS_PLUGIN (self),
+					     app,
+					     500  /* ms */,
+					     cancellable,
+					     uninstall_cb,
+					     g_steal_pointer (&app_data));
+	}
+
+	finish_uninstall_apps_op (task, NULL);
+}
+
+static void
+uninstall_cb (GObject      *source_object,
+              GAsyncResult *result,
+              gpointer      user_data)
+{
+	GsPlugin *plugin = GS_PLUGIN (source_object);
+	g_autoptr(UninstallSingleAppData) app_data = g_steal_pointer (&user_data);
+	GTask *task = app_data->task;
+	GsPluginDummy *self = g_task_get_source_object (task);
+	GCancellable *cancellable = g_task_get_cancellable (task);
+	UninstallAppsData * data = g_task_get_task_data (task);
+	g_autoptr(GError) local_error = NULL;
+
+	if (data->progress_callback != NULL) {
+		data->progress_callback (plugin,
+					 (data->n_uninstalls_started - data->n_pending_ops + 1) * 100 / data->n_uninstalls_started,
+					 data->progress_user_data);
+	}
+
+	if (!gs_plugin_dummy_delay_finish (plugin, result, &local_error)) {
+		gs_app_set_state_recover (app_data->app);
+		finish_uninstall_apps_op (task, g_steal_pointer (&local_error));
+		return;
 	}
 
 	/* keep track */
-	g_hash_table_remove (self->installed_apps, gs_app_get_id (app));
+	g_hash_table_remove (self->installed_apps, gs_app_get_id (app_data->app));
 	g_hash_table_insert (self->available_apps,
-			     g_strdup (gs_app_get_id (app)),
+			     g_strdup (gs_app_get_id (app_data->app)),
 			     GUINT_TO_POINTER (1));
-	return TRUE;
+
+	/* Refine the app so it has the right post-uninstall state. */
+	gs_app_set_state (app_data->app, GS_APP_STATE_UNKNOWN);
+
+	if (!refine_app (self, app_data->app,
+			 GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN |
+			 GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION,
+			 cancellable, &local_error)) {
+		g_debug ("Error refining app ‘%s’ after uninstall: %s",
+			 gs_app_get_id (app_data->app), local_error->message);
+		g_clear_error (&local_error);
+	}
+
+	finish_uninstall_apps_op (task, NULL);
 }
 
-gboolean
-gs_plugin_app_install (GsPlugin *plugin,
-		       GsApp *app,
-		       GCancellable *cancellable,
-		       GError **error)
+/* @error is (transfer full) if non-%NULL */
+static void
+finish_uninstall_apps_op (GTask  *task,
+                          GError *error)
+{
+	UninstallAppsData *data = g_task_get_task_data (task);
+	g_autoptr(GError) error_owned = g_steal_pointer (&error);
+
+	if (error_owned != NULL && data->saved_error == NULL)
+		data->saved_error = g_steal_pointer (&error_owned);
+	else if (error_owned != NULL)
+		g_debug ("Additional error while uninstalling apps: %s", error_owned->message);
+
+	g_assert (data->n_pending_ops > 0);
+	data->n_pending_ops--;
+
+	if (data->n_pending_ops > 0)
+		return;
+
+	/* Get the results of the parallel ops. */
+	if (data->saved_error != NULL)
+		g_task_return_error (task, g_steal_pointer (&data->saved_error));
+	else
+		g_task_return_boolean (task, TRUE);
+}
+
+static gboolean
+gs_plugin_dummy_uninstall_apps_finish (GsPlugin      *plugin,
+                                       GAsyncResult  *result,
+                                       GError       **error)
+{
+	return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+typedef struct {
+	/* Input data. */
+	guint n_apps;
+	GsPluginProgressCallback progress_callback;
+	gpointer progress_user_data;
+
+	/* In-progress data. */
+	guint n_pending_ops;
+	GError *saved_error;  /* (owned) (nullable) */
+
+	/* For progress reporting. */
+	guint n_installs_started;
+} InstallAppsData;
+
+static void
+install_apps_data_free (InstallAppsData *data)
+{
+	/* Error should have been propagated by now, and all pending ops completed. */
+	g_assert (data->saved_error == NULL);
+	g_assert (data->n_pending_ops == 0);
+
+	g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (InstallAppsData, install_apps_data_free)
+
+typedef struct {
+	GTask *task;  /* (owned) */
+	GsApp *app;  /* (owned) */
+} InstallSingleAppData;
+
+static void
+install_single_app_data_free (InstallSingleAppData *data)
+{
+	g_clear_object (&data->app);
+	g_clear_object (&data->task);
+	g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (InstallSingleAppData, install_single_app_data_free)
+
+static void install_cb (GObject      *source_object,
+                        GAsyncResult *result,
+                        gpointer      user_data);
+static void finish_install_apps_op (GTask  *task,
+                                    GError *error);
+
+static void
+gs_plugin_dummy_install_apps_async (GsPlugin                           *plugin,
+                                    GsAppList                          *apps,
+                                    GsPluginInstallAppsFlags            flags,
+                                    GsPluginProgressCallback            progress_callback,
+                                    gpointer                            progress_user_data,
+                                    GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
+                                    gpointer                            app_needs_user_action_data,
+                                    GCancellable                       *cancellable,
+                                    GAsyncReadyCallback                 callback,
+                                    gpointer                            user_data)
 {
 	GsPluginDummy *self = GS_PLUGIN_DUMMY (plugin);
+	g_autoptr(GTask) task = NULL;
+	InstallAppsData *data;
+	g_autoptr(InstallAppsData) data_owned = NULL;
+	g_autoptr(GError) local_error = NULL;
 
-	/* only process this app if was created by this plugin */
-	if (!gs_app_has_management_plugin (app, plugin))
-		return TRUE;
+	task = g_task_new (self, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_dummy_install_apps_async);
 
-	/* install app */
-	if (g_strcmp0 (gs_app_get_id (app), "chiron.desktop") == 0 ||
-	    g_strcmp0 (gs_app_get_id (app), "zeus.desktop") == 0) {
+	data = data_owned = g_new0 (InstallAppsData, 1);
+	data->progress_callback = progress_callback;
+	data->progress_user_data = progress_user_data;
+	data->n_apps = gs_app_list_length (apps);
+	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) install_apps_data_free);
+
+	/* Start a load of operations in parallel to install the apps.
+	 *
+	 * When all installs are finished for all apps, finish_install_apps_op()
+	 * will return success/error for the overall #GTask. */
+	data->n_pending_ops = 1;
+	data->n_installs_started = 0;
+
+	for (guint i = 0; i < data->n_apps; i++) {
+		GsApp *app = gs_app_list_index (apps, i);
+		g_autoptr(InstallSingleAppData) app_data = NULL;
+
+		/* only process this app if was created by this plugin */
+		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
+			continue;
+
+		if (!g_str_equal (gs_app_get_id (app), "chiron.desktop") &&
+		    !g_str_equal (gs_app_get_id (app), "zeus.desktop"))
+			continue;
+
+		app_data = g_new0 (InstallSingleAppData, 1);
+		app_data->task = g_object_ref (task);
+		app_data->app = g_object_ref (app);
+
 		gs_app_set_state (app, GS_APP_STATE_INSTALLING);
-		if (!gs_plugin_dummy_delay (plugin, app, 500, cancellable, error)) {
-			gs_app_set_state_recover (app);
-			return FALSE;
-		}
-		gs_app_set_state (app, GS_APP_STATE_INSTALLED);
+
+		data->n_pending_ops++;
+		data->n_installs_started++;
+		gs_plugin_dummy_delay_async (GS_PLUGIN (self),
+					     app,
+					     500  /* ms */,
+					     cancellable,
+					     install_cb,
+					     g_steal_pointer (&app_data));
 	}
+
+	finish_install_apps_op (task, NULL);
+}
+
+static void
+install_cb (GObject      *source_object,
+            GAsyncResult *result,
+            gpointer      user_data)
+{
+	GsPlugin *plugin = GS_PLUGIN (source_object);
+	g_autoptr(InstallSingleAppData) app_data = g_steal_pointer (&user_data);
+	GTask *task = app_data->task;
+	GsPluginDummy *self = g_task_get_source_object (task);
+	InstallAppsData * data = g_task_get_task_data (task);
+	g_autoptr(GError) local_error = NULL;
+
+	if (data->progress_callback != NULL) {
+		data->progress_callback (plugin,
+					 (data->n_installs_started - data->n_pending_ops + 1) * 100 / data->n_installs_started,
+					 data->progress_user_data);
+	}
+
+	if (!gs_plugin_dummy_delay_finish (plugin, result, &local_error)) {
+		gs_app_set_state_recover (app_data->app);
+		finish_install_apps_op (task, g_steal_pointer (&local_error));
+		return;
+	}
+
+	gs_app_set_state (app_data->app, GS_APP_STATE_INSTALLED);
 
 	/* keep track */
 	g_hash_table_insert (self->installed_apps,
-			     g_strdup (gs_app_get_id (app)),
+			     g_strdup (gs_app_get_id (app_data->app)),
 			     GUINT_TO_POINTER (1));
-	g_hash_table_remove (self->available_apps, gs_app_get_id (app));
+	g_hash_table_remove (self->available_apps, gs_app_get_id (app_data->app));
 
-	return TRUE;
+	finish_install_apps_op (task, NULL);
+}
+
+/* @error is (transfer full) if non-%NULL */
+static void
+finish_install_apps_op (GTask  *task,
+                        GError *error)
+{
+	InstallAppsData *data = g_task_get_task_data (task);
+	g_autoptr(GError) error_owned = g_steal_pointer (&error);
+
+	if (error_owned != NULL && data->saved_error == NULL)
+		data->saved_error = g_steal_pointer (&error_owned);
+	else if (error_owned != NULL)
+		g_debug ("Additional error while installing apps: %s", error_owned->message);
+
+	g_assert (data->n_pending_ops > 0);
+	data->n_pending_ops--;
+
+	if (data->n_pending_ops > 0)
+		return;
+
+	/* Get the results of the parallel ops. */
+	if (data->saved_error != NULL)
+		g_task_return_error (task, g_steal_pointer (&data->saved_error));
+	else
+		g_task_return_boolean (task, TRUE);
+}
+
+static gboolean
+gs_plugin_dummy_install_apps_finish (GsPlugin      *plugin,
+                                     GAsyncResult  *result,
+                                     GError       **error)
+{
+	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
 static gboolean
@@ -576,7 +778,7 @@ refine_app (GsPluginDummy        *self,
 		if (gs_app_get_summary (app) == NULL)
 			gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "tmp");
 		if (!gs_app_has_icons (app)) {
-			g_autoptr(GIcon) ic = g_themed_icon_new ("system-component-driver");
+			g_autoptr(GIcon) ic = g_themed_icon_new ("org.gnome.Software.Dummy");
 			gs_app_add_icon (app, ic);
 		}
 	}
@@ -691,10 +893,11 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 	guint max_results = 0;
 	GsCategory *category = NULL;
 	GsAppQueryTristate is_installed = GS_APP_QUERY_TRISTATE_UNSET;
+	GsAppQueryTristate is_for_update = GS_APP_QUERY_TRISTATE_UNSET;
 	const gchar * const *keywords = NULL;
 	GsApp *alternate_of = NULL;
 
-	task = g_task_new (plugin, cancellable, callback, user_data);
+	task = gs_plugin_list_apps_data_new_task (plugin, query, flags, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_dummy_list_apps_async);
 
 	if (query != NULL) {
@@ -705,6 +908,7 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 		is_installed = gs_app_query_get_is_installed (query);
 		keywords = gs_app_query_get_keywords (query);
 		alternate_of = gs_app_query_get_alternate_of (query);
+		is_for_update = gs_app_query_get_is_for_update (query);
 	}
 
 	/* Currently only support a subset of query properties, and only one set at once.
@@ -714,9 +918,11 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 	     category == NULL &&
 	     is_installed == GS_APP_QUERY_TRISTATE_UNSET &&
 	     keywords == NULL &&
-	     alternate_of == NULL) ||
+	     alternate_of == NULL &&
+	     is_for_update == GS_APP_QUERY_TRISTATE_UNSET) ||
 	    is_curated == GS_APP_QUERY_TRISTATE_FALSE ||
 	    is_installed == GS_APP_QUERY_TRISTATE_FALSE ||
+	    is_for_update == GS_APP_QUERY_TRISTATE_FALSE ||
 	    gs_app_query_get_n_properties_set (query) != 1) {
 		g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
 					 "Unsupported query");
@@ -820,7 +1026,7 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 					g_timeout_add_seconds (1, gs_plugin_dummy_poll_cb, plugin);
 
 				/* use a generic stock icon */
-				icon = g_themed_icon_new ("system-component-driver");
+				icon = g_themed_icon_new ("org.gnome.Software.Dummy");
 
 				/* add a live updatable normal application */
 				app = gs_app_new ("chiron.desktop");
@@ -851,7 +1057,116 @@ gs_plugin_dummy_list_apps_async (GsPlugin              *plugin,
 		}
 	}
 
+	if (is_for_update == GS_APP_QUERY_TRISTATE_TRUE) {
+		/* update UI as this might take some time */
+		gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_WAITING);
+
+		/* spin */
+		gs_plugin_dummy_timeout_async (self, 2000, cancellable,
+					       list_apps_timeout_cb, g_steal_pointer (&task));
+		return;
+	}
+
 	g_task_return_pointer (task, g_steal_pointer (&list), (GDestroyNotify) g_object_unref);
+}
+
+static GsAppList *
+list_apps_finish (GsPluginDummy *self,
+		  GTask *task)
+{
+	GsPluginListAppsData *data = g_task_get_task_data (task);
+	g_autoptr(GsAppList) list = gs_app_list_new ();
+
+	if (data->query && gs_app_query_get_is_for_update (data->query) == GS_APP_QUERY_TRISTATE_TRUE) {
+		GsPlugin *plugin = GS_PLUGIN (self);
+		GsApp *app;
+		GsApp *proxy;
+		g_autoptr(GIcon) ic = NULL;
+
+		/* use a generic stock icon */
+		ic = g_themed_icon_new ("org.gnome.Software.Dummy");
+
+		/* add a live updatable normal application */
+		app = gs_app_new ("chiron.desktop");
+		gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "Chiron");
+		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "A teaching application");
+		gs_app_set_update_details_text (app, "Do not crash when using libvirt.");
+		gs_app_set_update_urgency (app, AS_URGENCY_KIND_HIGH);
+		gs_app_add_icon (app, ic);
+		gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
+		gs_app_set_management_plugin (app, plugin);
+		gs_app_list_add (list, app);
+		g_object_unref (app);
+
+		/* add a offline OS update */
+		app = gs_app_new (NULL);
+		gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "libvirt-glib-devel");
+		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "Development files for libvirt");
+		gs_app_set_update_details_text (app, "Fix several memory leaks.");
+		gs_app_set_update_urgency (app, AS_URGENCY_KIND_LOW);
+		gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
+		gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
+		gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
+		gs_app_add_source (app, "libvirt-glib-devel");
+		gs_app_add_source_id (app, "libvirt-glib-devel;0.0.1;noarch;fedora");
+		gs_app_set_management_plugin (app, plugin);
+		gs_app_list_add (list, app);
+		g_object_unref (app);
+
+		/* add a live OS update */
+		app = gs_app_new (NULL);
+		gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "chiron-libs");
+		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "library for chiron");
+		gs_app_set_update_details_text (app, "Do not crash when using libvirt.");
+		gs_app_set_update_urgency (app, AS_URGENCY_KIND_HIGH);
+		gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
+		gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
+		gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
+		gs_app_add_source (app, "chiron-libs");
+		gs_app_add_source_id (app, "chiron-libs;0.0.1;i386;updates-testing");
+		gs_app_set_management_plugin (app, plugin);
+		gs_app_list_add (list, app);
+		g_object_unref (app);
+
+		/* add a proxy app update */
+		proxy = gs_app_new ("proxy.desktop");
+		gs_app_set_name (proxy, GS_APP_QUALITY_NORMAL, "Proxy");
+		gs_app_set_summary (proxy, GS_APP_QUALITY_NORMAL, "A proxy app");
+		gs_app_set_update_details_text (proxy, "Update all related apps.");
+		gs_app_set_update_urgency (proxy, AS_URGENCY_KIND_HIGH);
+		gs_app_add_icon (proxy, ic);
+		gs_app_set_kind (proxy, AS_COMPONENT_KIND_DESKTOP_APP);
+		gs_app_add_quirk (proxy, GS_APP_QUIRK_IS_PROXY);
+		gs_app_set_state (proxy, GS_APP_STATE_UPDATABLE_LIVE);
+		gs_app_set_management_plugin (proxy, plugin);
+		gs_app_list_add (list, proxy);
+		g_object_unref (proxy);
+
+		/* add a proxy related app */
+		app = gs_app_new ("proxy-related-app.desktop");
+		gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "Related app");
+		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "A related app");
+		gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
+		gs_app_set_management_plugin (app, plugin);
+		gs_app_add_related (proxy, app);
+		g_object_unref (app);
+
+		/* add another proxy related app */
+		app = gs_app_new ("proxy-another-related-app.desktop");
+		gs_app_set_name (app, GS_APP_QUALITY_NORMAL, "Another Related app");
+		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, "A related app");
+		gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE_LIVE);
+		gs_app_set_management_plugin (app, plugin);
+		gs_app_add_related (proxy, app);
+		g_object_unref (app);
+	}
+
+	return g_steal_pointer (&list);
 }
 
 static void
@@ -865,7 +1180,7 @@ list_apps_timeout_cb (GObject      *object,
 
 	/* Return a cancelled error, or an empty app list after hanging. */
 	if (gs_plugin_dummy_timeout_finish (self, result, &local_error))
-		g_task_return_pointer (task, gs_app_list_new (), (GDestroyNotify) g_object_unref);
+		g_task_return_pointer (task, list_apps_finish (self, task), (GDestroyNotify) g_object_unref);
 	else
 		g_task_return_error (task, g_steal_pointer (&local_error));
 }
@@ -1106,41 +1421,110 @@ gs_plugin_dummy_refresh_metadata_finish (GsPlugin      *plugin,
 	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
-gboolean
-gs_plugin_app_upgrade_download (GsPlugin *plugin, GsApp *app,
-			        GCancellable *cancellable, GError **error)
+static void
+download_upgrade_cb (GObject      *source_object,
+                     GAsyncResult *result,
+                     gpointer      user_data)
 {
+	GsPlugin *plugin = GS_PLUGIN (source_object);
+	g_autoptr(GTask) task = g_steal_pointer (&user_data);
+	g_autoptr(GError) local_error = NULL;
+	GsPluginDownloadUpgradeData *data = g_task_get_task_data (task);
+
+	if (!gs_plugin_dummy_delay_finish (plugin, result, &local_error)) {
+		gs_app_set_state_recover (data->app);
+		g_task_return_error (task, g_steal_pointer (&local_error));
+	} else {
+		gs_app_set_state (data->app, GS_APP_STATE_UPDATABLE);
+		g_task_return_boolean (task, TRUE);
+	}
+}
+
+static void
+gs_plugin_dummy_download_upgrade_async (GsPlugin                     *plugin,
+                                        GsApp                        *app,
+                                        GsPluginDownloadUpgradeFlags  flags,
+                                        GCancellable                 *cancellable,
+                                        GAsyncReadyCallback           callback,
+                                        gpointer                      user_data)
+{
+	g_autoptr(GTask) task = NULL;
+
+	task = gs_plugin_download_upgrade_data_new_task (plugin, app, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_dummy_download_upgrade_async);
+
 	/* only process this app if was created by this plugin */
-	if (!gs_app_has_management_plugin (app, plugin))
-		return TRUE;
+	if (!gs_app_has_management_plugin (app, plugin)) {
+		g_task_return_boolean (task, TRUE);
+		return;
+	}
 
 	g_debug ("starting download");
 	gs_app_set_state (app, GS_APP_STATE_DOWNLOADING);
-	if (!gs_plugin_dummy_delay (plugin, app, 5000, cancellable, error)) {
-		gs_app_set_state_recover (app);
-		return FALSE;
-	}
-	gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
-	return TRUE;
+	gs_plugin_dummy_delay_async (plugin, app, 5000, cancellable, download_upgrade_cb, g_steal_pointer (&task));
 }
 
-gboolean
-gs_plugin_app_upgrade_trigger (GsPlugin *plugin, GsApp *app,
-			       GCancellable *cancellable, GError **error)
+static gboolean
+gs_plugin_dummy_download_upgrade_finish (GsPlugin      *plugin,
+					 GAsyncResult  *result,
+					 GError       **error)
 {
+	return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+static void
+gs_plugin_dummy_trigger_upgrade_async (GsPlugin                    *plugin,
+                                       GsApp                       *app,
+                                       GsPluginTriggerUpgradeFlags  flags,
+                                       GCancellable                *cancellable,
+                                       GAsyncReadyCallback          callback,
+                                       gpointer                     user_data)
+{
+	g_autoptr(GTask) task = NULL;
+
+	task = gs_plugin_trigger_upgrade_data_new_task (plugin, app, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_dummy_trigger_upgrade_async);
+
 	/* only process this app if was created by this plugin */
-	if (!gs_app_has_management_plugin (app, plugin))
-		return TRUE;
+	if (!gs_app_has_management_plugin (app, plugin)) {
+		g_task_return_boolean (task, TRUE);
+		return;
+	}
 
 	/* NOP */
-	return TRUE;
+	g_task_return_boolean (task, TRUE);
 }
 
-gboolean
-gs_plugin_update_cancel (GsPlugin *plugin, GsApp *app,
-			 GCancellable *cancellable, GError **error)
+static gboolean
+gs_plugin_dummy_trigger_upgrade_finish (GsPlugin      *plugin,
+					GAsyncResult  *result,
+					GError       **error)
 {
-	return TRUE;
+	return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+static void
+gs_plugin_dummy_cancel_offline_update_async (GsPlugin                         *plugin,
+                                             GsPluginCancelOfflineUpdateFlags  flags,
+                                             GCancellable                     *cancellable,
+                                             GAsyncReadyCallback               callback,
+                                             gpointer                          user_data)
+{
+	g_autoptr(GTask) task = NULL;
+
+	task = gs_plugin_cancel_offline_update_data_new_task (plugin, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_dummy_cancel_offline_update_async);
+
+	/* success */
+	g_task_return_boolean (task, TRUE);
+}
+
+static gboolean
+gs_plugin_dummy_cancel_offline_update_finish (GsPlugin      *plugin,
+                                              GAsyncResult  *result,
+                                              GError       **error)
+{
+	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
 static void
@@ -1161,8 +1545,20 @@ gs_plugin_dummy_class_init (GsPluginDummyClass *klass)
 	plugin_class->refresh_metadata_finish = gs_plugin_dummy_refresh_metadata_finish;
 	plugin_class->list_distro_upgrades_async = gs_plugin_dummy_list_distro_upgrades_async;
 	plugin_class->list_distro_upgrades_finish = gs_plugin_dummy_list_distro_upgrades_finish;
+	plugin_class->install_apps_async = gs_plugin_dummy_install_apps_async;
+	plugin_class->install_apps_finish = gs_plugin_dummy_install_apps_finish;
+	plugin_class->uninstall_apps_async = gs_plugin_dummy_uninstall_apps_async;
+	plugin_class->uninstall_apps_finish = gs_plugin_dummy_uninstall_apps_finish;
 	plugin_class->update_apps_async = gs_plugin_dummy_update_apps_async;
 	plugin_class->update_apps_finish = gs_plugin_dummy_update_apps_finish;
+	plugin_class->cancel_offline_update_async = gs_plugin_dummy_cancel_offline_update_async;
+	plugin_class->cancel_offline_update_finish = gs_plugin_dummy_cancel_offline_update_finish;
+	plugin_class->download_upgrade_async = gs_plugin_dummy_download_upgrade_async;
+	plugin_class->download_upgrade_finish = gs_plugin_dummy_download_upgrade_finish;
+	plugin_class->trigger_upgrade_async = gs_plugin_dummy_trigger_upgrade_async;
+	plugin_class->trigger_upgrade_finish = gs_plugin_dummy_trigger_upgrade_finish;
+	plugin_class->url_to_app_async = gs_plugin_dummy_url_to_app_async;
+	plugin_class->url_to_app_finish = gs_plugin_dummy_url_to_app_finish;
 }
 
 GType
