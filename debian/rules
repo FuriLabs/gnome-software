@@ -21,6 +21,10 @@ GS_CONFIGURE_FLAGS += \
 	-Dgudev=false \
 	-Dmalcontent=false
 
+ifeq ($(filter amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x powerpc ppc64,$(DEB_HOST_ARCH)),)
+GS_CONFIGURE_FLAGS += -Dsysprof=disabled
+endif
+
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	# Enable Flatpak support on supported architectures
 	ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32))
