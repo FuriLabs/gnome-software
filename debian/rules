@@ -7,6 +7,7 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,-O1 -Wl,-z,defs
 export DEB_LDFLAGS_MAINT_STRIP := -Wl,-Bsymbolic-functions
 
 GS_CONFIGURE_FLAGS = \
+	-Dauto_features=enabled \
 	-Dgsettings_desktop_schemas=enabled \
 	-Dpackagekit=true \
 	-Dpackagekit_autoremove=true \
