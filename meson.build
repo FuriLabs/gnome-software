@@ -1,5 +1,5 @@
 project('gnome-software', 'c',
-  version : '47.beta',
+  version : '47.0',
   license : 'GPL-2.0-or-later',
   default_options : ['warning_level=2', 'c_std=c11'],
   meson_version : '>=0.58.0'
@@ -102,10 +102,12 @@ foreach arg: test_link_args
     global_link_args += arg
   endif
 endforeach
-add_global_link_arguments(
-  global_link_args,
-  language: 'c'
-)
+if not meson.is_subproject()
+  add_global_link_arguments(
+    global_link_args,
+    language: 'c'
+  )
+endif
 
 # Needed for PATH_MAX and symlink()
 add_project_arguments('-D_XOPEN_SOURCE=700', language : 'c')
@@ -140,6 +142,7 @@ gtk = dependency('gtk4',
     ]
   )
 glib = dependency('glib-2.0', version : '>= 2.76.0')
+gsettings_desktop_schemas = dependency('gsettings-desktop-schemas', version : '>= 3.18.0')
 json_glib = dependency('json-glib-1.0', version : '>= 1.6.0')
 libm = cc.find_library('m', required: false)
 if get_option('soup2')
@@ -184,11 +187,6 @@ conf.set('HAVE_SYSPROF', libsysprof_capture_dep.found())
 if get_option('mogwai')
   mogwai_schedule_client = dependency('mogwai-schedule-client-0', version : '>= 0.2.0')
   conf.set('HAVE_MOGWAI', 1)
-endif
-
-gsettings_desktop_schemas = dependency('gsettings-desktop-schemas', version : '>= 3.18.0', required: get_option('gsettings_desktop_schemas'))
-if gsettings_desktop_schemas.found()
-  conf.set('HAVE_GSETTINGS_DESKTOP_SCHEMAS', 1)
 endif
 
 if get_option('polkit')

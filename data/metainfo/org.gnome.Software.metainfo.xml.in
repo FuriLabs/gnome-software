@@ -66,6 +66,67 @@
    Validate with `appstreamcli validate *.metainfo.xml`
   -->
   <releases>
+    <release date="2024-09-12" version="47.0" type="stable">
+      <description>
+        <p>This is a stable release with the following changes:</p>
+        <ul>
+          <li>Do not install example featured software lists by default (packagers should use gnome-app-list instead)</li>
+        </ul>
+        <p>This release also updates translations:</p>
+        <ul>
+          <li>Bokmål, Norwegian (Brage Fuglseth)</li>
+          <li>Bulgarian (twlvnn kraftwerk, Alexander Shopov)</li>
+          <li>Catalan (Jordi Mas i Hernandez)</li>
+          <li>Czech (Daniel Rusek)</li>
+          <li>Danish (Alan Mortensen)</li>
+          <li>English (United Kingdom) (Bruce Cowan)</li>
+          <li>Galician (Fran Dieguez)</li>
+          <li>Hungarian (Balázs Úr)</li>
+          <li>Indonesian (Andika Triwidada)</li>
+          <li>Italian (Davide Ferracin)</li>
+          <li>Kazakh (Baurzhan Muftakhidinov)</li>
+          <li>Lithuanian (Aurimas Černius)</li>
+          <li>Occitan (post 1500) (Quentin PAGÈS)</li>
+          <li>Polish (Piotr Drąg)</li>
+          <li>Portuguese (Hugo Carvalho)</li>
+          <li>Portuguese (Brazil) (Juliano de Souza Camargo)</li>
+          <li>Spanish (Daniel, Daniel Mustieles)</li>
+          <li>Swedish (Anders Jonsson)</li>
+          <li>Thai (Aefgh Threenine)</li>
+          <li>Turkish (Emin Tufan Çetin)</li>
+        </ul>
+      </description>
+    </release>
+    <release date="2024-08-30" version="47~rc" type="development">
+      <description>
+        <p>This is an unstable release with the following changes:</p>
+        <ul>
+          <li>Update help pages and add some translations of them</li>
+          <li>Correct tooltips of review voting buttons</li>
+          <li>Lower power consumption when certain pages are not visible</li>
+        </ul>
+        <p>This release also updates translations:</p>
+        <ul>
+          <li>Basque (Asier Sarasua Garmendia)</li>
+          <li>Belarusian (Vasil Pupkin)</li>
+          <li>Bokmål, Norwegian (Brage Fuglseth)</li>
+          <li>Chinese (China) (Luming Zh)</li>
+          <li>Czech (Daniel Rusek)</li>
+          <li>Finnish (Jiri Grönroos)</li>
+          <li>Georgian (Ekaterine Papava)</li>
+          <li>German (Jürgen Benvenuti, Tim Sabsch)</li>
+          <li>Greek, Modern (1453-) (Giannis Antypas)</li>
+          <li>Hindi (Scrambled 777)</li>
+          <li>Korean (Seong-ho Cho)</li>
+          <li>Persian (Danial Behzadi)</li>
+          <li>Portuguese (Brazil) (Rafael Fontenelle, Juliano de Souza Camargo)</li>
+          <li>Russian (Artur S0)</li>
+          <li>Slovak (Matej Mrenica)</li>
+          <li>Turkish (Sabri Ünal)</li>
+          <li>Ukrainian (Yuri Chornoivan)</li>
+        </ul>
+      </description>
+    </release>
     <release date="2024-08-02" version="47~beta" type="development">
       <description>
         <p>This is an unstable release with the following changes:</p>
