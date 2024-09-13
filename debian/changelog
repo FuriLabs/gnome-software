@@ -1,6 +1,9 @@
-gnome-software (47.0-1) UNRELEASED; urgency=medium
+gnome-software (47.0-1) experimental; urgency=medium
 
   * New upstream release
+  * debian/rules: Re-enable curated app list
+  * debian/rules: Remove dropped gsettings-desktop-schemas flag
+  * debian: lintian override library-not-linked-against-libc
 
  -- Alessandro Astone <alessandro.astone@canonical.com>  Thu, 12 Sep 2024 17:37:46 +0200
 
