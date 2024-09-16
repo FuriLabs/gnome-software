@@ -1,3 +1,9 @@
+gnome-software (47.0-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 16 Sep 2024 08:12:58 -0400
+
 gnome-software (47.0-1) experimental; urgency=medium
 
   * New upstream release
