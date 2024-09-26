@@ -3,6 +3,7 @@ cargs += ['-DLOCALPLUGINDIR="' + meson.current_build_dir() + '"']
 deps = [
   plugin_libs,
   packagekit,
+  gsettings_desktop_schemas,
 ]
 
 if get_option('mogwai')
@@ -18,10 +19,6 @@ shared_module(
     'packagekit-common.c',
     'gs-markdown.c',
   ],
-  include_directories : [
-    include_directories('../..'),
-    include_directories('../../lib'),
-  ],
   install : true,
   install_dir: plugin_dir,
   c_args : cargs,
@@ -36,10 +33,6 @@ if get_option('tests')
     sources : [
       'gs-markdown.c',
       'gs-self-test.c'
-    ],
-    include_directories : [
-      include_directories('../..'),
-      include_directories('../../lib'),
     ],
     dependencies : [
       plugin_libs,

@@ -56,7 +56,6 @@ gnome_software_sources = [
   'gs-loading-page.c',
   'gs-lozenge.c',
   'gs-main.c',
-  'gs-moderate-page.c',
   'gs-overview-page.c',
   'gs-origin-popover-row.c',
   'gs-os-update-page.c',
@@ -106,6 +105,13 @@ gnome_software_dependencies = [
   libxmlb,
 ]
 
+if get_option('dkms')
+  gnome_software_sources += [
+    'gs-dkms-dialog.h',
+    'gs-dkms-dialog.c',
+  ]
+endif
+
 if get_option('packagekit')
   gnome_software_sources += [
     'gs-dbus-helper.c',
@@ -125,10 +131,6 @@ if get_option('packagekit')
     extra_args : [ '--glib-min-required=' + glib.version() ],
   )
   gnome_software_dependencies += [packagekit]
-endif
-
-if gsettings_desktop_schemas.found()
-  gnome_software_dependencies += [gsettings_desktop_schemas]
 endif
 
 if get_option('mogwai')
@@ -303,7 +305,6 @@ if get_option('tests')
       gio_unix,
       glib,
       gmodule,
-      gsettings_desktop_schemas,
       gtk,
       json_glib,
       libadwaita,

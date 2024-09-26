@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <requires lib="gtk+" version="3.10"/>
-  <requires lib="handy" version="1.0"/>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adwaita" version="1.0"/>
   <template class="GsDetailsPage" parent="GsPage">
     <accessibility>
       <property name="label" translatable="yes">Details page</property>
@@ -177,7 +177,7 @@
                                                 <child>
                                                   <object class="GtkImage" id="developer_verified_image">
                                                     <property name="pixel-size">16</property>
-                                                    <property name="icon-name">verified-checkmark-symbolic</property>
+                                                    <property name="icon-name">app-verified-symbolic</property>
                                                   </object>
                                                 </child>
                                                 <child>
@@ -395,7 +395,7 @@
                                                         <child>
                                                           <object class="GtkImage" id="origin_packaging_image">
                                                             <property name="pixel_size">16</property>
-                                                            <property name="icon_name">package-x-generic-symbolic</property>
+                                                            <property name="icon_name">package-generic-symbolic</property>
                                                             <property name="valign">center</property>
                                                           </object>
                                                         </child>
@@ -548,29 +548,9 @@
                                       </object>
                                     </child>
                                     <child>
-                                      <object class="GtkListBoxRow" id="version_history_button">
-                                        <property name="can_focus">True</property>
-                                        <child>
-                                          <object class="GtkBox">
-                                            <property name="orientation">horizontal</property>
-                                            <property name="halign">center</property>
-                                            <property name="margin_top">12</property>
-                                            <property name="margin_bottom">12</property>
-                                            <child>
-                                              <object class="GtkLabel">
-                                                <property name="xalign">0</property>
-                                                <property name="yalign">0.5</property>
-                                                <property name="label" translatable="yes">Version History</property>
-                                              </object>
-                                            </child>
-                                            <child>
-                                              <object class="GtkImage">
-                                                <property name="icon-name">go-next-symbolic</property>
-                                                <property name="margin_start">6</property>
-                                              </object>
-                                            </child>
-                                          </object>
-                                        </child>
+                                      <object class="AdwButtonRow" id="version_history_button_row">
+                                        <property name="title" translatable="yes">Version History</property>
+                                        <property name="end-icon-name">go-next-symbolic</property>
                                       </object>
                                     </child>
                                   </object>
@@ -982,8 +962,7 @@
                                                     <property name="activatable">True</property>
                                                     <property name="icon-name">webpage-symbolic</property>
                                                     <property name="title" translatable="yes">Project _Website</property>
-                                                    <!-- This is a placeholder; the actual URI is set in code -->
-                                                    <property name="subtitle">gnome.org</property>
+                                                    <property name="subtitle-lines">1</property>
                                                     <property name="use-underline">True</property>
                                                     <signal name="activated" handler="gs_details_page_link_row_activated_cb"/>
                                                     <child>
@@ -997,10 +976,9 @@
                                                 <child>
                                                   <object class="AdwActionRow" id="donate_row">
                                                     <property name="activatable">True</property>
-                                                    <property name="icon-name">money-symbolic</property>
+                                                    <property name="icon-name">donate-symbolic</property>
                                                     <property name="title" translatable="yes">_Donate</property>
-                                                    <!-- This is a placeholder; the actual URI is set in code -->
-                                                    <property name="subtitle">gnome.org</property>
+                                                    <property name="subtitle-lines">1</property>
                                                     <property name="use-underline">True</property>
                                                     <signal name="activated" handler="gs_details_page_link_row_activated_cb"/>
                                                     <child>
@@ -1014,10 +992,9 @@
                                                 <child>
                                                   <object class="AdwActionRow" id="translate_row">
                                                     <property name="activatable">True</property>
-                                                    <property name="icon-name">flag-outline-thin-symbolic</property>
+                                                    <property name="icon-name">translations-symbolic</property>
                                                     <property name="title" translatable="yes">Contribute _Translations</property>
-                                                    <!-- This is a placeholder; the actual URI is set in code -->
-                                                    <property name="subtitle">gnome.org</property>
+                                                    <property name="subtitle-lines">1</property>
                                                     <property name="use-underline">True</property>
                                                     <signal name="activated" handler="gs_details_page_link_row_activated_cb"/>
                                                     <child>
@@ -1033,8 +1010,7 @@
                                                     <property name="activatable">True</property>
                                                     <property name="icon-name">computer-fail-symbolic</property>
                                                     <property name="title" translatable="yes">_Report an Issue</property>
-                                                    <!-- This is a placeholder; the actual URI is set in code -->
-                                                    <property name="subtitle">gnome.org</property>
+                                                    <property name="subtitle-lines">1</property>
                                                     <property name="use-underline">True</property>
                                                     <signal name="activated" handler="gs_details_page_link_row_activated_cb"/>
                                                     <child>
@@ -1050,8 +1026,7 @@
                                                     <property name="activatable">True</property>
                                                     <property name="icon-name">help-link-symbolic</property>
                                                     <property name="title" translatable="yes">_Help</property>
-                                                    <!-- This is a placeholder; the actual URI is set in code -->
-                                                    <property name="subtitle">gnome.org</property>
+                                                    <property name="subtitle-lines">1</property>
                                                     <property name="use-underline">True</property>
                                                     <signal name="activated" handler="gs_details_page_link_row_activated_cb"/>
                                                     <child>
@@ -1065,10 +1040,9 @@
                                                 <child>
                                                   <object class="AdwActionRow" id="contact_row">
                                                     <property name="activatable">True</property>
-                                                    <property name="icon-name">emoji-people-symbolic</property>
+                                                    <property name="icon-name">contact-symbolic</property>
                                                     <property name="title" translatable="yes" context="verb" comments="Translators: This is a verb, used on a button to ‘contact the developer’">_Contact</property>
-                                                    <!-- This is a placeholder; the actual URI is set in code -->
-                                                    <property name="subtitle">gnome.org</property>
+                                                    <property name="subtitle-lines">1</property>
                                                     <property name="use-underline">True</property>
                                                     <signal name="activated" handler="gs_details_page_link_row_activated_cb"/>
                                                     <child>
@@ -1147,30 +1121,10 @@
                                               </object>
                                             </child>
                                             <child>
-                                              <object class="GtkListBoxRow" id="button_review">
-                                                <property name="can_focus">True</property>
-                                                <child>
-                                                  <object class="GtkBox">
-                                                    <property name="orientation">horizontal</property>
-                                                    <property name="halign">center</property>
-                                                    <property name="margin_top">12</property>
-                                                    <property name="margin_bottom">12</property>
-                                                    <child>
-                                                      <object class="GtkLabel">
-                                                        <property name="xalign">0</property>
-                                                        <property name="yalign">0.5</property>
-                                                        <property name="use_underline">True</property>
-                                                        <property name="label" translatable="yes" comments="Translators: Button opening a dialog where the users can write and publish their opinions about the apps.">Write R_eview</property>
-                                                      </object>
-                                                    </child>
-                                                    <child>
-                                                      <object class="GtkImage">
-                                                        <property name="icon-name">go-next-symbolic</property>
-                                                        <property name="margin_start">6</property>
-                                                      </object>
-                                                    </child>
-                                                  </object>
-                                                </child>
+                                              <object class="AdwButtonRow" id="write_review_button_row">
+                                                <property name="title" translatable="yes" comments="Translators: Button opening a dialog where the users can write and publish their opinions about the apps.">Write R_eview</property>
+                                                <property name="end-icon-name">go-next-symbolic</property>
+                                                <property name="use-underline">True</property>
                                               </object>
                                             </child>
                                           </object>
@@ -1184,30 +1138,9 @@
                                               <class name="boxed-list"/>
                                             </style>
                                             <child>
-                                              <object class="GtkListBoxRow" id="button_all_reviews">
-                                                <property name="can_focus">True</property>
-                                                <child>
-                                                  <object class="GtkBox">
-                                                    <property name="orientation">horizontal</property>
-                                                    <property name="halign">center</property>
-                                                    <property name="margin_top">12</property>
-                                                    <property name="margin_bottom">12</property>
-                                                    <child>
-                                                      <object class="GtkLabel">
-                                                        <property name="xalign">0</property>
-                                                        <property name="yalign">0.5</property>
-                                                        <property name="use_underline">True</property>
-                                                        <property name="label" translatable="yes" comments="Translators: Button opening a dialog showing all reviews for an app.">All Reviews</property>
-                                                      </object>
-                                                    </child>
-                                                    <child>
-                                                      <object class="GtkImage">
-                                                        <property name="icon-name">go-next-symbolic</property>
-                                                        <property name="margin_start">6</property>
-                                                      </object>
-                                                    </child>
-                                                  </object>
-                                                </child>
+                                              <object class="AdwButtonRow" id="all_reviews_button_row">
+                                                <property name="title" translatable="yes" comments="Translators: Button opening a dialog showing all reviews for an app.">All Reviews</property>
+                                                <property name="end-icon-name">go-next-symbolic</property>
                                               </object>
                                             </child>
                                           </object>
@@ -1277,7 +1210,8 @@
             <property name="name">failed</property>
             <property name="child">
               <object class="AdwStatusPage" id="page_failed">
-                <property name="icon-name">org.gnome.Software-symbolic</property>
+                <property name="icon-name">dialog-error-symbolic</property>
+                <property name="title" translatable="yes">Unable to Show App Details</property>
               </object>
             </property>
           </object>

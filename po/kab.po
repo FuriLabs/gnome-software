@@ -8,19 +8,19 @@ msgid ""
 msgstr ""
 "Project-Id-Version: unnamed project\n"
 "Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/gnome-software/issues\n"
-"POT-Creation-Date: 2024-04-06 10:14+0000\n"
-"PO-Revision-Date: 2024-04-10 10:54+0100\n"
+"POT-Creation-Date: 2024-03-26 22:36+0000\n"
+"PO-Revision-Date: 2024-03-27 07:38+0100\n"
 "Last-Translator: ButterflyOfFire <ButterflyOfFire@protonmail.com>\n"
 "Language-Team: Kabyle <>\n"
 "Language: kab\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n>1;\n"
+"Plural-Forms: nplurals=2; plural=n>1\n"
 "X-Generator: Gtranslator 41.0\n"
 "X-DL-Team: kab\n"
 "X-DL-Module: gnome-software\n"
-"X-DL-Branch: gnome-46\n"
+"X-DL-Branch: main\n"
 "X-DL-Domain: po\n"
 "X-DL-State: Translating\n"
 
@@ -54,11 +54,11 @@ msgstr ""
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:29
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:33
 msgid "Details panel"
-msgstr "Afeggag n telqayt"
+msgstr ""
 
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:37
 msgid "Installed panel"
-msgstr "Afeggag ibedden"
+msgstr ""
 
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:41
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:45
@@ -67,7 +67,7 @@ msgstr "Afeggag n ielqman"
 
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:49
 msgid "The update details"
-msgstr "Talqayt ɣef ulqem"
+msgstr ""
 
 #. developer_name tag deprecated with Appstream 1.0
 #: data/metainfo/org.gnome.Software.metainfo.xml.in:2506
@@ -319,6 +319,7 @@ msgstr ""
 #. TRANSLATORS: error details
 #: gs-install-appstream/gs-install-appstream.c:220
 #, c-format
+#| msgid "Failed to copy"
 msgid "Failed to move: %s"
 msgstr ""
 
@@ -459,6 +460,7 @@ msgstr ""
 
 #. TRANSLATORS: content rating title, see https://hughsie.github.io/oars/
 #: src/gs-age-rating-context-dialog.c:254
+#| msgid "Documentation"
 msgid "Discrimination"
 msgstr ""
 
@@ -519,6 +521,7 @@ msgstr ""
 
 #. TRANSLATORS: content rating title, see https://hughsie.github.io/oars/
 #: src/gs-age-rating-context-dialog.c:314
+#| msgid "Show Details"
 msgid "Contact Details"
 msgstr ""
 
@@ -531,6 +534,7 @@ msgstr ""
 
 #. TRANSLATORS: content rating title, see https://hughsie.github.io/oars/
 #: src/gs-age-rating-context-dialog.c:324
+#| msgid "More Information"
 msgid "Identifying Information"
 msgstr ""
 
@@ -649,6 +653,8 @@ msgid "Drugs"
 msgstr ""
 
 #: src/gs-age-rating-context-dialog.c:539
+#| msgctxt "Menu of Education & Science"
+#| msgid "Languages"
 msgid "Strong Language"
 msgstr ""
 
@@ -675,6 +681,7 @@ msgstr "%s • %s"
 #. Translators: The app is considered suitable to be run by all ages of people.
 #. * This is displayed in a context tile, so the string should be short.
 #: src/gs-age-rating-context-dialog.c:936
+#| msgid "All"
 msgctxt "Age rating"
 msgid "All"
 msgstr "Akk"
@@ -777,17 +784,19 @@ msgstr "%s (%s)"
 #: lib/gs-app.c:6432 src/gs-safety-context-dialog.c:776
 #: src/gs-safety-context-dialog.ui:180
 msgid "Package"
-msgstr "Paquet"
+msgstr "Akemmus"
 
 #: src/gs-app-addon-row.c:95 src/gs-app-row.c:528
 msgid "Pending"
 msgstr "Yegguni"
 
 #: src/gs-app-addon-row.c:99 src/gs-app-row.c:532 src/gs-details-page.c:402
+#| msgid "Pending"
 msgid "Pending install"
 msgstr ""
 
 #: src/gs-app-addon-row.c:103 src/gs-app-row.c:536 src/gs-details-page.c:409
+#| msgid "Pending"
 msgid "Pending remove"
 msgstr ""
 
@@ -814,19 +823,20 @@ msgstr "Asider"
 #. TRANSLATORS: button text in the header when firmware
 #. * can be live-installed
 #. TRANSLATORS: update the fw
-#: src/gs-app-addon-row.ui:66 src/gs-common.c:303 src/gs-details-page.c:1055
-#: src/gs-details-page.c:1082 src/gs-details-page.ui:243 src/gs-page.c:437
+#: src/gs-app-addon-row.ui:66 src/gs-common.c:303 src/gs-details-page.c:1044
+#: src/gs-details-page.c:1071 src/gs-details-page.ui:243 src/gs-page.c:437
 #: plugins/packagekit/gs-packagekit-task.c:149
 msgid "_Install"
 msgstr "Sebded (_I)"
 
-#: src/gs-app-addon-row.ui:73 src/gs-details-page.c:1164
+#: src/gs-app-addon-row.ui:73 src/gs-details-page.c:1153
+#| msgid "_Install…"
 msgid "_Uninstall…"
 msgstr ""
 
 #: src/gs-app-details-page.c:60
 msgid "Network"
-msgstr "Azeṭṭa"
+msgstr "Aẓeṭṭa"
 
 #: src/gs-app-details-page.c:60
 msgid "Can communicate over the network"
@@ -875,6 +885,7 @@ msgid "Can access system device files"
 msgstr ""
 
 #: src/gs-app-details-page.c:67
+#| msgid "Screenshot"
 msgid "Screen contents"
 msgstr ""
 
@@ -900,7 +911,7 @@ msgstr ""
 
 #: src/gs-app-details-page.c:70 src/gs-app-details-page.c:71
 msgid "File system"
-msgstr "Anagraw n yifuyla"
+msgstr ""
 
 #. The GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER is used only as a flag, with actual files being part of the read/full lists
 #: src/gs-app-details-page.c:73 src/gs-app-details-page.c:74
@@ -940,6 +951,7 @@ msgstr ""
 #. FIXME support app == NULL
 #. set page title
 #: src/gs-app-details-page.c:239
+#| msgid "Details"
 msgid "Update Details"
 msgstr ""
 
@@ -957,10 +969,12 @@ msgid "No reviews were found for this app."
 msgstr ""
 
 #: src/gs-app-reviews-dialog.ui:25
+#| msgid "Reviews"
 msgid "No Reviews"
 msgstr ""
 
 #: src/gs-app-version-history-dialog.ui:6 src/gs-details-page.ui:563
+#| msgid "Version"
 msgid "Version History"
 msgstr "Amazray n lqem"
 
@@ -971,6 +985,7 @@ msgstr "D amaynut deg lqem %s"
 
 #: src/gs-app-version-history-row.c:142
 #, c-format
+#| msgid "Version"
 msgid "Version %s"
 msgstr "Lqem %s"
 
@@ -999,7 +1014,7 @@ msgstr "Anadi ɣef yisnasen"
 
 #: src/gs-application.c:126
 msgid "SEARCH"
-msgstr "ANADI"
+msgstr ""
 
 #: src/gs-application.c:128
 msgid "Show application details (using application ID)"
@@ -1058,8 +1073,9 @@ msgid "Installs any pending updates in the background"
 msgstr ""
 
 #: src/gs-application.c:147
+#| msgid "Reference"
 msgid "Show preferences"
-msgstr "Sken ismenyifen"
+msgstr ""
 
 #: src/gs-application.c:149
 msgid "Quit the running instance"
@@ -1085,7 +1101,7 @@ msgstr ""
 #. TRANSLATORS: this is the menu item that opens the about window
 #: src/gs-application.c:287 src/gs-shell.c:1977
 msgid "About Software"
-msgstr "Ɣef useɣẓan"
+msgstr ""
 
 #. TRANSLATORS: well, we seem to think so, anyway
 #: src/gs-application.c:290
@@ -1153,6 +1169,7 @@ msgstr ""
 #. Translators: This indicates an app requires no permissions to run.
 #. * It’s used in a context tile, so should be short.
 #: src/gs-app-context-bar.c:294
+#| msgid "Permissions"
 msgid "No permissions"
 msgstr "Ulac tisirag"
 
@@ -1160,7 +1177,7 @@ msgstr "Ulac tisirag"
 #. * It’s used in a context tile, so should be short.
 #: src/gs-app-context-bar.c:311
 msgid "Has network access"
-msgstr "Yesɛa adduf n uzeḍḍa"
+msgstr ""
 
 #. Translators: This indicates an app uses D-Bus system services.
 #. * It’s used in a context tile, so should be short.
@@ -1254,6 +1271,7 @@ msgstr ""
 #. Translators: The '%s' is replaced by the distribution name.
 #: src/gs-app-context-bar.c:462 src/gs-safety-context-dialog.c:150
 #, c-format
+#| msgid "Reviews"
 msgid "Reviewed by %s"
 msgstr ""
 
@@ -1279,12 +1297,14 @@ msgstr ""
 #. Translators: This indicates an app does not specify which license it's developed under.
 #. * It’s used in a context tile, so should be short.
 #: src/gs-app-context-bar.c:506
+#| msgid "Unknown"
 msgid "Unknown license"
 msgstr ""
 
 #. Translators: This indicates an app is not licensed under a free software license.
 #. * It’s used in a context tile, so should be short.
 #: src/gs-app-context-bar.c:513
+#| msgid "Proprietary"
 msgid "Proprietary code"
 msgstr ""
 
@@ -1343,7 +1363,7 @@ msgid "Unsafe"
 msgstr ""
 
 #: src/gs-app-context-bar.c:648 src/gs-app-context-bar.c:680
-#: src/gs-hardware-support-context-dialog.c:615
+#: src/gs-hardware-support-context-dialog.c:608
 msgid "Mobile Only"
 msgstr ""
 
@@ -1353,7 +1373,7 @@ msgstr ""
 
 #: src/gs-app-context-bar.c:654 src/gs-app-context-bar.c:687
 #: src/gs-app-context-bar.c:694 src/gs-app-context-bar.c:744
-#: src/gs-app-context-bar.c:749 src/gs-hardware-support-context-dialog.c:595
+#: src/gs-app-context-bar.c:749 src/gs-hardware-support-context-dialog.c:588
 msgid "Desktop Only"
 msgstr "Tanarit kan"
 
@@ -1361,21 +1381,21 @@ msgstr "Tanarit kan"
 msgid "Only works on a large screen"
 msgstr ""
 
-#: src/gs-app-context-bar.c:659 src/gs-hardware-support-context-dialog.c:633
+#: src/gs-app-context-bar.c:659 src/gs-hardware-support-context-dialog.c:626
 msgid "Screen Size Mismatch"
 msgstr ""
 
-#: src/gs-app-context-bar.c:660 src/gs-hardware-support-context-dialog.c:634
+#: src/gs-app-context-bar.c:660 src/gs-hardware-support-context-dialog.c:627
 msgid "Doesn’t support your current screen size"
 msgstr ""
 
-#: src/gs-app-context-bar.c:681 src/gs-hardware-support-context-dialog.c:686
-#: src/gs-hardware-support-context-dialog.c:692
+#: src/gs-app-context-bar.c:681 src/gs-hardware-support-context-dialog.c:679
+#: src/gs-hardware-support-context-dialog.c:685
 msgid "Requires a touchscreen"
 msgstr ""
 
-#: src/gs-app-context-bar.c:688 src/gs-hardware-support-context-dialog.c:646
-#: src/gs-hardware-support-context-dialog.c:652
+#: src/gs-app-context-bar.c:688 src/gs-hardware-support-context-dialog.c:639
+#: src/gs-hardware-support-context-dialog.c:645
 msgid "Requires a keyboard"
 msgstr ""
 
@@ -1444,10 +1464,11 @@ msgstr "Sefsex"
 #. * allows the app to be easily installed
 #: src/gs-app-row.c:178
 msgid "Install"
-msgstr "Sebdeed"
+msgstr "Sebded"
 
 #. TRANSLATORS: this is a button in the updates panel
 #: src/gs-app-row.c:187
+#| msgid "Downloading"
 msgid "Download"
 msgstr "Sider"
 
@@ -1460,12 +1481,14 @@ msgstr "Leqqem"
 #. TRANSLATORS: this is a button next to the search results that
 #. * allows the app to be easily removed
 #: src/gs-app-row.c:198 src/gs-app-row.c:208
+#| msgid "_Install…"
 msgid "Uninstall…"
 msgstr ""
 
 #. TRANSLATORS: this is a button next to the search results that
 #. * shows the status of an app being erased
 #: src/gs-app-row.c:222
+#| msgid "Installing"
 msgid "Uninstalling"
 msgstr ""
 
@@ -1502,6 +1525,7 @@ msgid "Critical Update"
 msgstr ""
 
 #: src/gs-app-row.ui:227 src/gs-feature-tile.c:574
+#| msgid "Installed"
 msgctxt "Single app"
 msgid "Installed"
 msgstr "Yettwasbedd"
@@ -1524,12 +1548,13 @@ msgid ""
 msgstr ""
 
 #: src/gs-app-translation-dialog.ui:5
+#| msgid "Installation"
 msgid "Translations"
 msgstr "Tisuqilin"
 
 #: src/gs-app-translation-dialog.ui:92
 msgid "_Translation Website"
-msgstr "Asmel Web n _tsuqilt"
+msgstr "Asmel Web n tsuqilt"
 
 #. TRANSLATORS: This is a description for entering user/password
 #: src/gs-basic-auth-dialog.c:82
@@ -1557,12 +1582,13 @@ msgstr "Qqen (_L)"
 
 #. Translators: Placeholder text for a login entry.
 #. Translators: It's an origin scope, 'User' or 'System' installation
-#: src/gs-basic-auth-dialog.ui:62 src/gs-origin-popover-row.ui:130
+#: src/gs-basic-auth-dialog.ui:62 src/gs-origin-popover-row.ui:138
 msgid "User"
 msgstr "Aseqdac"
 
 #. Translators: Placeholder text for a login entry.
 #: src/gs-basic-auth-dialog.ui:75
+#| msgid "_Password"
 msgid "Password"
 msgstr "Awal n uɛeddi"
 
@@ -1575,6 +1601,7 @@ msgstr "Wayeḍ"
 #. TRANSLATORS: this is a subcategory matching all the
 #. * different apps in the parent category, e.g. "Games"
 #: lib/gs-category.c:214
+#| msgid "All"
 msgctxt "Category"
 msgid "All"
 msgstr "Akk"
@@ -1582,7 +1609,7 @@ msgstr "Akk"
 #. TRANSLATORS: this is a subcategory of featured apps
 #: lib/gs-category.c:218
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #. Heading for featured apps on a category page
 #. Translators: This is a heading for software which has been featured ('picked') by the distribution.
@@ -1593,6 +1620,7 @@ msgstr ""
 #. Heading for recently updated apps on a category page
 #. Translators: This is a heading for software which has been recently released upstream.
 #: src/gs-category-page.ui:69 src/gs-overview-page.ui:93
+#| msgid "Updated"
 msgid "New & Updated"
 msgstr ""
 
@@ -1603,8 +1631,9 @@ msgstr ""
 
 #. Heading for the rest of the apps on a category page
 #: src/gs-category-page.ui:126
+#| msgid "Software"
 msgid "Other Software"
-msgstr "Aseɣẓan-nniḍen"
+msgstr "Iseɣẓanen-nniḍen"
 
 #. TRANSLATORS: the user isn't reading the question
 #: lib/gs-cmd.c:195
@@ -1625,7 +1654,7 @@ msgstr "Akk"
 #: lib/gs-desktop-data.c:20
 msgctxt "Menu of Graphics & Photography"
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #: lib/gs-desktop-data.c:24
 msgctxt "Menu of Graphics & Photography"
@@ -1655,12 +1684,12 @@ msgstr ""
 #: lib/gs-desktop-data.c:39
 msgctxt "Menu of Audio & Video"
 msgid "Audio Creation & Editing"
-msgstr "Asnulfu akked usiẓreg n umeslaw"
+msgstr ""
 
 #: lib/gs-desktop-data.c:45
 msgctxt "Menu of Audio & Video"
 msgid "Music Players"
-msgstr "Imeɣriyen n uẓawan"
+msgstr ""
 
 #: lib/gs-desktop-data.c:53
 msgctxt "Menu of Productivity"
@@ -1670,12 +1699,12 @@ msgstr "Akk"
 #: lib/gs-desktop-data.c:58
 msgctxt "Menu of Productivity"
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #: lib/gs-desktop-data.c:62
 msgctxt "Menu of Productivity"
 msgid "Calendar"
-msgstr "Taswast"
+msgstr "Awitay"
 
 #: lib/gs-desktop-data.c:66
 msgctxt "Menu of Productivity"
@@ -1695,7 +1724,7 @@ msgstr ""
 #: lib/gs-desktop-data.c:77
 msgctxt "Menu of Utilities"
 msgid "Text Editors"
-msgstr "Imaẓragen n uḍris"
+msgstr ""
 
 #: lib/gs-desktop-data.c:80
 msgctxt "Menu of Communication & News"
@@ -1710,12 +1739,12 @@ msgstr "Akk"
 #: lib/gs-desktop-data.c:90
 msgctxt "Menu of Audio & Video"
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #: lib/gs-desktop-data.c:93
 msgctxt "Menu of Games"
 msgid "Action"
-msgstr "Action"
+msgstr "Tigawt"
 
 #: lib/gs-desktop-data.c:96
 msgctxt "Menu of Games"
@@ -1780,7 +1809,7 @@ msgstr "Akk"
 #: lib/gs-desktop-data.c:137
 msgctxt "Menu of Communication & News"
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #: lib/gs-desktop-data.c:140
 msgctxt "Menu of Communication & News"
@@ -1795,7 +1824,7 @@ msgstr "Akk"
 #: lib/gs-desktop-data.c:158
 msgctxt "Menu of Education & Science"
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #: lib/gs-desktop-data.c:163
 msgctxt "Menu of Education & Science"
@@ -1830,7 +1859,7 @@ msgstr "Isallen"
 #: lib/gs-desktop-data.c:189
 msgctxt "Menu of Education & Science"
 msgid "Robotics"
-msgstr "Taṛubutit"
+msgstr ""
 
 #: lib/gs-desktop-data.c:192
 msgctxt "Menu of Art"
@@ -1850,7 +1879,7 @@ msgstr "Iseḍsayen"
 #: lib/gs-desktop-data.c:201
 msgctxt "Menu of Reference"
 msgid "Fiction"
-msgstr "Tawerlit"
+msgstr ""
 
 #: lib/gs-desktop-data.c:204
 msgctxt "Menu of Reference"
@@ -1885,7 +1914,7 @@ msgstr "Akk"
 #: lib/gs-desktop-data.c:226
 msgctxt "Menu of Developer Tools"
 msgid "Featured"
-msgstr "Yuɣal ɣer sdat"
+msgstr "Ifaz"
 
 #: lib/gs-desktop-data.c:229
 msgctxt "Menu of Developer Tools"
@@ -1900,7 +1929,7 @@ msgstr ""
 #: lib/gs-desktop-data.c:240
 msgctxt "Menu of Add-ons"
 msgid "Codecs"
-msgstr "Codecs"
+msgstr "Ikudaken"
 
 #: lib/gs-desktop-data.c:247
 msgctxt "Menu of Add-ons"
@@ -1915,7 +1944,7 @@ msgstr "Tisefsiyin"
 #: lib/gs-desktop-data.c:261
 msgctxt "Menu of Add-ons"
 msgid "Input Sources"
-msgstr "Iɣbula n unekcum"
+msgstr ""
 
 #: lib/gs-desktop-data.c:268
 msgctxt "Menu of Add-ons"
@@ -1935,12 +1964,12 @@ msgstr "Snulfu-d"
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:287
 msgid "Work"
-msgstr "Amahil"
+msgstr ""
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:289
 msgid "Play"
-msgstr "Urar"
+msgstr ""
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:291
@@ -1954,11 +1983,14 @@ msgstr "Issin"
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:295
+#| msgid "Developer"
 msgid "Develop"
-msgstr "Aneflay"
+msgstr ""
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:298
+#| msgctxt "Menu of Add-ons"
+#| msgid "Codecs"
 msgid "Codecs"
 msgstr "Ikudaken"
 
@@ -1969,21 +2001,28 @@ msgstr ""
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:302
+#| msgctxt "Menu of Add-ons"
+#| msgid "Fonts"
 msgid "Fonts"
 msgstr "Tisefsiyin"
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:304
+#| msgid "Source"
 msgid "Input Sources"
-msgstr "Iɣbula n unekcum"
+msgstr ""
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:306
+#| msgctxt "Menu of Education & Science"
+#| msgid "Languages"
 msgid "Language Packs"
 msgstr "Ikemmusen n tutlayt"
 
 #. Translators: this is a menu category
 #: lib/gs-desktop-data.c:308
+#| msgctxt "Menu of Add-ons"
+#| msgid "Localization"
 msgid "Localization"
 msgstr "Asideg"
 
@@ -1994,7 +2033,7 @@ msgstr "Asideg"
 #: src/gs-common.c:69 src/gs-common.c:92
 #, c-format
 msgid "%s is now installed"
-msgstr "%s yettwasbedd tura"
+msgstr ""
 
 #. TRANSLATORS: an app has been installed, but
 #. * needs a reboot to complete the installation
@@ -2006,7 +2045,7 @@ msgstr ""
 #. * has been successfully installed
 #: src/gs-common.c:77
 msgid "App is ready to be used."
-msgstr "Asnas yewjed i useqdec."
+msgstr "Asnas-nni yewjed i useqdec."
 
 #. TRANSLATORS: this is the summary of a notification that OS updates
 #. * have been successfully installed
@@ -2031,6 +2070,7 @@ msgstr "Sker"
 
 #. TRANSLATORS: window title
 #: src/gs-common.c:230
+#| msgid "Software"
 msgid "Install Software?"
 msgstr ""
 
@@ -2041,6 +2081,7 @@ msgstr ""
 
 #. TRANSLATORS: window title
 #: src/gs-common.c:236
+#| msgid "Software Repositories"
 msgid "Enable Software Repository?"
 msgstr "Rmed ikufan n useɣẓan ?"
 
@@ -2151,42 +2192,41 @@ msgstr "Tura kan"
 msgid "%d minute ago"
 msgid_plural "%d minutes ago"
 msgstr[0] ""
-msgstr[1] ""
 
 #: src/gs-common.c:1011
 #, c-format
 msgid "%d hour ago"
 msgid_plural "%d hours ago"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d n usrag aya"
+msgstr[1] "%d n yisragen aya"
 
 #: src/gs-common.c:1015
 #, c-format
 msgid "%d day ago"
 msgid_plural "%d days ago"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d n wass aya"
+msgstr[1] "%d n wussan aya"
 
 #: src/gs-common.c:1019
 #, c-format
 msgid "%d week ago"
 msgid_plural "%d weeks ago"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d n imalas aya"
+msgstr[1] "%d n imalas aya"
 
 #: src/gs-common.c:1023
 #, c-format
 msgid "%d month ago"
 msgid_plural "%d months ago"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d n waggur aya"
+msgstr[1] "%d n wagguren aya"
 
 #: src/gs-common.c:1027
 #, c-format
 msgid "%d year ago"
 msgid_plural "%d years ago"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d n useggas aya"
+msgstr[1] "%d n iseggasen aya"
 
 #. Translators: This is to construct a disk size string consisting of the value and its unit, while
 #. * the unit is drawn with a smaller font. If you need to flip the order, then you can use "%2$s %1$s".
@@ -2261,19 +2301,20 @@ msgstr ""
 #. TRANSLATORS: this is a button that launches gnome-software
 #: src/gs-dbus-helper.c:338
 msgid "Find in Software"
-msgstr "Nadi deg useɣẓan"
+msgstr ""
 
 #: src/gs-description-box.c:93 src/gs-description-box.c:342
 msgid "_Show More"
 msgstr "_Sken-d ugar"
 
 #: src/gs-description-box.c:93
+#| msgid "Show Details"
 msgid "_Show Less"
 msgstr "_Sken-d drus"
 
 #: src/gs-details-page.c:385
 msgid "Removing…"
-msgstr "Tukksa..."
+msgstr "Tukksa…"
 
 #: src/gs-details-page.c:400
 msgid "Requires restart to finish install"
@@ -2297,6 +2338,7 @@ msgstr ""
 
 #. Translators: This string is shown when downloading an app before install.
 #: src/gs-details-page.c:445 src/gs-upgrade-banner.c:180
+#| msgid "Downloading"
 msgid "Downloading…"
 msgstr "Yessadar-d…"
 
@@ -2307,6 +2349,7 @@ msgstr "Asewjed…"
 
 #. Translators: This string is shown when uninstalling an app.
 #: src/gs-details-page.c:451
+#| msgid "Installing"
 msgid "Uninstalling…"
 msgstr ""
 
@@ -2316,7 +2359,8 @@ msgstr ""
 msgid "%s is not installed, but it still has data present."
 msgstr ""
 
-#: src/gs-details-page.c:1072
+#: src/gs-details-page.c:1061
+#| msgid "Restart"
 msgid "_Restart"
 msgstr "Ales asenke_r"
 
@@ -2324,95 +2368,95 @@ msgstr "Ales asenke_r"
 #. * be installed.
 #. * The ellipsis indicates that further steps are required,
 #. * e.g. enabling software repositories or the like
-#: src/gs-details-page.c:1096
+#: src/gs-details-page.c:1085
 msgid "_Install…"
-msgstr "Sbedd (_I)"
+msgstr "Sebded… (_I)"
 
 #. Translators: %s is the user-visible app name
-#: src/gs-details-page.c:1309
+#: src/gs-details-page.c:1298
 #, c-format
 msgid "%s will appear in US English"
 msgstr ""
 
-#: src/gs-details-page.c:1317
+#: src/gs-details-page.c:1306
 msgid "This app will appear in US English"
 msgstr ""
 
-#: src/gs-details-page.c:1319
+#: src/gs-details-page.c:1308
 msgid "This software will appear in US English"
 msgstr ""
 
-#: src/gs-details-page.c:1354 src/gs-details-page.ui:76
+#: src/gs-details-page.c:1343 src/gs-details-page.ui:76
 msgid "Help _Translate"
-msgstr "Mudd afus i usuqel (_T)"
+msgstr "Mudd afus i usuqel"
 
 #. Translators: the '%s' is replaced with a developer name or a project group
-#: src/gs-details-page.c:1419
+#: src/gs-details-page.c:1408
 #, c-format
 msgid "Other Apps by %s"
 msgstr "Isnasen-nniḍen sɣur %s"
 
 #. Translators: the first %s is replaced with the developer name, the second %s is replaced with the app id
-#: src/gs-details-page.c:1455
+#: src/gs-details-page.c:1444
 #, c-format
 msgid "Developer %s has proven the ownership of %s"
 msgstr ""
 
 #. Translators: the %s is replaced with the app id
-#: src/gs-details-page.c:1458
+#: src/gs-details-page.c:1447
 #, c-format
 msgid "Developer has proven the ownership of %s"
 msgstr ""
 
 #. TRANSLATORS: we need a remote server to process
-#: src/gs-details-page.c:1826
+#: src/gs-details-page.c:1815
 msgid "You need internet access to write a review"
 msgstr ""
 
-#: src/gs-details-page.c:1927
+#: src/gs-details-page.c:1916
 msgid "This app is no longer receiving updates, including security fixes"
 msgstr ""
 
-#: src/gs-details-page.c:1928
+#: src/gs-details-page.c:1917
 msgid ""
 "This app is already provided by your distribution and should not be replaced."
 msgstr ""
 
-#: src/gs-details-page.c:1929
+#: src/gs-details-page.c:1918
 msgid ""
 "This app doesn’t provide any links to a website, code repository or issue "
 "tracker."
 msgstr ""
 
-#: src/gs-details-page.c:1931
+#: src/gs-details-page.c:1920
 msgid "This software is no longer receiving updates, including security fixes"
 msgstr ""
 
-#: src/gs-details-page.c:1932
+#: src/gs-details-page.c:1921
 msgid ""
 "This software is already provided by your distribution and should not be "
 "replaced."
 msgstr ""
 
-#: src/gs-details-page.c:1933
+#: src/gs-details-page.c:1922
 msgid ""
 "This software doesn’t provide any links to a website, code repository or "
 "issue tracker."
 msgstr ""
 
-#: src/gs-details-page.c:2023 src/gs-details-page.c:2039
+#: src/gs-details-page.c:2012 src/gs-details-page.c:2028
 #, c-format
 msgid "Unable to find “%s”"
 msgstr ""
 
-#: src/gs-details-page.c:2387
+#: src/gs-details-page.c:2376
 #, c-format
 msgid "Failed to submit review for “%s”: %s"
 msgstr ""
 
 #: src/gs-details-page.ui:7
 msgid "Details page"
-msgstr "Asebtar n tleqayt"
+msgstr ""
 
 #: src/gs-details-page.ui:54
 msgid "Loading App Details"
@@ -2433,6 +2477,7 @@ msgstr "Leqqem (_U)"
 
 #. TRANSLATORS: button text in the header when an app can be erased
 #: src/gs-details-page.ui:294 src/gs-details-page.ui:304
+#| msgid "Install"
 msgid "Uninstall"
 msgstr ""
 
@@ -2485,7 +2530,7 @@ msgstr ""
 
 #: src/gs-details-page.ui:871
 msgid "D_elete Data"
-msgstr "Kk_es isefka"
+msgstr "Kke_s isefka"
 
 #: src/gs-details-page.ui:947
 msgid "No Metadata"
@@ -2493,7 +2538,7 @@ msgstr ""
 
 #: src/gs-details-page.ui:984
 msgid "Project _Website"
-msgstr "Asebter n usenfaṛ (_W)"
+msgstr ""
 
 #: src/gs-details-page.ui:1001
 msgid "_Donate"
@@ -2505,7 +2550,7 @@ msgstr ""
 
 #: src/gs-details-page.ui:1035
 msgid "_Report an Issue"
-msgstr "Azen aneqqis n wugu_r"
+msgstr ""
 
 #: src/gs-details-page.ui:1052
 msgid "_Help"
@@ -2515,15 +2560,18 @@ msgstr "Tallalt (_H)"
 #: src/gs-details-page.ui:1069
 msgctxt "verb"
 msgid "_Contact"
-msgstr "Nermes-aɣ-d (_C)"
+msgstr ""
 
 #. Translators: Button opening a dialog where the users can write and publish their opinions about the apps.
 #: src/gs-details-page.ui:1163
+#| msgctxt "app review"
+#| msgid "Review"
 msgid "Write R_eview"
 msgstr "Aru ac_eggir"
 
 #. Translators: Button opening a dialog showing all reviews for an app.
 #: src/gs-details-page.ui:1200
+#| msgid "Reviews"
 msgid "All Reviews"
 msgstr "Akk iceggiren"
 
@@ -2684,8 +2732,9 @@ msgstr ""
 
 #. TRANSLATORS: hyperlink title
 #: src/gs-extras-page.c:556
+#| msgid "Documentation"
 msgid "the documentation"
-msgstr "Tasemlit"
+msgstr "tasemlit"
 
 #. TRANSLATORS: no codecs were found. The first %s will be replaced by actual codec name(s),
 #. the second %s is the app name, which requested the codecs, the third %s is a link titled "the documentation"
@@ -2721,6 +2770,7 @@ msgid "%s file format"
 msgstr ""
 
 #: src/gs-extras-page.c:1326
+#| msgid "Install"
 msgid "Install _All"
 msgstr "Sebded-iten _akk"
 
@@ -2734,216 +2784,217 @@ msgstr "Asebter n ikudaken"
 
 #: src/gs-featured-carousel.ui:43
 msgid "Previous"
-msgstr "Ɣer deffir"
+msgstr "Uzwir"
 
 #: src/gs-featured-carousel.ui:66
 msgid "Next"
-msgstr "Ɣer zdat"
+msgstr "Uḍfir"
 
 #: src/gs-featured-carousel.ui:83
+#| msgid "Featured"
 msgid "Featured Apps List"
 msgstr "Tabdart n isnasen ifazen"
 
-#: src/gs-hardware-support-context-dialog.c:589
-#: src/gs-hardware-support-context-dialog.c:598
+#: src/gs-hardware-support-context-dialog.c:582
+#: src/gs-hardware-support-context-dialog.c:591
 msgid "Desktop Support"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:590
-#: src/gs-hardware-support-context-dialog.c:599
+#: src/gs-hardware-support-context-dialog.c:583
+#: src/gs-hardware-support-context-dialog.c:592
 msgid "Supports being used on a large screen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:592
+#: src/gs-hardware-support-context-dialog.c:585
 msgid "Desktop Support Unknown"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:593
+#: src/gs-hardware-support-context-dialog.c:586
 msgid "Not enough information to know if large screens are supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:596
+#: src/gs-hardware-support-context-dialog.c:589
 msgid "Requires a large screen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:601
+#: src/gs-hardware-support-context-dialog.c:594
 msgid "Desktop Not Supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:602
+#: src/gs-hardware-support-context-dialog.c:595
 msgid "Cannot be used on a large screen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:609
-#: src/gs-hardware-support-context-dialog.c:618
+#: src/gs-hardware-support-context-dialog.c:602
+#: src/gs-hardware-support-context-dialog.c:611
 msgid "Mobile Support"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:610
-#: src/gs-hardware-support-context-dialog.c:619
+#: src/gs-hardware-support-context-dialog.c:603
+#: src/gs-hardware-support-context-dialog.c:612
 msgid "Supports being used on a small screen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:612
+#: src/gs-hardware-support-context-dialog.c:605
 msgid "Mobile Support Unknown"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:613
+#: src/gs-hardware-support-context-dialog.c:606
 msgid "Not enough information to know if small screens are supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:616
+#: src/gs-hardware-support-context-dialog.c:609
 msgid "Requires a small screen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:621
+#: src/gs-hardware-support-context-dialog.c:614
 msgid "Mobile Not Supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:622
+#: src/gs-hardware-support-context-dialog.c:615
 msgid "Cannot be used on a small screen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:645
-#: src/gs-hardware-support-context-dialog.c:654
+#: src/gs-hardware-support-context-dialog.c:638
+#: src/gs-hardware-support-context-dialog.c:647
 msgid "Keyboard Support"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:648
+#: src/gs-hardware-support-context-dialog.c:641
 msgid "Keyboard Support Unknown"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:649
+#: src/gs-hardware-support-context-dialog.c:642
 msgid "Not enough information to know if keyboards are supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:651
+#: src/gs-hardware-support-context-dialog.c:644
 msgid "Keyboard Required"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:655
+#: src/gs-hardware-support-context-dialog.c:648
 msgid "Supports keyboards"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:657
+#: src/gs-hardware-support-context-dialog.c:650
 msgid "Keyboard Not Supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:658
+#: src/gs-hardware-support-context-dialog.c:651
 msgid "Cannot be used with a keyboard"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:665
-#: src/gs-hardware-support-context-dialog.c:674
+#: src/gs-hardware-support-context-dialog.c:658
+#: src/gs-hardware-support-context-dialog.c:667
 msgid "Mouse Support"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:666
-#: src/gs-hardware-support-context-dialog.c:672
+#: src/gs-hardware-support-context-dialog.c:659
+#: src/gs-hardware-support-context-dialog.c:665
 msgid "Requires a mouse or pointing device"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:668
+#: src/gs-hardware-support-context-dialog.c:661
 msgid "Mouse Support Unknown"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:669
+#: src/gs-hardware-support-context-dialog.c:662
 msgid ""
 "Not enough information to know if mice or pointing devices are supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:671
+#: src/gs-hardware-support-context-dialog.c:664
 msgid "Mouse Required"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:675
+#: src/gs-hardware-support-context-dialog.c:668
 msgid "Supports mice and pointing devices"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:677
+#: src/gs-hardware-support-context-dialog.c:670
 msgid "Mouse Not Supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:678
+#: src/gs-hardware-support-context-dialog.c:671
 msgid "Cannot be used with a mouse or pointing device"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:685
-#: src/gs-hardware-support-context-dialog.c:694
+#: src/gs-hardware-support-context-dialog.c:678
+#: src/gs-hardware-support-context-dialog.c:687
 msgid "Touchscreen Support"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:688
+#: src/gs-hardware-support-context-dialog.c:681
 msgid "Touchscreen Support Unknown"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:689
+#: src/gs-hardware-support-context-dialog.c:682
 msgid "Not enough information to know if touchscreens are supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:691
+#: src/gs-hardware-support-context-dialog.c:684
 msgid "Touchscreen Required"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:695
+#: src/gs-hardware-support-context-dialog.c:688
 msgid "Supports touchscreens"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:697
+#: src/gs-hardware-support-context-dialog.c:690
 msgid "Touchscreen Not Supported"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:698
+#: src/gs-hardware-support-context-dialog.c:691
 msgid "Cannot be used with a touchscreen"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:711
+#: src/gs-hardware-support-context-dialog.c:704
 msgid "Gamepad Required"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:712
+#: src/gs-hardware-support-context-dialog.c:705
 msgid "Requires a gamepad"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:714
+#: src/gs-hardware-support-context-dialog.c:707
 msgid "Gamepad Support"
 msgstr ""
 
-#: src/gs-hardware-support-context-dialog.c:715
+#: src/gs-hardware-support-context-dialog.c:708
 msgid "Supports gamepads"
 msgstr ""
 
 #. Translators: It’s unknown whether this app is supported on
 #. * the current hardware. The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:724
+#: src/gs-hardware-support-context-dialog.c:717
 #, c-format
 msgid "%s probably works on this device"
 msgstr ""
 
 #. Translators: The app will work on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:731
+#: src/gs-hardware-support-context-dialog.c:724
 #, c-format
 msgid "%s works on this device"
 msgstr ""
 
 #. Translators: The app will possbily work on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:738
+#: src/gs-hardware-support-context-dialog.c:731
 #, c-format
 msgid "%s possibly works on this device"
 msgstr ""
 
 #. Translators: The app may not work fully on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:745
+#: src/gs-hardware-support-context-dialog.c:738
 #, c-format
 msgid "%s will not work properly on this device"
 msgstr ""
 
 #. Translators: The app will not work properly on the current hardware.
 #. * The placeholder is the app name.
-#: src/gs-hardware-support-context-dialog.c:752
+#: src/gs-hardware-support-context-dialog.c:745
 #, c-format
 msgid "%s will not work on this device"
 msgstr ""
@@ -2954,8 +3005,10 @@ msgid "Hardware Support"
 msgstr ""
 
 #: src/gs-help-overlay.ui:12
+#| msgctxt "Menu of Add-ons"
+#| msgid "Localization"
 msgid "Navigation"
-msgstr "Tunigin"
+msgstr "Inig"
 
 #: src/gs-help-overlay.ui:17
 msgid "Navigate to Explore Page"
@@ -2971,17 +3024,19 @@ msgstr ""
 
 #: src/gs-help-overlay.ui:35
 msgid "Open Search Bar"
-msgstr "Ldi afeggag n unadi"
+msgstr ""
 
 #: src/gs-help-overlay.ui:43
 msgid "Windows"
-msgstr "Isfuyla"
+msgstr ""
 
 #: src/gs-help-overlay.ui:48
+#| msgid "Reference"
 msgid "Open Preferences"
 msgstr "Ldi ismenyifen"
 
 #: src/gs-help-overlay.ui:54
+#| msgid "Software Repositories"
 msgid "Open Software Repositories"
 msgstr ""
 
@@ -2995,6 +3050,7 @@ msgstr "Ldi inegzumen n unasiw"
 
 #. Translators: This is in the context of a list of apps which are installed on the system.
 #: src/gs-installed-page.c:818
+#| msgid "Installed"
 msgctxt "List of installed apps"
 msgid "Installed"
 msgstr "Yettwasbedd"
@@ -3005,7 +3061,7 @@ msgstr ""
 
 #: src/gs-installed-page.ui:55
 msgid "In Progress"
-msgstr "Iteddu"
+msgstr ""
 
 #. origin_ui on a remote is the repo dialogue section name,
 #. * not the remote title
@@ -3027,7 +3083,7 @@ msgstr ""
 
 #: src/gs-license-tile.c:113 src/gs-license-tile.ui:98
 msgid "_Get Involved"
-msgstr "Ttekki yid-neɣ (_G)"
+msgstr ""
 
 #. Translators: The first placeholder here is a link to information about the license, and the second placeholder here is the name of a software license.
 #: src/gs-license-tile.c:121
@@ -3071,6 +3127,7 @@ msgstr ""
 
 #. Translators: This indicates an app does not specify which license it's developed under.
 #: src/gs-license-tile.c:148 src/gs-safety-context-dialog.c:413
+#| msgid "Unknown"
 msgid "Unknown License"
 msgstr ""
 
@@ -3100,7 +3157,7 @@ msgstr ""
 #. Translators: This is used for "License    Proprietary"
 #: src/gs-license-tile.c:166 src/gs-safety-context-dialog.c:586
 msgid "Proprietary"
-msgstr "Bab"
+msgstr ""
 
 #: src/gs-license-tile.c:175
 msgid ""
@@ -3122,6 +3179,7 @@ msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-license-tile.c:190 src/gs-safety-context-dialog.c:450
+#| msgid "License"
 msgid "Special License"
 msgstr ""
 
@@ -3163,7 +3221,7 @@ msgstr ""
 
 #. TRANSLATORS: initial start
 #: src/gs-loading-page.c:56
-msgid "Downloading Software Catalog"
+msgid "Refreshing Data"
 msgstr ""
 
 #: src/gs-loading-page.ui:6
@@ -3171,6 +3229,7 @@ msgid "Loading page"
 msgstr ""
 
 #: src/gs-loading-page.ui:11
+#| msgid "Settings"
 msgid "Starting Up"
 msgstr ""
 
@@ -3183,11 +3242,12 @@ msgid "There are no reviews to moderate"
 msgstr ""
 
 #: src/gs-origin-popover-row.c:105
+#| msgid "Unknown"
 msgid "Unknown source"
 msgstr ""
 
 #. Translators: It's like a beta version of the software, a test version
-#: src/gs-origin-popover-row.ui:104
+#: src/gs-origin-popover-row.ui:108
 msgid "Beta"
 msgstr "Biṭa"
 
@@ -3206,6 +3266,7 @@ msgstr ""
 #. TRANSLATORS: This is the header for package updates during
 #. * a system update
 #: src/gs-os-update-page.c:293
+#| msgid "Updates"
 msgctxt "Packages to be updated during a system upgrade"
 msgid "Updates"
 msgstr "Ileqman"
@@ -3243,7 +3304,7 @@ msgstr ""
 #. TRANSLATORS: button to keep the third party software repositories off
 #: src/gs-overview-page.c:749
 msgid "_Ignore"
-msgstr "Ttu (_I)"
+msgstr ""
 
 #. TRANSLATORS: button to turn on third party software repositories
 #. TRANSLATORS: button to accept the agreement
@@ -3265,7 +3326,7 @@ msgstr ""
 #. Translators: This is the title of the main page of the UI.
 #: src/gs-overview-page.c:1255
 msgid "Explore"
-msgstr "Snirem"
+msgstr ""
 
 #: src/gs-overview-page.ui:7
 msgid "Overview page"
@@ -3278,6 +3339,7 @@ msgstr "Isnasen yellan"
 
 #. Translators: This is a heading for a list of categories.
 #: src/gs-overview-page.ui:173
+#| msgid "Categories"
 msgid "Other Categories"
 msgstr "Taggayin-nniḍen"
 
@@ -3286,6 +3348,7 @@ msgid "No App Data Found"
 msgstr ""
 
 #: lib/gs-plugin-loader.c:2814
+#| msgid "Unknown"
 msgctxt "Distribution name"
 msgid "Unknown"
 msgstr "Arussin"
@@ -3293,7 +3356,7 @@ msgstr "Arussin"
 #. TRANSLATORS: button text
 #: src/gs-page.c:93
 msgid "_OK"
-msgstr "Ih (_O)"
+msgstr "IH (_O)"
 
 #: src/gs-page.c:290
 msgid "User declined installation"
@@ -3325,6 +3388,7 @@ msgstr ""
 #. * app summary, e.g. 'GNOME Clocks'
 #: src/gs-page.c:582
 #, c-format
+#| msgid "Install"
 msgid "Uninstall %s?"
 msgstr ""
 
@@ -3341,7 +3405,7 @@ msgstr ""
 #. Translators: this is part of section about deleting app's data, where the 'keep' means 'keep the data'
 #: src/gs-page.c:617
 msgid "_Keep"
-msgstr "Eǧǧ (_K)"
+msgstr ""
 
 #: src/gs-page.c:623
 msgid "Allows restoring app settings and content"
@@ -3366,16 +3430,19 @@ msgstr ""
 
 #. TRANSLATORS: this is button text to remove the app
 #: src/gs-page.c:660
+#| msgid "Install"
 msgid "_Uninstall"
 msgstr ""
 
 #: src/gs-prefs-dialog.ui:5
+#| msgid "Reference"
 msgid "Preferences"
-msgstr "Isemenyifen"
+msgstr "Imenyafen"
 
 #: src/gs-prefs-dialog.ui:14
+#| msgid "Software Repositories"
 msgid "Software Updates"
-msgstr "Ileqman n iseɣẓanen"
+msgstr "Ileqman n yiseɣẓanen"
 
 #: src/gs-prefs-dialog.ui:26
 msgid "_Automatic"
@@ -3443,7 +3510,7 @@ msgstr ""
 
 #: src/gs-removal-dialog.ui:35
 msgid "_Upgrade"
-msgstr "Leqqem (_U)"
+msgstr ""
 
 #. TRANSLATORS: The '%s' is replaced with a repository name, like "Fedora Modular - x86_64"
 #: src/gs-repos-dialog.c:245
@@ -3453,15 +3520,18 @@ msgid ""
 msgstr ""
 
 #: src/gs-repos-dialog.c:250
+#| msgid "Software Repositories"
 msgid "Disable Repository?"
 msgstr ""
 
 #: src/gs-repos-dialog.c:250
+#| msgid "Software Repositories"
 msgid "Remove Repository?"
 msgstr "Ad tekkseḍ akufi ?"
 
 #. TRANSLATORS: this is button text to disable a repo
 #: src/gs-repos-dialog.c:257
+#| msgid "Disable"
 msgid "_Disable"
 msgstr "Kkes arma_d"
 
@@ -3471,6 +3541,7 @@ msgid "_Remove"
 msgstr "Kkes (_R)"
 
 #: src/gs-repos-dialog.c:618
+#| msgid "Software Repositories"
 msgid "Enable New Repositories"
 msgstr "Rmed ikufan imaynuten"
 
@@ -3481,6 +3552,7 @@ msgstr ""
 #. TRANSLATORS: this is the clickable
 #. * link on the third party repositories info bar
 #: src/gs-repos-dialog.c:628
+#| msgid "More information"
 msgid "more information"
 msgstr "Ugar n telɣut"
 
@@ -3489,10 +3561,12 @@ msgstr "Ugar n telɣut"
 #. "Additional repositories from selected third parties - more information."
 #: src/gs-repos-dialog.c:633
 #, c-format
+#| msgid "Access additional software from selected third party sources."
 msgid "Additional repositories from selected third parties — %s."
 msgstr ""
 
 #: src/gs-repos-dialog.c:638
+#| msgid "Third Party Repositories"
 msgid "Fedora Third Party Repositories"
 msgstr "Ikufan n wis tlata n Fedora"
 
@@ -3514,6 +3588,7 @@ msgid "Software Repositories"
 msgstr "Ikufan n useɣzan"
 
 #: src/gs-repos-dialog.ui:52
+#| msgid "Software Repositories"
 msgid "No Repositories"
 msgstr "Ulac ikufan"
 
@@ -3522,6 +3597,7 @@ msgstr "Ulac ikufan"
 #. * describing that repo. The placeholder is the number of apps.
 #: src/gs-repo-row.c:182
 #, c-format
+#| msgid "Installed"
 msgid "%u app installed"
 msgid_plural "%u apps installed"
 msgstr[0] ""
@@ -3682,6 +3758,7 @@ msgid ""
 msgstr ""
 
 #: src/gs-review-dialog.ui:100
+#| msgid "Summary"
 msgid "Review Summary"
 msgstr ""
 
@@ -3711,6 +3788,7 @@ msgstr ""
 
 #. TRANSLATORS: this is when a user doesn't specify a name
 #: src/gs-review-row.c:60
+#| msgid "Unknown"
 msgctxt "Reviewer name"
 msgid "Unknown"
 msgstr "Arussin"
@@ -3737,6 +3815,7 @@ msgstr ""
 #. TRANSLATORS: button text when
 #. * sending a review for moderation
 #: src/gs-review-row.c:246
+#| msgid "Report"
 msgid "_Report"
 msgstr "Aneqqis (_R)"
 
@@ -3760,11 +3839,11 @@ msgstr ""
 
 #: src/gs-review-row.ui:128
 msgid "Report…"
-msgstr ""
+msgstr "Aneqqis…"
 
 #: src/gs-review-row.ui:137
 msgid "Remove…"
-msgstr "Kkes (_R)"
+msgstr "Kkes…"
 
 #: src/gs-safety-context-dialog.c:157
 msgid ""
@@ -3777,6 +3856,7 @@ msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:180
+#| msgid "Permissions"
 msgid "No Permissions"
 msgstr "Ulac tisirag"
 
@@ -3786,6 +3866,7 @@ msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:192
+#| msgid "Network Settings"
 msgid "Network Access"
 msgstr ""
 
@@ -3795,6 +3876,7 @@ msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:196
+#| msgid "Network Settings"
 msgid "No Network Access"
 msgstr ""
 
@@ -3877,11 +3959,13 @@ msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:270
+#| msgid "Permissions"
 msgid "Arbitrary Permissions"
 msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:278
+#| msgid "Settings"
 msgid "User Settings"
 msgstr "Iɣewwaṛen n useqdac"
 
@@ -3991,6 +4075,7 @@ msgstr ""
 
 #. Translators: This refers to permissions (for example, from flatpak) which an app requests from the user.
 #: src/gs-safety-context-dialog.c:429
+#| msgid "Proprietary"
 msgid "Proprietary Code"
 msgstr ""
 
@@ -4060,6 +4145,7 @@ msgstr ""
 
 #. Translators: This is used for "License    Unknown"
 #: src/gs-safety-context-dialog.c:583
+#| msgid "Unknown"
 msgctxt "Unknown license"
 msgid "Unknown"
 msgstr "Arussin"
@@ -4088,25 +4174,28 @@ msgstr ""
 
 #. Translators: This is the accessible description for a button to go to the previous screenshot in the screenshot carousel.
 #: src/gs-screenshot-carousel.ui:46
+#| msgid "Screenshot"
 msgid "Previous Screenshot"
 msgstr "Tuṭṭfa n ugdil tuzwirt"
 
 #. Translators: This is the accessible description for a button to go to the next screenshot in the screenshot carousel.
 #: src/gs-screenshot-carousel.ui:74
+#| msgid "Screenshot"
 msgid "Next Screenshot"
 msgstr "Tuṭṭfa n ugdil tuḍfirt"
 
 #. Translators: Shortened form of “no screenshots available” when showing an app’s details.
 #: src/gs-screenshot-carousel.ui:130
+#| msgid "Screenshot"
 msgid "No Screenshots"
-msgstr "Ulac tuṭṭfiwin n ugdil"
+msgstr ""
 
 #. TRANSLATORS: this is when we try to download a screenshot and
 #. * we get back 404
 #: src/gs-screenshot-image.c:369 src/gs-screenshot-image.c:426
 #: src/gs-screenshot-image.c:646
 msgid "Screenshot not found"
-msgstr "Tuṭṭfa n ugdil ur tettwaf ara"
+msgstr ""
 
 #. TRANSLATORS: possibly image file corrupt or not an image
 #: src/gs-screenshot-image.c:447
@@ -4424,17 +4513,18 @@ msgstr ""
 #. TRANSLATORS: not enough juice to do this safely
 #: src/gs-shell.c:1804
 msgid "Battery level is too low"
-msgstr "Aswir n tbaṭrit yenzef"
+msgstr "Aswir n tbaṭrit yenzef."
 
 #: src/gs-shell.ui:7
 msgid "_Software Repositories"
-msgstr "Ikufan n u_seɣzan"
+msgstr ""
 
 #: src/gs-shell.ui:12
 msgid "_Keyboard Shortcuts"
 msgstr "Inegzumen n unasiw (_K)"
 
 #: src/gs-shell.ui:16
+#| msgid "Reference"
 msgid "_Preferences"
 msgstr "Ismenyafen (_P)"
 
@@ -4447,22 +4537,25 @@ msgid "Main Menu"
 msgstr "Umuɣ agejdan"
 
 #: src/gs-shell.ui:179
+#| msgid "Search"
 msgid "Search apps"
 msgstr "Nadi isnasen"
 
 #. Translators: A label for a button to show all available software.
 #: src/gs-shell.ui:202
 msgid "_Explore"
-msgstr "Snir_em"
+msgstr ""
 
 #. Translators: A label for a button to show only software which is already installed.
 #: src/gs-shell.ui:216
+#| msgid "Installed"
 msgctxt "List of installed apps"
 msgid "_Installed"
 msgstr "Yettwasbedd (_I)"
 
 #. Translators: A label for a button to show only updates which are available to install.
 #: src/gs-shell.ui:238
+#| msgid "Updates"
 msgctxt "Header bar button for list of apps to be updated"
 msgid "_Updates"
 msgstr "Ileqman (_U)"
@@ -4477,7 +4570,7 @@ msgstr "Uɣal ɣer deffir"
 #. * possible.
 #: src/gs-storage-context-dialog.c:95
 msgid "None"
-msgstr "Ula d yiwen"
+msgstr "Ula yiwen"
 
 #: src/gs-storage-context-dialog.c:139
 msgid "App Data"
@@ -4489,7 +4582,7 @@ msgstr ""
 
 #: src/gs-storage-context-dialog.c:145
 msgid "User Data"
-msgstr "Isefka useqdac"
+msgstr ""
 
 #: src/gs-storage-context-dialog.c:146
 msgid "Data created by you in the app"
@@ -4516,6 +4609,7 @@ msgid "Shared system components required by this app"
 msgstr ""
 
 #: src/gs-storage-context-dialog.c:188
+#| msgid "Unknown"
 msgctxt "Download size"
 msgid "Unknown"
 msgstr "Arussin"
@@ -4543,15 +4637,17 @@ msgstr ""
 
 #: src/gs-summary-tile.c:149
 #, c-format
+#| msgid "Downloading"
 msgid "%s (Downloading)"
-msgstr "%s (Yessadar-d)"
+msgstr ""
 
 #: src/gs-summary-tile.c:154
 #, c-format
 msgid "%s (Removing)"
-msgstr ""
+msgstr "%s (yettekkes-it)"
 
 #: src/gs-toast.c:58
+#| msgid "Details"
 msgid "_Details"
 msgstr "Talqayt (_D)"
 
@@ -4564,6 +4660,7 @@ msgid "Network Settings"
 msgstr "Iɣewwaṛen n uẓeṭṭa"
 
 #: src/gs-toast.c:71
+#| msgid "_Restart Now"
 msgid "_Restart Now…"
 msgstr "Ales asekke_r tura…"
 
@@ -4574,7 +4671,7 @@ msgstr "Ales asekke_r tura…"
 #: src/gs-update-dialog.c:109
 #, c-format
 msgid "Installed on %s"
-msgstr ""
+msgstr "Yettwasebded ass n %s"
 
 #. TRANSLATORS: this is the title of the installed updates dialog window
 #: src/gs-update-dialog.c:130
@@ -4582,6 +4679,7 @@ msgid "Installed Updates"
 msgstr ""
 
 #: src/gs-update-dialog.ui:71
+#| msgid "Installed"
 msgid "No Updates Installed"
 msgstr ""
 
@@ -4636,6 +4734,7 @@ msgstr[1] ""
 #. TRANSLATORS: apps were auto-updated
 #: src/gs-update-monitor.c:364
 #, c-format
+#| msgid "Updated"
 msgid "%u App Updated"
 msgid_plural "%u Apps Updated"
 msgstr[0] ""
@@ -4645,12 +4744,12 @@ msgstr[1] ""
 #: src/gs-update-monitor.c:375
 #, c-format
 msgid "%s has been updated."
-msgstr "%s imucceḍ."
+msgstr "%s yettwalqam."
 
 #. TRANSLATORS: the app needs restarting
 #: src/gs-update-monitor.c:378
 msgid "Please restart the app."
-msgstr "Ttxil-ales asekker asnas-nni"
+msgstr ""
 
 #. TRANSLATORS: %1 and %2 are both app names, e.g. Firefox
 #: src/gs-update-monitor.c:386
@@ -4801,7 +4900,7 @@ msgstr "Seḥbes"
 
 #: src/gs-updates-page.c:313 src/gs-updates-page.c:325
 msgid "Check for Updates"
-msgstr "Nadi ɣef ileqman…"
+msgstr ""
 
 #. TRANSLATORS:  the first %s is the distro name, e.g. 'Fedora'
 #. * and the second %s is the distro version, e.g. '25'
@@ -4841,10 +4940,11 @@ msgstr "Ulac azeṭṭa"
 #. TRANSLATORS: we need network to do the updates check
 #: src/gs-updates-page.c:869
 msgid "Internet access is required to check for updates."
-msgstr "Adduf ɣer internet yettwasra iwakken ad tnadiḍ ileqman."
+msgstr ""
 
 #. TRANSLATORS: this is a link to the control-center network panel
 #: src/gs-updates-page.c:873
+#| msgid "Network Settings"
 msgid "Network _Settings"
 msgstr "Iɣewwaṛen n uẓeṭṭa (_S)"
 
@@ -4858,9 +4958,10 @@ msgstr ""
 
 #: src/gs-updates-page.c:1247
 msgid "Check for updates"
-msgstr "Asenqed n yileqman"
+msgstr ""
 
 #: src/gs-updates-page.c:1283
+#| msgid "Updates"
 msgctxt "Apps to be updated"
 msgid "Updates"
 msgstr "Ileqman"
@@ -4871,8 +4972,9 @@ msgstr "Asebter n yileqman"
 
 #. TRANSLATORS: the updates panel is starting up.
 #: src/gs-updates-page.ui:58
+#| msgid "Updates"
 msgid "Loading Updates"
-msgstr "Asali n ileqqman"
+msgstr ""
 
 #. TRANSLATORS: the updates panel is starting up.
 #: src/gs-updates-page.ui:71
@@ -4975,11 +5077,12 @@ msgstr ""
 #. * offline updates
 #: src/gs-updates-section.c:375
 msgid "_Restart & Update…"
-msgstr "Ales asekke_r yerna leqqem…"
+msgstr ""
 
 #. TRANSLATORS: This is the button for upgrading all
 #. * online-updatable apps
 #: src/gs-updates-section.c:381
+#| msgid "Update"
 msgid "U_pdate All"
 msgstr "Leqqem-iten akk (_P)"
 
@@ -5001,11 +5104,12 @@ msgstr ""
 #. * app updates that require a reboot to apply
 #: src/gs-updates-section.c:555
 msgid "Requires Restart"
-msgstr "Yesra talsa n usekker"
+msgstr ""
 
 #. TRANSLATORS: This is the header for online runtime and
 #. * app updates, typically flatpaks or snaps
 #: src/gs-updates-section.c:560
+#| msgid "Updates"
 msgid "App Updates"
 msgstr "Ileqman n yisnasen"
 
@@ -5038,7 +5142,7 @@ msgstr ""
 
 #: src/gs-upgrade-banner.c:155
 msgid "Learn about the new version"
-msgstr "Issin ɣef lqem amaynut"
+msgstr ""
 
 #. Translators: the first '%s' is replaced with the downloaded size, the second '%s'
 #. with the total download size, forming text like "135 MB of 2 GB downloaded"
@@ -5091,6 +5195,7 @@ msgstr ""
 #. * packages and are not shown in the main list
 #: plugins/core/gs-plugin-generic-updates.c:71
 #: plugins/rpm-ostree/gs-plugin-rpm-ostree.c:3302
+#| msgid "Updates"
 msgid "System Updates"
 msgstr "Ileqqman n unagraw"
 
@@ -5154,10 +5259,12 @@ msgstr "Akaram n unagraw %s"
 
 #: plugins/flatpak/gs-flatpak.c:343 plugins/flatpak/gs-flatpak.c:344
 #, c-format
+#| msgid "Home folder"
 msgid "Home subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:345
+#| msgid "Home folder"
 msgid "Host system folders"
 msgstr ""
 
@@ -5166,6 +5273,7 @@ msgid "Host system configuration from /etc"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:347
+#| msgid "Home folder"
 msgid "Desktop folder"
 msgstr "Akaram n tnarit"
 
@@ -5175,15 +5283,18 @@ msgid "Desktop subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:348
+#| msgid "Home folder"
 msgid "Documents folder"
-msgstr "Akaram n yisemliyen"
+msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:348
 #, c-format
+#| msgid "Home folder"
 msgid "Documents subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:349
+#| msgid "Home folder"
 msgid "Music folder"
 msgstr "Akaram n uẓawan"
 
@@ -5193,8 +5304,9 @@ msgid "Music subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:350
+#| msgid "Home folder"
 msgid "Pictures folder"
-msgstr "Akaram u tewlafin"
+msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:350
 #, c-format
@@ -5211,6 +5323,7 @@ msgid "Public Share subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:352
+#| msgid "Home folder"
 msgid "Videos folder"
 msgstr "Akaram n tvidyutin"
 
@@ -5220,6 +5333,7 @@ msgid "Videos subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:353
+#| msgid "Home folder"
 msgid "Templates folder"
 msgstr ""
 
@@ -5256,6 +5370,7 @@ msgid "User data subfolder %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak.c:357
+#| msgid "Home folder"
 msgid "User runtime folder"
 msgstr ""
 
@@ -5281,10 +5396,12 @@ msgid "Failed to refine addon ‘%s’: %s"
 msgstr ""
 
 #: plugins/flatpak/gs-flatpak-utils.c:94
+#| msgid "Installation"
 msgid "User Installation"
 msgstr "Asbeddi n useqdac"
 
 #: plugins/flatpak/gs-flatpak-utils.c:94
+#| msgid "Installation"
 msgid "System Installation"
 msgstr "Asbeddi n unagraw"
 
@@ -5292,17 +5409,17 @@ msgstr "Asbeddi n unagraw"
 msgid "App ID"
 msgstr ""
 
-#: plugins/flatpak/gs-plugin-flatpak.c:1343
+#: plugins/flatpak/gs-plugin-flatpak.c:1338
 #, c-format
 msgid "Failed to add to install for addon ‘%s’: %s"
 msgstr ""
 
-#: plugins/flatpak/gs-plugin-flatpak.c:1357
+#: plugins/flatpak/gs-plugin-flatpak.c:1352
 #, c-format
 msgid "Failed to add to uninstall for addon ‘%s’: %s"
 msgstr ""
 
-#: plugins/flatpak/gs-plugin-flatpak.c:1624
+#: plugins/flatpak/gs-plugin-flatpak.c:1619
 #, c-format
 msgid ""
 "Remote “%s” doesn't allow install of “%s”, possibly due to its filter. "
@@ -5434,12 +5551,14 @@ msgstr ""
 #. * camera in the bezel or external USB webcam
 #: plugins/fwupd/gs-fwupd-app.c:269
 #, c-format
+#| msgid "%s has been updated."
 msgid "%s Camera Update"
 msgstr ""
 
 #. TRANSLATORS: TPM refers to a Trusted Platform Module
 #: plugins/fwupd/gs-fwupd-app.c:273
 #, c-format
+#| msgid "Update"
 msgid "%s TPM Update"
 msgstr ""
 
@@ -5452,6 +5571,7 @@ msgstr ""
 #. TRANSLATORS: Mouse refers to a handheld input device
 #: plugins/fwupd/gs-fwupd-app.c:281
 #, c-format
+#| msgid "%s has been updated."
 msgid "%s Mouse Update"
 msgstr ""
 
@@ -5485,6 +5605,7 @@ msgstr ""
 #. * is the device that updates all the other firmware on the system
 #: plugins/fwupd/gs-fwupd-app.c:304
 #, c-format
+#| msgid "Update"
 msgid "%s BMC Update"
 msgstr ""
 
@@ -5504,6 +5625,7 @@ msgstr ""
 #. TRANSLATORS: flash refers to solid state storage, e.g. UFS or eMMC
 #: plugins/fwupd/gs-fwupd-app.c:317
 #, c-format
+#| msgid "%s has been updated."
 msgid "%s Flash Drive Update"
 msgstr ""
 
@@ -5511,6 +5633,7 @@ msgstr ""
 #. * SATA or NVMe disk
 #: plugins/fwupd/gs-fwupd-app.c:322
 #, c-format
+#| msgid "Update"
 msgid "%s SSD Update"
 msgstr ""
 
@@ -5518,6 +5641,7 @@ msgstr ""
 #. * the "video card"
 #: plugins/fwupd/gs-fwupd-app.c:327
 #, c-format
+#| msgid "Update"
 msgid "%s GPU Update"
 msgstr ""
 
@@ -5525,6 +5649,7 @@ msgstr ""
 #. * cradled in, or lowered onto
 #: plugins/fwupd/gs-fwupd-app.c:332
 #, c-format
+#| msgid "Update"
 msgid "%s Dock Update"
 msgstr ""
 
@@ -5585,6 +5710,7 @@ msgid ""
 msgstr ""
 
 #: plugins/packagekit/gs-plugin-packagekit.c:355
+#| msgid "Package"
 msgid "Packages"
 msgstr "Ikemmusen"
 

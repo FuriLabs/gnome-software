@@ -1,0 +1,2 @@
+# Really does not use any symbols from libc
+library-not-linked-against-libc [usr/lib/x86_64-linux-gnu/gnome-software/plugins-21/libgs_plugin_provenance-license.so]

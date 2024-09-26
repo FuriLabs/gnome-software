@@ -57,8 +57,8 @@ struct _GsExtrasPage
 	gchar			 *caller_app_name;
 	gchar			 *install_resources_ident;
 
-	GtkWidget		 *label_failed;
-	GtkWidget		 *label_no_results;
+	AdwStatusPage		 *failed_page;
+	AdwStatusPage		 *no_results_page;
 	GtkWidget		 *list_box_results;
 	GtkWidget		 *scrolledwindow;
 	GtkWidget		 *spinner;
@@ -359,6 +359,7 @@ gs_extras_page_add_app (GsExtrasPage *self, GsApp *app, GsAppList *list, SearchD
 {
 	GtkWidget *app_row, *child;
 	guint n_can_install = 0;
+	guint n_codecs = 0;
 
 	/* Don't add same app twice */
 	for (child = gtk_widget_get_first_child (self->list_box_results);
@@ -374,13 +375,18 @@ gs_extras_page_add_app (GsExtrasPage *self, GsApp *app, GsAppList *list, SearchD
 		if (app == existing_app) {
 			g_signal_handlers_disconnect_by_func (existing_app, G_CALLBACK (gs_extras_page_app_notify_state_cb), self);
 			gtk_list_box_remove (GTK_LIST_BOX (self->list_box_results), child);
-		} else if (gs_extras_page_can_install_app (existing_app)) {
-			n_can_install++;
+		} else {
+			if (gs_extras_page_can_install_app (existing_app))
+				n_can_install++;
+			if (gs_app_get_kind (existing_app) == AS_COMPONENT_KIND_CODEC)
+				n_codecs++;
 		}
 	}
 
 	if (gs_extras_page_can_install_app (app))
 		n_can_install++;
+	if (gs_app_get_kind (app) == AS_COMPONENT_KIND_CODEC)
+		n_codecs++;
 
 	app_row = gs_app_row_new (app);
 	gs_app_row_set_colorful (GS_APP_ROW (app_row), TRUE);
@@ -400,7 +406,8 @@ gs_extras_page_add_app (GsExtrasPage *self, GsApp *app, GsAppList *list, SearchD
 				    self->sizegroup_button_image);
 
 	gtk_widget_set_sensitive (self->button_install_all, TRUE);
-	gtk_widget_set_visible (self->button_install_all, n_can_install > 1);
+	/* let install in bulk only codecs */
+	gtk_widget_set_visible (self->button_install_all, n_can_install > 1 && n_can_install == n_codecs);
 }
 
 static GsApp *
@@ -606,7 +613,7 @@ show_search_results (GsExtrasPage *self)
 		/* no results */
 		g_debug ("extras: failed to find any results, %u", n_missing);
 		str = build_no_results_label (self);
-		gtk_label_set_label (GTK_LABEL (self->label_no_results), str);
+		adw_status_page_set_description (self->no_results_page, str);
 		gs_extras_page_set_state (self, GS_EXTRAS_PAGE_STATE_NO_RESULTS);
 	} else {
 		/* show what we got */
@@ -647,7 +654,7 @@ search_files_cb (GObject *source_object,
 		}
 		g_warning ("failed to find any search results: %s", error->message);
 		str = g_strdup_printf (_("Failed to find any search results: %s"), error->message);
-		gtk_label_set_label (GTK_LABEL (self->label_failed), str);
+		adw_status_page_set_description (self->failed_page, str);
 		gs_extras_page_set_state (self, GS_EXTRAS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -704,7 +711,7 @@ file_to_app_cb (GObject *source_object,
 
 			g_warning ("failed to find any search results: %s", error->message);
 			str = g_strdup_printf (_("Failed to find any search results: %s"), error->message);
-			gtk_label_set_label (GTK_LABEL (self->label_failed), str);
+			adw_status_page_set_description (self->failed_page, str);
 			gs_extras_page_set_state (self, GS_EXTRAS_PAGE_STATE_FAILED);
 			return;
 		}
@@ -744,7 +751,7 @@ get_search_what_provides_cb (GObject *source_object,
 		}
 		g_warning ("failed to find any search results: %s", error->message);
 		str = g_strdup_printf (_("Failed to find any search results: %s"), error->message);
-		gtk_label_set_label (GTK_LABEL (self->label_failed), str);
+		adw_status_page_set_description (self->failed_page, str);
 		gs_extras_page_set_state (self, GS_EXTRAS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -846,10 +853,8 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 			g_autoptr (GFile) file = NULL;
 			g_autoptr(GsPluginJob) plugin_job = NULL;
 			file = g_file_new_for_path (search_data->package_filename);
-			plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_FILE_TO_APP,
-							 "file", file,
-							 "refine-flags", refine_flags,
-							 NULL);
+			plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_NONE);
+			gs_plugin_job_set_refine_flags (plugin_job, refine_flags);
 			g_debug ("resolving filename to app: '%s'", search_data->package_filename);
 			gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 							    self->search_cancellable,
@@ -1093,19 +1098,16 @@ gs_extras_page_search_printer_drivers (GsExtrasPage *self, gchar **device_ids)
 	for (i = 0; i < len; i++) {
 		SearchData *search_data;
 		gchar *p;
-		guint n_fields;
 		g_autofree gchar *tag = NULL;
 		g_autofree gchar *mfg = NULL;
 		g_autofree gchar *mdl = NULL;
 		g_auto(GStrv) fields = NULL;
 
 		fields = g_strsplit (device_ids[i], ";", 0);
-		n_fields = g_strv_length (fields);
-		mfg = mdl = NULL;
-		for (j = 0; j < n_fields && (!mfg || !mdl); j++) {
-			if (g_str_has_prefix (fields[j], "MFG:"))
+		for (j = 0; fields != NULL && fields[j] != NULL && (mfg == NULL || mdl == NULL); j++) {
+			if (mfg == NULL && g_str_has_prefix (fields[j], "MFG:"))
 				mfg = g_strdup (fields[j] + 4);
-			else if (g_str_has_prefix (fields[j], "MDL:"))
+			else if (mdl == NULL && g_str_has_prefix (fields[j], "MDL:"))
 				mdl = g_strdup (fields[j] + 4);
 		}
 
@@ -1446,8 +1448,8 @@ gs_extras_page_class_init (GsExtrasPageClass *klass)
 
 	gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Software/gs-extras-page.ui");
 
-	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, label_failed);
-	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, label_no_results);
+	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, failed_page);
+	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, no_results_page);
 	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, list_box_results);
 	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, scrolledwindow);
 	gtk_widget_class_bind_template_child (widget_class, GsExtrasPage, spinner);

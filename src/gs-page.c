@@ -49,9 +49,8 @@ typedef struct {
 	GsPage		*page;
 	GCancellable	*cancellable;
 	gulong		 notify_quirk_id;
-	GtkWidget	*dialog_install;
-	GsPluginJob	*job;  /* (nullable) (owned) */
-	GsPluginAction	 action;
+	AdwDialog	*dialog_install;
+	GsPluginJob	*job;  /* (not nullable) (owned) */
 	GsShellInteraction interaction;
 	gboolean	 propagate_error;
 	gboolean	 remove_app_data_dir;
@@ -82,13 +81,12 @@ gs_page_show_update_message (GsPageHelper *helper, AsScreenshot *ss)
 {
 	GsPagePrivate *priv = gs_page_get_instance_private (helper->page);
 	GPtrArray *images;
-	GtkWidget *dialog;
+	AdwDialog *dialog;
 	g_autofree gchar *escaped = NULL;
 
 	escaped = g_markup_escape_text (as_screenshot_get_caption (ss), -1);
-	dialog = adw_message_dialog_new (GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (helper->page), GTK_TYPE_WINDOW)),
-					 gs_app_get_name (helper->app), escaped);
-	adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (dialog),
+	dialog = adw_alert_dialog_new (gs_app_get_name (helper->app), escaped);
+	adw_alert_dialog_add_response (ADW_ALERT_DIALOG (dialog),
 					 /* TRANSLATORS: button text */
 					 "ok", _("_OK"));
 
@@ -107,10 +105,10 @@ gs_page_show_update_message (GsPageHelper *helper, AsScreenshot *ss)
 						helper->cancellable);
 		gtk_widget_set_margin_start (ssimg, 24);
 		gtk_widget_set_margin_end (ssimg, 24);
-		adw_message_dialog_set_extra_child (ADW_MESSAGE_DIALOG (dialog), ssimg);
+		adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (dialog), ssimg);
 	}
 
-	gs_shell_modal_dialog_present (priv->shell, GTK_WINDOW (dialog));
+	adw_dialog_present (dialog, GTK_WIDGET (priv->shell));
 }
 
 static void
@@ -137,18 +135,10 @@ gs_page_app_installed_cb (GObject *source,
 	}
 	if (!ret) {
 		if (helper->propagate_error) {
-			if (helper->job != NULL)
-				gs_plugin_loader_claim_job_error (plugin_loader,
-								  NULL,
-								  helper->job,
-								  error);
-			else
-				gs_plugin_loader_claim_error (plugin_loader,
-							      NULL,
-							      helper->action,
-							      helper->app,
-							      helper->interaction == GS_SHELL_INTERACTION_FULL,
-							      error);
+			gs_plugin_loader_claim_job_error (plugin_loader,
+							  NULL,
+							  helper->job,
+							  error);
 		} else {
 			g_warning ("failed to install %s: %s", gs_app_get_id (helper->app), error->message);
 		}
@@ -172,7 +162,7 @@ gs_page_app_installed_cb (GObject *source,
 
 	/* only show this if the window is not active */
 	if (gs_app_is_installed (helper->app) &&
-	    helper->action == GS_PLUGIN_ACTION_INSTALL &&
+	    GS_IS_PLUGIN_JOB_INSTALL_APPS (helper->job) &&
 	    !gtk_window_is_active (GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (helper->page), GTK_TYPE_WINDOW))) &&
 	    ((helper->interaction) & GS_SHELL_INTERACTION_NOTIFY) != 0)
 		gs_app_notify_installed (helper->app);
@@ -204,18 +194,10 @@ gs_page_app_removed_cb (GObject *source,
 	}
 	if (!ret) {
 		if (helper->propagate_error) {
-			if (helper->job != NULL)
-				gs_plugin_loader_claim_job_error (plugin_loader,
-								  NULL,
-								  helper->job,
-								  error);
-			else
-				gs_plugin_loader_claim_error (plugin_loader,
-							      NULL,
-							      helper->action,
-							      helper->app,
-							      helper->interaction == GS_SHELL_INTERACTION_FULL,
-							      error);
+			gs_plugin_loader_claim_job_error (plugin_loader,
+							  NULL,
+							  helper->job,
+							  error);
 		} else {
 			g_warning ("failed to uninstall %s: %s", gs_app_get_id (helper->app), error->message);
 		}
@@ -301,26 +283,27 @@ gs_page_install_app (GsPage *page,
 	helper->propagate_error = TRUE;
 
 	if (gs_app_get_kind (app) == AS_COMPONENT_KIND_REPOSITORY) {
-		helper->action = GS_PLUGIN_ACTION_INSTALL_REPO;
 		plugin_job = gs_plugin_job_manage_repository_new (helper->app,
 								  GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INSTALL |
 								  ((interaction == GS_SHELL_INTERACTION_FULL) ?
 								   GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE : 0));
-		gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
 	} else {
-		helper->action = GS_PLUGIN_ACTION_INSTALL;
-		plugin_job = gs_plugin_job_newv (helper->action,
-						 "interactive", (interaction == GS_SHELL_INTERACTION_FULL),
-						 "propagate-error", helper->propagate_error,
-						 "app", helper->app,
-						 NULL);
+		g_autoptr(GsAppList) list = gs_app_list_new ();
+		gs_app_list_add (list, app);
+		plugin_job = gs_plugin_job_install_apps_new (list,
+							     (interaction == GS_SHELL_INTERACTION_FULL) ? GS_PLUGIN_INSTALL_APPS_FLAGS_INTERACTIVE : GS_PLUGIN_INSTALL_APPS_FLAGS_NONE);
 	}
+
+	g_assert (helper->job == NULL);
+	helper->job = g_object_ref (plugin_job);
+	gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
 
 	gs_plugin_loader_job_process_async (priv->plugin_loader,
 					    plugin_job,
 					    helper->cancellable,
 					    gs_page_app_installed_cb,
 					    helper);
+	g_steal_pointer (&helper);
 }
 
 static void
@@ -344,6 +327,9 @@ gs_page_update_app_response_cb (AdwMessageDialog *dialog,
 
 	plugin_job = gs_plugin_job_update_apps_new (list,
 						    GS_PLUGIN_UPDATE_APPS_FLAGS_INTERACTIVE);
+
+	g_assert (helper->job == NULL);
+	helper->job = g_object_ref (plugin_job);
 	gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
 
 	gs_plugin_loader_job_process_async (priv->plugin_loader,
@@ -357,10 +343,10 @@ gs_page_update_app_response_cb (AdwMessageDialog *dialog,
 static void
 gs_page_notify_quirk_cb (GsApp *app, GParamSpec *pspec, GsPageHelper *helper)
 {
-	adw_message_dialog_set_response_enabled (ADW_MESSAGE_DIALOG (helper->dialog_install),
-						 "install",
-						 !gs_app_has_quirk (helper->app,
-								    GS_APP_QUIRK_NEEDS_USER_ACTION));
+	adw_alert_dialog_set_response_enabled (ADW_ALERT_DIALOG (helper->dialog_install),
+					       "install",
+					       !gs_app_has_quirk (helper->app,
+								  GS_APP_QUIRK_NEEDS_USER_ACTION));
 }
 
 static void update_app_needs_user_action_cb (GsPluginJobUpdateApps *plugin_job,
@@ -389,8 +375,10 @@ gs_page_update_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 
 	plugin_job = gs_plugin_job_update_apps_new (list,
 						    GS_PLUGIN_UPDATE_APPS_FLAGS_INTERACTIVE);
-	gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
+
+	g_assert (helper->job == NULL);
 	helper->job = g_object_ref (plugin_job);
+	gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
 
 	helper->app_needs_user_action_id =
 		g_signal_connect (plugin_job, "app-needs-user-action",
@@ -400,6 +388,7 @@ gs_page_update_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 					    helper->cancellable,
 					    gs_page_app_installed_cb,
 					    helper);
+	g_steal_pointer (&helper);
 }
 
 static void
@@ -409,7 +398,7 @@ update_app_needs_user_action_cb (GsPluginJobUpdateApps *plugin_job,
                                  gpointer               user_data)
 {
 	GsPageHelper *orig_helper = user_data, *new_helper;
-	GtkWidget *dialog;
+	AdwDialog *dialog;
 	g_autofree gchar *heading = NULL;
 	g_autofree gchar *escaped = NULL;
 	GsPagePrivate *priv = gs_page_get_instance_private (orig_helper->page);
@@ -428,14 +417,13 @@ update_app_needs_user_action_cb (GsPluginJobUpdateApps *plugin_job,
 	 * '%s' is an app summary, e.g. 'GNOME Clocks' */
 	heading = g_strdup_printf (_("Prepare %s"), gs_app_get_name (orig_helper->app));
 	escaped = g_markup_escape_text (as_screenshot_get_caption (action_screenshot), -1);
-	dialog = adw_message_dialog_new (GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (orig_helper->page), GTK_TYPE_WINDOW)),
-					 heading, escaped);
-	adw_message_dialog_set_body_use_markup (ADW_MESSAGE_DIALOG (dialog), TRUE);
-	adw_message_dialog_add_responses (ADW_MESSAGE_DIALOG (dialog),
-					  "cancel",  _("_Cancel"),
-					  /* TRANSLATORS: update the fw */
-					  "install",  _("_Install"),
-					  NULL);
+	dialog = adw_alert_dialog_new (heading, escaped);
+	adw_alert_dialog_set_body_use_markup (ADW_ALERT_DIALOG (dialog), TRUE);
+	adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
+					"cancel",  _("_Cancel"),
+					/* TRANSLATORS: update the fw */
+					"install",  _("_Install"),
+					NULL);
 
 	/* this will be enabled when the device is in the right mode */
 	new_helper->dialog_install = dialog;
@@ -443,7 +431,7 @@ update_app_needs_user_action_cb (GsPluginJobUpdateApps *plugin_job,
 		g_signal_connect (new_helper->app, "notify::quirk",
 				  G_CALLBACK (gs_page_notify_quirk_cb),
 				  new_helper);
-	adw_message_dialog_set_response_enabled (ADW_MESSAGE_DIALOG (dialog),
+	adw_alert_dialog_set_response_enabled (ADW_ALERT_DIALOG (dialog),
 						 "install",
 						 !gs_app_has_quirk (new_helper->app, GS_APP_QUIRK_NEEDS_USER_ACTION));
 
@@ -460,13 +448,14 @@ update_app_needs_user_action_cb (GsPluginJobUpdateApps *plugin_job,
 						new_helper->cancellable);
 		gtk_widget_set_margin_start (ssimg, 24);
 		gtk_widget_set_margin_end (ssimg, 24);
-		adw_message_dialog_set_extra_child (ADW_MESSAGE_DIALOG (dialog), ssimg);
+		adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (dialog), ssimg);
 	}
 
 	/* handle this async */
 	g_signal_connect (dialog, "response",
 			  G_CALLBACK (gs_page_update_app_response_cb), new_helper);
-	gs_shell_modal_dialog_present (priv->shell, GTK_WINDOW (dialog));
+
+	adw_dialog_present (dialog, GTK_WIDGET (priv->shell));
 }
 
 static void
@@ -484,19 +473,20 @@ gs_page_remove_app_response_cb (AdwMessageDialog *dialog,
 
 	g_debug ("uninstall %s", gs_app_get_id (helper->app));
 	if (gs_app_get_kind (helper->app) == AS_COMPONENT_KIND_REPOSITORY) {
-		helper->action = GS_PLUGIN_ACTION_REMOVE_REPO;
 		plugin_job = gs_plugin_job_manage_repository_new (helper->app,
 								  GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_REMOVE |
 								  GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE);
 	} else {
-		plugin_job = gs_plugin_job_newv (helper->action,
-						 "interactive", TRUE,
-						 "propagate-error", helper->propagate_error,
-						 "app", helper->app,
-						 NULL);
+		g_autoptr(GsAppList) app_list = gs_app_list_new ();
+		gs_app_list_add (app_list, helper->app);
+		plugin_job = gs_plugin_job_uninstall_apps_new (app_list,
+							       GS_PLUGIN_UNINSTALL_APPS_FLAGS_INTERACTIVE);
 	}
+
 	g_assert (helper->job == NULL);
 	helper->job = g_object_ref (plugin_job);
+	gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
+
 	gs_plugin_loader_job_process_async (priv->plugin_loader, plugin_job,
 					    helper->cancellable,
 					    gs_page_app_removed_cb,
@@ -517,7 +507,7 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 {
 	GsPagePrivate *priv = gs_page_get_instance_private (page);
 	GsPageHelper *helper;
-	GtkWidget *dialog;
+	AdwDialog *dialog;
 	GtkWidget *extra_child = NULL;
 	g_autofree gchar *message = NULL;
 	g_autofree gchar *title = NULL;
@@ -532,7 +522,6 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 
 	/* pending install */
 	helper = g_slice_new0 (GsPageHelper);
-	helper->action = GS_PLUGIN_ACTION_REMOVE;
 	helper->app = g_object_ref (app);
 	helper->page = g_object_ref (page);
 	helper->cancellable = g_object_ref (cancellable != NULL ? cancellable : gs_app_get_cancellable (app));
@@ -540,6 +529,7 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 	helper->interaction = GS_SHELL_INTERACTION_FULL;
 	if (gs_app_get_state (app) == GS_APP_STATE_QUEUED_FOR_INSTALL) {
 		g_autoptr(GsPluginJob) plugin_job = NULL;
+		g_autoptr(GsAppList) app_list = NULL;
 
 		if (helper->cancellable != gs_app_get_cancellable (app)) {
 			/* cancel any ongoing job, this allows to e.g. cancel pending
@@ -548,15 +538,20 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 			g_cancellable_cancel (gs_app_get_cancellable (app));
 		}
 
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_REMOVE,
-						 "interactive", TRUE,
-						 "app", app,
-							 NULL);
+		app_list = gs_app_list_new ();
+		gs_app_list_add (app_list, app);
+		plugin_job = gs_plugin_job_uninstall_apps_new (app_list, GS_PLUGIN_UNINSTALL_APPS_FLAGS_INTERACTIVE);
+
+		g_assert (helper->job == NULL);
+		helper->job = g_object_ref (plugin_job);
+		gs_plugin_job_set_propagate_error (plugin_job, helper->propagate_error);
+
 		g_debug ("uninstall %s", gs_app_get_id (app));
 		gs_plugin_loader_job_process_async (priv->plugin_loader, plugin_job,
 						    helper->cancellable,
 						    gs_page_app_removed_cb,
 						    helper);
+		g_steal_pointer (&helper);
 		return;
 	}
 
@@ -568,10 +563,65 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 		title = g_strdup_printf (_("Are you sure you want to remove "
 					   "the %s repository?"),
 					 gs_app_get_name (app));
-		/* TRANSLATORS: longer dialog text */
+		/* TRANSLATORS: Longer dialog text. The placeholder is a repository name. */
 		message = g_strdup_printf (_("All apps from %s will be "
 					     "uninstalled, and you will have to "
 					     "re-install the repository to use them again."),
+					   gs_app_get_name (app));
+		break;
+	case AS_COMPONENT_KIND_ADDON:
+	case AS_COMPONENT_KIND_INPUT_METHOD:
+		/* TRANSLATORS: this is a prompt message, and '%s' is the
+		 * name of an addon or an input method */
+		title = g_strdup_printf (_("Uninstall %s?"),
+					 gs_app_get_name (app));
+		/* TRANSLATORS: Longer dialog text. The placeholder is the name
+		 * of an addon or an input method. */
+		message = g_strdup_printf (_("It will not be possible to "
+					     "use %s after removal."),
+					   gs_app_get_name (app));
+		break;
+	case AS_COMPONENT_KIND_RUNTIME:
+		/* TRANSLATORS: this is a prompt message, and '%s' is the
+		 * name of a runtime */
+		title = g_strdup_printf (_("Uninstall %s?"),
+					 gs_app_get_name (app));
+		/* TRANSLATORS: Longer dialog text. The placeholder is the name
+		 * of a runtime. */
+		message = g_strdup_printf (_("It will not be possible to use "
+					     "any apps which depend on %s after removal."),
+					   gs_app_get_name (app));
+		break;
+	case AS_COMPONENT_KIND_FONT:
+		/* TRANSLATORS: this is a prompt message, and '%s' is the
+		 * name of a font */
+		title = g_strdup_printf (_("Uninstall %s?"),
+					 gs_app_get_name (app));
+		/* TRANSLATORS: Longer dialog text. The placeholder is the name of a font. */
+		message = g_strdup_printf (_("It will not be possible to use %s "
+					     "after removal, and any documents which use "
+					     "it will appear in a different font."),
+					   gs_app_get_name (app));
+		break;
+	case AS_COMPONENT_KIND_CODEC:
+		/* TRANSLATORS: this is a prompt message, and '%s' is the
+		 * name of a codec */
+		title = g_strdup_printf (_("Uninstall %s?"),
+					 gs_app_get_name (app));
+		/* TRANSLATORS: Longer dialog text. The placeholder is the name of a codec. */
+		message = g_strdup_printf (_("It will not be possible to use %s "
+					     "after removal. This may mean some media files "
+					     "will no longer be playable."),
+					   gs_app_get_name (app));
+		break;
+	case AS_COMPONENT_KIND_FIRMWARE:
+		/* TRANSLATORS: this is a prompt message, and '%s' is the
+		 * name of a firmware */
+		title = g_strdup_printf (_("Uninstall %s?"),
+					 gs_app_get_name (app));
+		/* TRANSLATORS: Longer dialog text. The placeholder is the name of a firmware */
+		message = g_strdup_printf (_("Hardware which depends on %s may no "
+					     "longer function correctly after removal."),
 					   gs_app_get_name (app));
 		break;
 	default:
@@ -641,7 +691,8 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 			adw_action_row_add_prefix (ADW_ACTION_ROW (row), check_delete);
 			adw_preferences_group_add (group, row);
 		} else {
-			/* TRANSLATORS: longer dialog text */
+			/* TRANSLATORS: Longer dialog text. The placeholder is
+			 * the name of an app. */
 			message = g_strdup_printf (_("It will not be possible to use %s after removal. "
 						     "App data and settings will be kept on disk, to allow "
 						     "restoring the app in the future."),
@@ -651,23 +702,23 @@ gs_page_remove_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 	}
 
 	/* ask for confirmation */
-	dialog = adw_message_dialog_new (GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (page), GTK_TYPE_WINDOW)),
-					 title, message);
-	adw_message_dialog_set_body_use_markup (ADW_MESSAGE_DIALOG (dialog), TRUE);
-	adw_message_dialog_add_responses (ADW_MESSAGE_DIALOG (dialog),
-					  "cancel",  _("_Cancel"),
-					  /* TRANSLATORS: this is button text to remove the app */
-					  "uninstall",  _("_Uninstall"),
-					  NULL);
-	adw_message_dialog_set_response_appearance (ADW_MESSAGE_DIALOG (dialog),
+	dialog = adw_alert_dialog_new (title, message);
+	adw_alert_dialog_set_body_use_markup (ADW_ALERT_DIALOG (dialog), TRUE);
+	adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
+					"cancel",  _("_Cancel"),
+					/* TRANSLATORS: this is button text to remove the app */
+					"uninstall",  _("_Uninstall"),
+					NULL);
+	adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog),
 						    "uninstall", ADW_RESPONSE_DESTRUCTIVE);
 	if (extra_child != NULL)
-		adw_message_dialog_set_extra_child (ADW_MESSAGE_DIALOG (dialog), extra_child);
+		adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (dialog), extra_child);
 
 	/* handle this async */
 	g_signal_connect (dialog, "response",
 			  G_CALLBACK (gs_page_remove_app_response_cb), helper);
-	gs_shell_modal_dialog_present (priv->shell, GTK_WINDOW (dialog));
+
+	adw_dialog_present (dialog, GTK_WIDGET (priv->shell));
 }
 
 static void
@@ -688,10 +739,7 @@ gs_page_launch_app (GsPage *page, GsApp *app, GCancellable *cancellable)
 {
 	GsPagePrivate *priv = gs_page_get_instance_private (page);
 	g_autoptr(GsPluginJob) plugin_job = NULL;
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_LAUNCH,
-					 "interactive", TRUE,
-					 "app", app,
-					 NULL);
+	plugin_job = gs_plugin_job_launch_new (app, GS_PLUGIN_LAUNCH_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (priv->plugin_loader, plugin_job,
 					    cancellable,
 					    gs_page_app_launched_cb,

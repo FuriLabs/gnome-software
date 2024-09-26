@@ -118,6 +118,10 @@ gs_appstream_format_description_text (XbNode *node)
 				w_ptr++;
 			}
 		}
+		if (has_space) {
+			*w_ptr = ' ';
+			w_ptr++;
+		}
 		if (w_ptr != r_ptr)
 			*w_ptr = '\0';
 		g_string_append (str, escaped);
@@ -642,6 +646,7 @@ gs_appstream_find_description_and_issues_nodes (XbNode *release_node,
 
 typedef enum {
 	ELEMENT_KIND_UNKNOWN = -1,
+	ELEMENT_KIND_BRANDING,
 	ELEMENT_KIND_BUNDLE,
 	ELEMENT_KIND_CATEGORIES,
 	ELEMENT_KIND_CONTENT_RATING,
@@ -679,6 +684,7 @@ gs_appstream_get_element_kind (const gchar *element_name)
 		const gchar *name;
 		ElementKind kind;
 	} kinds[] = {
+		{ "branding", ELEMENT_KIND_BRANDING },
 		{ "bundle", ELEMENT_KIND_BUNDLE },
 		{ "categories", ELEMENT_KIND_CATEGORIES },
 		{ "content_rating", ELEMENT_KIND_CONTENT_RATING },
@@ -812,6 +818,35 @@ gs_appstream_refine_app (GsPlugin *plugin,
 		default:
 		case ELEMENT_KIND_UNKNOWN:
 			break;
+		case ELEMENT_KIND_BRANDING:
+			{
+				g_autoptr(XbNode) branding_child = NULL;
+				g_autoptr(XbNode) branding_next = NULL;
+				for (branding_child = xb_node_get_child (child);
+				     branding_child != NULL;
+				     g_object_unref (branding_child), branding_child = g_steal_pointer (&branding_next)) {
+					branding_next = xb_node_get_next (branding_child);
+					if (g_strcmp0 (xb_node_get_element (branding_child), "color") == 0) {
+						const gchar *type = xb_node_get_attr (branding_child, "type");
+						if (g_strcmp0 (type, "primary") == 0) {
+							const gchar *color = xb_node_get_text (branding_child);
+							GdkRGBA rgba;
+							if (color != NULL && gdk_rgba_parse (&rgba, color)) {
+								const gchar *scheme_preference = xb_node_get_attr (branding_child, "scheme_preference");
+								GsColorScheme color_scheme = GS_COLOR_SCHEME_ANY;
+
+								if (g_strcmp0 (scheme_preference, "light") == 0)
+									color_scheme = GS_COLOR_SCHEME_LIGHT;
+								else if (g_strcmp0 (scheme_preference, "dark") == 0)
+									color_scheme = GS_COLOR_SCHEME_DARK;
+
+								gs_app_set_key_color_for_color_scheme (app, color_scheme, &rgba);
+							}
+						}
+					}
+				}
+			}
+			break;
 		case ELEMENT_KIND_BUNDLE:
 			if (!had_sources) {
 				const gchar *kind = xb_node_get_attr (child, "type");
@@ -895,16 +930,14 @@ gs_appstream_refine_app (GsPlugin *plugin,
 				/* we only really expect/support OARS 1.0 and 1.1 */
 				if (g_strcmp0 (content_rating_kind, "oars-1.0") == 0 ||
 				    g_strcmp0 (content_rating_kind, "oars-1.1") == 0) {
-					g_autoptr(AsContentRating) cr = NULL;
+					g_autoptr(AsContentRating) cr = as_content_rating_new ();
 					g_autoptr(XbNode) cr_child = NULL;
 					g_autoptr(XbNode) cr_next = NULL;
+
+					as_content_rating_set_kind (cr, content_rating_kind);
 					for (cr_child = xb_node_get_child (child); cr_child != NULL; g_object_unref (cr_child), cr_child = g_steal_pointer (&cr_next)) {
 						cr_next = xb_node_get_next (cr_child);
 						if (g_strcmp0 (xb_node_get_element (cr_child), "content_attribute") == 0) {
-							if (cr == NULL) {
-								cr = as_content_rating_new ();
-								as_content_rating_set_kind (cr, content_rating_kind);
-							}
 							as_content_rating_add_attribute (cr,
 											 xb_node_get_attr (cr_child, "id"),
 											 as_content_rating_value_from_string (xb_node_get_text (cr_child)));
@@ -1175,7 +1208,7 @@ gs_appstream_refine_app (GsPlugin *plugin,
 			gboolean needs_update_details = (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS) != 0 &&
 							silo != NULL && gs_app_is_updatable (app);
 			/* set the release date */
-			if (gs_app_get_release_date (app) == G_MAXUINT64) {
+			if (gs_app_get_release_date (app) == 0) {
 				g_autoptr(XbNode) release = xb_node_get_child (child);
 				if (release != NULL && g_strcmp0 (xb_node_get_element (release), "release") == 0) {
 					guint64 timestamp;
@@ -1553,6 +1586,33 @@ gs_appstream_refine_app (GsPlugin *plugin,
 	return TRUE;
 }
 
+static void
+gs_appstream_read_silo_info_from_component (XbNode *component,
+					    gchar **out_silo_filename,
+					    AsComponentScope *out_scope)
+{
+	const gchar *tmp;
+
+	g_return_if_fail (component != NULL);
+	if (out_silo_filename != NULL) {
+		*out_silo_filename = NULL;
+
+		tmp = xb_node_query_text (component, "info/filename", NULL);
+		if (tmp == NULL)
+			tmp = xb_node_query_text (component, "../info/filename", NULL);
+		if (tmp != NULL)
+			*out_silo_filename = g_strdup (tmp);
+	}
+
+	if (out_scope) {
+		tmp = xb_node_query_text (component, "../info/scope", NULL);
+		if (tmp != NULL)
+			*out_scope = as_component_scope_from_string (tmp);
+		else
+			*out_scope = AS_COMPONENT_SCOPE_UNKNOWN;
+	}
+}
+
 typedef struct {
 	guint16			 match_value;
 	XbQuery			*query;
@@ -1574,14 +1634,9 @@ gs_appstream_silo_search_component2 (GPtrArray *array, XbNode *component, const 
 	for (guint i = 0; i < array->len; i++) {
 		g_autoptr(GPtrArray) n = NULL;
 		GsAppstreamSearchHelper *helper = g_ptr_array_index (array, i);
-#if LIBXMLB_CHECK_VERSION(0, 3, 0)
 		g_auto(XbQueryContext) context = XB_QUERY_CONTEXT_INIT ();
 		xb_value_bindings_bind_str (xb_query_context_get_bindings (&context), 0, search, NULL);
 		n = xb_node_query_with_context (component, helper->query, &context, NULL);
-#else
-		xb_query_bind_str (helper->query, 0, search, NULL);
-		n = xb_node_query_full (component, helper->query, NULL);
-#endif
 		if (n != NULL)
 			match_value |= helper->match_value;
 	}
@@ -1656,16 +1711,9 @@ gs_appstream_do_search (GsPlugin *plugin,
 		g_propagate_error (error, g_steal_pointer (&error_local));
 		return FALSE;
 	}
-	if (components->len > 0) {
-		g_autoptr(XbNode) filename_node = NULL;
-		g_autoptr(XbNode) scope_node = NULL;
-		filename_node = xb_silo_query_first (silo, "info/filename", NULL);
-		if (filename_node != NULL)
-			silo_filename = g_strdup (xb_node_get_text (filename_node));
-		scope_node = xb_silo_query_first (silo, "info/scope", NULL);
-		if (scope_node != NULL && xb_node_get_text (scope_node) != NULL)
-			default_scope = as_component_scope_from_string (xb_node_get_text (scope_node));
-	}
+	if (components->len > 0)
+		gs_appstream_read_silo_info_from_component (g_ptr_array_index (components, 0), &silo_filename, &default_scope);
+
 	for (guint i = 0; i < components->len; i++) {
 		XbNode *component = g_ptr_array_index (components, i);
 		guint16 match_value = gs_appstream_silo_search_component (array, component, values);
@@ -2026,16 +2074,9 @@ gs_appstream_add_recent (GsPlugin *plugin,
 		g_propagate_error (error, g_steal_pointer (&error_local));
 		return FALSE;
 	}
-	if (array->len > 0) {
-		g_autoptr(XbNode) filename_node = NULL;
-		g_autoptr(XbNode) scope_node = NULL;
-		filename_node = xb_silo_query_first (silo, "info/filename", NULL);
-		if (filename_node != NULL)
-			silo_filename = g_strdup (xb_node_get_text (filename_node));
-		scope_node = xb_silo_query_first (silo, "info/scope", NULL);
-		if (scope_node != NULL && xb_node_get_text (scope_node) != NULL)
-			default_scope = as_component_scope_from_string (xb_node_get_text (scope_node));
-	}
+	if (array->len > 0)
+		gs_appstream_read_silo_info_from_component (g_ptr_array_index (array, 0), &silo_filename, &default_scope);
+
 	/* This is to cover mistakes when the release date is set in the future,
 	   to not have it picked for too long. */
 	max_future_timestamp = now + (3 * 24 * 60 * 60);
@@ -2275,8 +2316,8 @@ gs_appstream_load_desktop_fn (XbBuilder     *builder,
 	g_autoptr(XbBuilderSource) source = xb_builder_source_new ();
 
 	/* add support for desktop files */
-	xb_builder_source_add_adapter (source, "application/x-desktop",
-				       gs_appstream_load_desktop_cb, NULL, NULL);
+	xb_builder_source_add_simple_adapter (source, "application/x-desktop",
+					      gs_appstream_load_desktop_cb, NULL, NULL);
 
 	/* add source */
 	if (!xb_builder_source_load_file (source, file, 0, cancellable, error))

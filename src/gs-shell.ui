@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <requires lib="gtk+" version="3.10"/>
-  <requires lib="handy" version="1.0"/>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adwaita" version="1.0"/>
   <menu id="primary_menu">
     <item>
       <attribute name="label" translatable="yes">_Software Repositories</attribute>
@@ -179,6 +179,7 @@
                                                 <property name="placeholder_text" translatable="yes">Search apps</property>
                                                 <property name="can_focus">True</property>
                                                 <property name="activates_default">True</property>
+                                                <property name="search-delay">500</property>
                                                 <signal name="search-changed" handler="search_changed_handler"/>
                                               </object>
                                             </child>
@@ -201,7 +202,7 @@
                                             <property name="name">overview</property>
                                             <property name="title" translatable="yes" comments="Translators: A label for a button to show all available software.">_Explore</property>
                                             <property name="use-underline">True</property>
-                                            <property name="icon-name">explore-symbolic</property>
+                                            <property name="icon-name">software-explore-symbolic</property>
                                             <property name="child">
                                               <object class="GsOverviewPage" id="overview_page">
                                               </object>
@@ -215,7 +216,7 @@
                                                  See https://gitlab.gnome.org/GNOME/gtk/-/issues/3134 -->
                                             <property name="title" translatable="yes" comments="Translators: A label for a button to show only software which is already installed." context="List of installed apps">_Installed</property>
                                             <property name="use-underline">True</property>
-                                            <property name="icon-name">app-installed-symbolic</property>
+                                            <property name="icon-name">software-installed-symbolic</property>
                                             <property name="child">
                                               <object class="GsInstalledPage" id="installed_page">
                                                 <property name="is-narrow" bind-source="GsShell" bind-property="is-narrow" bind-flags="sync-create"/>
@@ -237,7 +238,7 @@
                                             <property name="name">updates</property>
                                             <property name="title" translatable="yes" comments="Translators: A label for a button to show only updates which are available to install." context="Header bar button for list of apps to be updated">_Updates</property>
                                             <property name="use-underline">True</property>
-                                            <property name="icon-name">emblem-synchronizing-symbolic</property>
+                                            <property name="icon-name">software-updates-symbolic</property>
                                             <property name="badge-number" bind-source="updates_page" bind-property="counter" bind-flags="sync-create"/>
                                             <property name="visible" bind-source="updates_page" bind-property="visible" bind-flags="sync-create"/>
                                             <property name="child">
@@ -295,15 +296,6 @@
                                         <property name="hhomogeneous">False</property>
                                         <property name="vhomogeneous">False</property>
                                         <signal name="notify::visible-child" handler="stack_notify_visible_child_cb"/>
-                                        <child>
-                                          <object class="AdwViewStackPage">
-                                            <property name="name">moderate</property>
-                                            <property name="child">
-                                              <object class="GsModeratePage" id="moderate_page">
-                                              </object>
-                                            </property>
-                                          </object>
-                                        </child>
                                         <child>
                                           <object class="AdwViewStackPage">
                                             <property name="name">category</property>

@@ -42,6 +42,7 @@ gs_plugins_dummy_install_func (GsPluginLoader *plugin_loader)
 {
 	gboolean ret;
 	g_autoptr(GsApp) app = NULL;
+	g_autoptr(GsAppList) app_list = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 	g_autoptr(GError) error = NULL;
 	GsPlugin *plugin;
@@ -51,9 +52,10 @@ gs_plugins_dummy_install_func (GsPluginLoader *plugin_loader)
 	plugin = gs_plugin_loader_find_plugin (plugin_loader, "dummy");
 	gs_app_set_management_plugin (app, plugin);
 	gs_app_set_state (app, GS_APP_STATE_AVAILABLE);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_INSTALL,
-					 "app", app,
-					 NULL);
+	app_list = gs_app_list_new ();
+	gs_app_list_add (app_list, app);
+	plugin_job = gs_plugin_job_install_apps_new (app_list,
+						     GS_PLUGIN_INSTALL_APPS_FLAGS_NONE);
 	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
@@ -62,9 +64,8 @@ gs_plugins_dummy_install_func (GsPluginLoader *plugin_loader)
 
 	/* remove */
 	g_object_unref (plugin_job);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_REMOVE,
-					 "app", app,
-					 NULL);
+	plugin_job = gs_plugin_job_uninstall_apps_new (app_list,
+						       GS_PLUGIN_UNINSTALL_APPS_FLAGS_NONE);
 	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
@@ -238,13 +239,16 @@ gs_plugins_dummy_updates_func (GsPluginLoader *plugin_loader)
 	GsApp *app;
 	g_autoptr(GError) error = NULL;
 	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	/* get the updates list */
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_UPDATES,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-							 GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS,
-					 NULL);
+	query = gs_app_query_new ("is-for-update", GS_APP_QUERY_TRISTATE_TRUE,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
+						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS,
+				  "sort-func", gs_utils_app_sort_name,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 	list = gs_plugin_loader_job_process (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
@@ -306,9 +310,7 @@ gs_plugins_dummy_distro_upgrades_func (GsPluginLoader *plugin_loader)
 
 	/* download the update */
 	g_object_unref (plugin_job);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD,
-					 "app", app,
-					 NULL);
+	plugin_job = gs_plugin_job_download_upgrade_new (app, GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_NONE);
 	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
@@ -317,9 +319,7 @@ gs_plugins_dummy_distro_upgrades_func (GsPluginLoader *plugin_loader)
 
 	/* trigger the update */
 	g_object_unref (plugin_job);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPGRADE_TRIGGER,
-					 "app", app,
-					 NULL);
+	plugin_job = gs_plugin_job_trigger_upgrade_new (app, GS_PLUGIN_TRIGGER_UPGRADE_FLAGS_NONE);
 	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
@@ -485,10 +485,8 @@ gs_plugins_dummy_url_to_app_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GsApp) app = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_URL_TO_APP,
-					 "search", "dummy://chiron.desktop",
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
-					 NULL);
+	plugin_job = gs_plugin_job_url_to_app_new ("dummy://chiron.desktop", GS_PLUGIN_URL_TO_APP_FLAGS_NONE);
+	gs_plugin_job_set_refine_flags (plugin_job, GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON);
 	app = gs_plugin_loader_job_process_app (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
@@ -595,7 +593,9 @@ gs_plugins_dummy_limit_parallel_ops_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GsAppList) list = NULL;
         GsApp *app1 = NULL;
 	g_autoptr(GsApp) app2 = NULL;
+	g_autoptr(GsAppList) app2_list = NULL;
 	g_autoptr(GsApp) app3 = NULL;
+	g_autoptr(GsAppList) app3_list = NULL;
 	GsPlugin *plugin;
 	g_autoptr(GsPluginJob) plugin_job1 = NULL;
 	g_autoptr(GsPluginJob) plugin_job2 = NULL;
@@ -643,9 +643,7 @@ gs_plugins_dummy_limit_parallel_ops_func (GsPluginLoader *plugin_loader)
 
 	/* download an upgrade */
 	g_object_unref (plugin_job1);
-	plugin_job1 = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD,
-					  "app", app1,
-					  NULL);
+	plugin_job1 = gs_plugin_job_download_upgrade_new (app1, GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (plugin_loader,
 					    plugin_job1,
 					    NULL,
@@ -653,9 +651,10 @@ gs_plugins_dummy_limit_parallel_ops_func (GsPluginLoader *plugin_loader)
 					    &result1);
 
 	/* install an app */
-	plugin_job2 = gs_plugin_job_newv (GS_PLUGIN_ACTION_INSTALL,
-					  "app", app2,
-					  NULL);
+	app2_list = gs_app_list_new ();
+	gs_app_list_add (app2_list, app2);
+	plugin_job2 = gs_plugin_job_install_apps_new (app2_list,
+						      GS_PLUGIN_INSTALL_APPS_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (plugin_loader,
 					    plugin_job2,
 					    NULL,
@@ -663,9 +662,9 @@ gs_plugins_dummy_limit_parallel_ops_func (GsPluginLoader *plugin_loader)
 					    &result2);
 
 	/* update an app */
-	list = gs_app_list_new ();
-	gs_app_list_add (list, app3);
-	plugin_job3 = gs_plugin_job_update_apps_new (list, GS_PLUGIN_UPDATE_APPS_FLAGS_NO_DOWNLOAD);
+	app3_list = gs_app_list_new ();
+	gs_app_list_add (app3_list, app3);
+	plugin_job3 = gs_plugin_job_update_apps_new (app3_list, GS_PLUGIN_UPDATE_APPS_FLAGS_NO_DOWNLOAD);
 	gs_plugin_loader_job_process_async (plugin_loader,
 					    plugin_job3,
 					    NULL,
@@ -834,7 +833,7 @@ main (int argc, char **argv)
 		"    <name>Zeus</name>\n"
 		"    <summary>A teaching application</summary>\n"
 		"    <pkgname>zeus</pkgname>\n"
-		"    <icon type=\"stock\">system-component-driver</icon>\n"
+		"    <icon type=\"stock\">org.gnome.Software.Dummy</icon>\n"
 		"    <categories>\n"
 		"      <category>AudioVideo</category>\n"
 		"      <category>Player</category>\n"
@@ -848,7 +847,7 @@ main (int argc, char **argv)
 		"    <name>Spell</name>\n"
 		"    <summary>A spelling application for MATE</summary>\n"
 		"    <pkgname>mate-spell</pkgname>\n"
-		"    <icon type=\"stock\">system-component-driver</icon>\n"
+		"    <icon type=\"stock\">org.gnome.Software.Dummy</icon>\n"
 		"    <project_group>MATE</project_group>\n"
 		"  </component>\n"
 		"  <component type=\"addon\">\n"
@@ -863,7 +862,7 @@ main (int argc, char **argv)
 		"    <id>Uninstall Zeus.desktop</id>\n"
 		"    <name>Uninstall Zeus</name>\n"
 		"    <summary>Uninstall the teaching application</summary>\n"
-		"    <icon type=\"stock\">system-component-driver</icon>\n"
+		"    <icon type=\"stock\">org.gnome.Software.Dummy</icon>\n"
 		"  </component>\n"
 		"  <component type=\"os-upgrade\">\n"
 		"    <id>org.fedoraproject.release-rawhide.upgrade</id>\n"

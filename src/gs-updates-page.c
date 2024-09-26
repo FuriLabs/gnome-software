@@ -68,6 +68,7 @@ struct _GsUpdatesPage
 	GtkWidget		*button_updates_offline;
 	GtkWidget		*updates_failed_page;
 	GtkLabel		*uptodate_description;
+	GtkLabel		*label_last_checked;
 	GtkWidget		*scrolledwindow_updates;
 	GtkWidget		*spinner_updates;
 	GtkWidget		*stack_updates;
@@ -253,8 +254,14 @@ gs_updates_page_refresh_last_checked (GsUpdatesPage *self)
 
 		/* TRANSLATORS: This is the time when we last checked for updates */
 		last_checked = g_strdup_printf (_("Last checked: %s"), checked_str);
+
+		/* only shown in uptodate view */
 		gtk_label_set_label (self->uptodate_description, last_checked);
 		gtk_widget_set_visible (GTK_WIDGET (self->uptodate_description), TRUE);
+
+		/* shown when updates are available */
+		gtk_label_set_label (self->label_last_checked, last_checked);
+		gtk_widget_set_visible (GTK_WIDGET (self->label_last_checked), TRUE);
 
 		if (hours_ago < 1)
 			interval = 60;
@@ -269,12 +276,14 @@ gs_updates_page_refresh_last_checked (GsUpdatesPage *self)
 			gs_updates_page_refresh_last_checked_cb, self);
 	} else {
 		gtk_widget_set_visible (GTK_WIDGET (self->uptodate_description), FALSE);
+		gtk_widget_set_visible (GTK_WIDGET (self->label_last_checked), FALSE);
 	}
 }
 
 static void
 gs_updates_page_update_ui_state (GsUpdatesPage *self)
 {
+	const gchar *visible_child_name;
 	gboolean allow_mobile_refresh = TRUE;
 
 	gs_updates_page_remove_last_checked_timeout (self);
@@ -386,7 +395,9 @@ gs_updates_page_update_ui_state (GsUpdatesPage *self)
 				self->result_flags & GS_UPDATES_PAGE_FLAG_HAS_UPDATES);
 
 	/* last checked label */
-	if (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (self->stack_updates)), "uptodate") == 0)
+	visible_child_name = gtk_stack_get_visible_child_name (GTK_STACK (self->stack_updates));
+	if (g_strcmp0 (visible_child_name, "uptodate") == 0 ||
+	    g_strcmp0 (visible_child_name, "view") == 0)
 		gs_updates_page_refresh_last_checked (self);
 
 	/* update the counter in headerbar */
@@ -626,6 +637,7 @@ static void
 gs_updates_page_load (GsUpdatesPage *self)
 {
 	guint64 refine_flags;
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	if (self->action_cnt > 0)
@@ -641,11 +653,10 @@ gs_updates_page_load (GsUpdatesPage *self)
 		       GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION;
 	gs_updates_page_set_state (self, GS_UPDATES_PAGE_STATE_ACTION_GET_UPDATES);
 	self->action_cnt++;
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_UPDATES,
-					 "interactive", TRUE,
-					 "refine-flags", refine_flags,
-					 "dedupe-flags", GS_APP_LIST_FILTER_FLAG_NONE,
-					 NULL);
+	query = gs_app_query_new ("is-for-update", GS_APP_QUERY_TRISTATE_TRUE,
+				  "refine-flags", refine_flags,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    (GAsyncReadyCallback) gs_updates_page_get_updates_cb,
@@ -783,18 +794,7 @@ gs_updates_page_show_network_settings (GsUpdatesPage *self)
 }
 
 static void
-gs_updates_page_refresh_settings_cb (AdwMessageDialog *dialog,
-                                     const gchar *response,
-                                     GsUpdatesPage *self)
-{
-	if (g_strcmp0 (response, "settings") == 0) {
-		/* open the control center */
-		gs_updates_page_show_network_settings (self);
-	}
-}
-
-static void
-gs_updates_page_refresh_check_cb (AdwMessageDialog *dialog,
+gs_updates_page_refresh_check_cb (AdwAlertDialog *dialog,
                                   const gchar *response,
                                   GsUpdatesPage *self)
 {
@@ -823,8 +823,7 @@ static void
 gs_updates_page_button_refresh_cb (GtkWidget *widget,
                                    GsUpdatesPage *self)
 {
-	GtkWidget *dialog;
-	GtkWindow *parent_window = GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (self), GTK_TYPE_WINDOW));
+	AdwDialog *dialog;
 
 	/* cancel existing action? */
 	if (self->state == GS_UPDATES_PAGE_STATE_ACTION_REFRESH) {
@@ -845,37 +844,19 @@ gs_updates_page_button_refresh_cb (GtkWidget *widget,
 			gs_updates_page_get_new_updates (self);
 			return;
 		}
-		dialog = adw_message_dialog_new (parent_window,
-						 /* TRANSLATORS: this is to explain that downloading updates may cost money */
-						 _("Charges May Apply"),
-						 /* TRANSLATORS: we need network to do the updates check */
-						 _("Checking for updates while using mobile broadband could cause you to incur charges."));
-		adw_message_dialog_add_responses (ADW_MESSAGE_DIALOG (dialog),
-						  "cancel",  _("_Cancel"),
-						  /* TRANSLATORS: this is a link to the control-center network panel */
-						  "check",  _("Check _Anyway"),
-						  NULL);
+		/* TRANSLATORS: this is to explain that downloading updates may cost money */
+		dialog = adw_alert_dialog_new (_("Charges May Apply"),
+					       /* TRANSLATORS: we need network to do the updates check */
+					       _("Checking for updates while using mobile broadband could cause you to incur charges."));
+		adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
+						"cancel",  _("_Cancel"),
+					  	/* TRANSLATORS: this is a link to the control-center network panel */
+					  	"check",  _("Check _Anyway"),
+					  	NULL);
 		g_signal_connect (dialog, "response",
 				  G_CALLBACK (gs_updates_page_refresh_check_cb),
 				  self);
-		gs_shell_modal_dialog_present (self->shell, GTK_WINDOW (dialog));
-
-	/* no network connection */
-	} else {
-		dialog = adw_message_dialog_new (parent_window,
-						 /* TRANSLATORS: can't do updates check */
-						 _("No Network"),
-						 /* TRANSLATORS: we need network to do the updates check */
-						 _("Internet access is required to check for updates."));
-		adw_message_dialog_add_responses (ADW_MESSAGE_DIALOG (dialog),
-						  "cancel",  _("_Cancel"),
-						  /* TRANSLATORS: this is a link to the control-center network panel */
-						  "settings",  _("Network _Settings"),
-						  NULL);
-		g_signal_connect (dialog, "response",
-				  G_CALLBACK (gs_updates_page_refresh_settings_cb),
-				  self);
-		gs_shell_modal_dialog_present (self->shell, GTK_WINDOW (dialog));
+		adw_dialog_present (dialog, GTK_WIDGET (self));
 	}
 }
 
@@ -909,7 +890,7 @@ upgrade_download_finished_cb (GObject *source,
 		g_autoptr(GNotification) notif = NULL;
 
 		notif = g_notification_new (_("Software Upgrades Downloaded"));
-		g_notification_set_body (notif, _("Software upgrades have been downloaded and are ready to be installed."));
+		g_notification_set_body (notif, _("Upgrades are ready to be installed"));
 		g_notification_set_default_action_and_target (notif, "app.set-mode", "s", "updates");
 		/* last the notification for an hour */
 		gs_application_send_notification (GS_APPLICATION (g_application_get_default ()), "upgrades-downloaded", notif, 60);
@@ -935,11 +916,8 @@ gs_updates_page_upgrade_download_cb (GsUpgradeBanner *upgrade_banner,
 	g_clear_object (&self->cancellable_upgrade);
 	self->cancellable_upgrade = g_cancellable_new ();
 	g_debug ("Starting upgrade download with cancellable %p", self->cancellable_upgrade);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD,
-					 "interactive", TRUE,
-					 "app", app,
-					 "propagate-error", TRUE,
-					 NULL);
+	plugin_job = gs_plugin_job_download_upgrade_new (app, GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE);
+	gs_plugin_job_set_propagate_error (plugin_job, TRUE);
 	helper = gs_page_helper_new (self, app, plugin_job);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable_upgrade,
@@ -984,9 +962,7 @@ upgrade_reboot_failed_cb (GObject *source,
 	}
 
 	/* cancel trigger */
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPDATE_CANCEL,
-					 "app", app,
-					 NULL);
+	plugin_job = gs_plugin_job_cancel_offline_update_new (GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    _cancel_trigger_failed_cb,
@@ -1028,10 +1004,7 @@ trigger_upgrade (GsUpdatesPage *self)
 	g_clear_object (&self->cancellable_upgrade);
 	self->cancellable_upgrade = g_cancellable_new ();
 
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPGRADE_TRIGGER,
-					 "interactive", TRUE,
-					 "app", upgrade,
-					 NULL);
+	plugin_job = gs_plugin_job_trigger_upgrade_new (upgrade, GS_PLUGIN_TRIGGER_UPGRADE_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable_upgrade,
 					    upgrade_trigger_finished_cb,
@@ -1098,7 +1071,7 @@ gs_updates_page_upgrade_install_cb (GsUpgradeBanner *upgrade_banner,
 	                  self);
 	gs_removal_dialog_show_upgrade_removals (GS_REMOVAL_DIALOG (dialog),
 	                                         upgrade);
-	gs_shell_modal_dialog_present (self->shell, GTK_WINDOW (dialog));
+	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (self));
 }
 
 static void
@@ -1348,6 +1321,19 @@ gs_updates_page_dispose (GObject *object)
 }
 
 static void
+gs_updates_page_unmap (GtkWidget *widget)
+{
+	GsUpdatesPage *self = GS_UPDATES_PAGE (widget);
+
+	/* Don’t need to update the ‘last checked’ label while the UI isn’t
+	 * visible. The timer will be reinstated by update_ui_state() when the
+	 * UI is next shown. */
+	gs_updates_page_remove_last_checked_timeout (self);
+
+	GTK_WIDGET_CLASS (gs_updates_page_parent_class)->unmap (widget);
+}
+
+static void
 gs_updates_page_class_init (GsUpdatesPageClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -1357,6 +1343,8 @@ gs_updates_page_class_init (GsUpdatesPageClass *klass)
 	object_class->get_property = gs_updates_page_get_property;
 	object_class->set_property = gs_updates_page_set_property;
 	object_class->dispose = gs_updates_page_dispose;
+
+	widget_class->unmap = gs_updates_page_unmap;
 
 	page_class->switch_to = gs_updates_page_switch_to;
 	page_class->switch_from = gs_updates_page_switch_from;
@@ -1392,6 +1380,7 @@ gs_updates_page_class_init (GsUpdatesPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, button_updates_offline);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, updates_failed_page);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, uptodate_description);
+	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, label_last_checked);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, scrolledwindow_updates);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, spinner_updates);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, stack_updates);

@@ -178,64 +178,13 @@ typedef struct {
 	GsPluginJob		*job;  /* (owned) */
 } GsUpdatesSectionUpdateHelper;
 
-static gchar *
-_get_app_sort_key (GsApp *app)
-{
-	GString *key;
-	g_autofree gchar *sort_name = NULL;
-
-	key = g_string_sized_new (64);
-
-	/* sort apps by kind */
-	switch (gs_app_get_kind (app)) {
-	case AS_COMPONENT_KIND_DESKTOP_APP:
-		g_string_append (key, "2:");
-		break;
-	case AS_COMPONENT_KIND_WEB_APP:
-		g_string_append (key, "3:");
-		break;
-	case AS_COMPONENT_KIND_RUNTIME:
-		g_string_append (key, "4:");
-		break;
-	case AS_COMPONENT_KIND_ADDON:
-		g_string_append (key, "5:");
-		break;
-	case AS_COMPONENT_KIND_CODEC:
-		g_string_append (key, "6:");
-		break;
-	case AS_COMPONENT_KIND_FONT:
-		g_string_append (key, "6:");
-		break;
-	case AS_COMPONENT_KIND_INPUT_METHOD:
-		g_string_append (key, "7:");
-		break;
-	default:
-		if (gs_app_get_special_kind (app) == GS_APP_SPECIAL_KIND_OS_UPDATE)
-			g_string_append (key, "1:");
-		else
-			g_string_append (key, "8:");
-		break;
-	}
-
-	/* finally, sort by short name */
-	if (gs_app_get_name (app) != NULL) {
-		sort_name = gs_utils_sort_key (gs_app_get_name (app));
-		g_string_append (key, sort_name);
-	}
-
-	return g_string_free (key, FALSE);
-}
-
 static gint
 _list_sort_func (GtkListBoxRow *a, GtkListBoxRow *b, gpointer user_data)
 {
 	GsApp *a1 = gs_app_row_get_app (GS_APP_ROW (a));
 	GsApp *a2 = gs_app_row_get_app (GS_APP_ROW (b));
-	g_autofree gchar *key1 = _get_app_sort_key (a1);
-	g_autofree gchar *key2 = _get_app_sort_key (a2);
 
-	/* compare the keys according to the algorithm above */
-	return g_strcmp0 (key1, key2);
+	return gs_utils_app_sort_kind (a1, a2);
 }
 
 static void
@@ -280,10 +229,7 @@ _reboot_failed_cb (GObject *source, GAsyncResult *res, gpointer user_data)
 	/* Cancel trigger. The app list might have changed while this async
 	 * function was in flight. If so, ignore it. */
 	if (self->list != NULL && gs_app_list_length (self->list) > 0) {
-		app = gs_app_list_index (self->list, 0);
-		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_UPDATE_CANCEL,
-						 "app", app,
-						 NULL);
+		plugin_job = gs_plugin_job_cancel_offline_update_new (GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE);
 		gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 						    gs_app_get_cancellable (app),
 						    _cancel_trigger_failed_cb,
@@ -456,7 +402,7 @@ _download_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		g_autoptr(GNotification) notif = NULL;
 
 		notif = g_notification_new (_("Software Updates Downloaded"));
-		g_notification_set_body (notif, _("Software updates have been downloaded and are ready to be installed."));
+		g_notification_set_body (notif, _("Updates are ready to be installed"));
 		g_notification_set_default_action_and_target (notif, "app.set-mode", "s", "updates");
 		/* last the notification for an hour */
 		gs_application_send_notification (GS_APPLICATION (g_application_get_default ()), "updates-downloaded", notif, 60);
@@ -581,7 +527,7 @@ _app_row_activated_cb (GsUpdatesSection *self, GtkListBoxRow *row)
 	g_debug ("%s", str);
 
 	dialog = gs_update_dialog_new_for_app (self->plugin_loader, app);
-	gs_shell_modal_dialog_present (gs_page_get_shell (self->page), GTK_WINDOW (dialog));
+	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (gs_page_get_shell (self->page)));
 }
 
 static void

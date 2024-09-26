@@ -1,3 +1,42 @@
+gnome-software (47.0-1) experimental; urgency=medium
+
+  * New upstream release
+  * debian/rules: Re-enable curated app list
+  * debian/rules: Remove dropped gsettings-desktop-schemas flag
+  * debian: lintian override library-not-linked-against-libc
+
+ -- Alessandro Astone <alessandro.astone@canonical.com>  Thu, 12 Sep 2024 17:37:46 +0200
+
+gnome-software (47~beta-1) experimental; urgency=medium
+
+  * New upstream release
+  * Bump minimum glib, GTK4, libadwaita, and libxmlb
+  * Enable sysprof profiler support on available architectures
+  * Add Build-Depends: itstool
+  * Remove unused Depends: software-properties-gtk (Closes: #1060803)
+  * debian/gnome-software.install: Install user help
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 14 Aug 2024 20:09:55 -0400
+
+gnome-software (46.4-1) unstable; urgency=medium
+
+  * New upstream release
+  * Bump Standards Version to 4.7.0
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 11 Aug 2024 08:16:42 -0400
+
+gnome-software (46.3-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 10 Jul 2024 17:43:55 -0400
+
+gnome-software (46.2-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 28 May 2024 16:25:38 -0400
+
 gnome-software (46.1-1) unstable; urgency=high
 
   * New upstream release

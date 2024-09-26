@@ -26,13 +26,21 @@ libgnomesoftware_public_headers = [
   'gs-plugin-event.h',
   'gs-plugin-helpers.h',
   'gs-plugin-job.h',
+  'gs-plugin-job-cancel-offline-update.h',
+  'gs-plugin-job-download-upgrade.h',
+  'gs-plugin-job-file-to-app.h',
+  'gs-plugin-job-launch.h',
   'gs-plugin-job-list-apps.h',
   'gs-plugin-job-list-categories.h',
   'gs-plugin-job-list-distro-upgrades.h',
   'gs-plugin-job-manage-repository.h',
   'gs-plugin-job-refine.h',
   'gs-plugin-job-refresh-metadata.h',
+  'gs-plugin-job-trigger-upgrade.h',
+  'gs-plugin-job-install-apps.h',
+  'gs-plugin-job-uninstall-apps.h',
   'gs-plugin-job-update-apps.h',
+  'gs-plugin-job-url-to-app.h',
   'gs-plugin-loader.h',
   'gs-plugin-loader-sync.h',
   'gs-plugin-types.h',
@@ -69,6 +77,11 @@ if get_option('polkit')
   librarydeps += polkit
 endif
 
+dkms_private_files = []
+if get_option('dkms')
+   dkms_private_files = [ 'gs-dkms-private.h', 'gs-dkms-private.c' ]
+endif
+
 gs_build_ident_h = vcs_tag(
      fallback: meson.project_version(),
         input: 'gs-build-ident.h.in',
@@ -83,6 +96,7 @@ libgnomesoftware_enums = gnome.mkenums_simple('gs-enums',
 
 libgnomesoftware_include_directories = [
   include_directories('..'),
+  include_directories('.'),
 ]
 
 libgnomesoftware = library(
@@ -113,13 +127,21 @@ libgnomesoftware = library(
     'gs-plugin-event.c',
     'gs-plugin-helpers.c',
     'gs-plugin-job.c',
+    'gs-plugin-job-cancel-offline-update.c',
+    'gs-plugin-job-download-upgrade.c',
+    'gs-plugin-job-file-to-app.c',
+    'gs-plugin-job-launch.c',
     'gs-plugin-job-list-apps.c',
     'gs-plugin-job-list-categories.c',
     'gs-plugin-job-list-distro-upgrades.c',
     'gs-plugin-job-manage-repository.c',
     'gs-plugin-job-refine.c',
     'gs-plugin-job-refresh-metadata.c',
+    'gs-plugin-job-trigger-upgrade.c',
+    'gs-plugin-job-install-apps.c',
+    'gs-plugin-job-uninstall-apps.c',
     'gs-plugin-job-update-apps.c',
+    'gs-plugin-job-url-to-app.c',
     'gs-plugin-loader.c',
     'gs-plugin-loader-sync.c',
     'gs-profiler.h',
@@ -128,7 +150,7 @@ libgnomesoftware = library(
     'gs-test.c',
     'gs-utils.c',
     'gs-worker-thread.c',
-  ] + libgnomesoftware_enums + [gs_build_ident_h],
+  ] + libgnomesoftware_enums + [gs_build_ident_h] + dkms_private_files,
   soversion: gs_plugin_api_version,
   include_directories : libgnomesoftware_include_directories,
   dependencies : librarydeps,

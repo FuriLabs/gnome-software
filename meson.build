@@ -1,7 +1,7 @@
 project('gnome-software', 'c',
-  version : '46.1',
+  version : '47.0',
   license : 'GPL-2.0-or-later',
-  default_options : ['warning_level=1', 'c_std=c11'],
+  default_options : ['warning_level=2', 'c_std=c11'],
   meson_version : '>=0.58.0'
 )
 
@@ -23,7 +23,7 @@ conf.set_quoted('APPLICATION_ID', application_id)
 
 # this refers to the gnome-software plugin API version
 # this is not in any way related to a package or soname version
-gs_plugin_api_version = '20'
+gs_plugin_api_version = '21'
 conf.set_quoted('GS_PLUGIN_API_VERSION', gs_plugin_api_version)
 
 # private subdirectory of libdir for the private shared libgnomesoftware to live in
@@ -41,7 +41,9 @@ test_args = [
   '-Wclobbered',
   '-Wdeclaration-after-statement',
   '-Wempty-body',
-  '-Wextra',
+  '-Wenum-compare',
+  '-Wenum-conversion',
+  '-Wenum-int-mismatch',
   '-Wformat=2',
   '-Wformat-nonliteral',
   '-Wformat-security',
@@ -50,7 +52,6 @@ test_args = [
   '-Wimplicit-function-declaration',
   '-Werror=implicit-function-declaration',
   '-Winit-self',
-  '-Winline',
   '-Wmaybe-uninitialized',
   '-Wmissing-declarations',
   '-Wmissing-format-attribute',
@@ -64,6 +65,7 @@ test_args = [
   '-Wno-strict-aliasing',
   '-Wno-suggest-attribute=format',
   '-Wno-unused-parameter',
+  '-Wnull-dereference',
   '-Wold-style-definition',
   '-Woverride-init',
   '-Wpacked',
@@ -100,10 +102,12 @@ foreach arg: test_link_args
     global_link_args += arg
   endif
 endforeach
-add_global_link_arguments(
-  global_link_args,
-  language: 'c'
-)
+if not meson.is_subproject()
+  add_global_link_arguments(
+    global_link_args,
+    language: 'c'
+  )
+endif
 
 # Needed for PATH_MAX and symlink()
 add_project_arguments('-D_XOPEN_SOURCE=700', language : 'c')
@@ -123,20 +127,22 @@ appstream = dependency('appstream',
 )
 
 gdk_pixbuf = dependency('gdk-pixbuf-2.0', version : '>= 2.32.0')
-libxmlb = dependency('xmlb', version : '>= 0.1.7', fallback : ['libxmlb', 'libxmlb_dep'])
+libxmlb = dependency('xmlb', version : '>= 0.3.4', fallback : ['libxmlb', 'libxmlb_dep'])
 gio_unix = dependency('gio-unix-2.0', version : '>= 2.56.0')
 gmodule = dependency('gmodule-2.0')
 gtk = dependency('gtk4',
-  version : '>= 4.12.0',
+  version : '>= 4.13.4',
   fallback: ['gtk', 'gtk_dep'],
   default_options: [
       'build-examples=false',
       'build-tests=false',
       'introspection=disabled',
       'demos=false',
+      'vulkan=disabled',
     ]
   )
-glib = dependency('glib-2.0', version : '>= 2.70.0')
+glib = dependency('glib-2.0', version : '>= 2.76.0')
+gsettings_desktop_schemas = dependency('gsettings-desktop-schemas', version : '>= 3.18.0')
 json_glib = dependency('json-glib-1.0', version : '>= 1.6.0')
 libm = cc.find_library('m', required: false)
 if get_option('soup2')
@@ -148,7 +154,7 @@ else
   libsoupapiversion = '3.0'
 endif
 libadwaita = dependency('libadwaita-1',
-  version: '>=1.4.0',
+  version: '>=1.6.alpha',
   fallback: ['libadwaita', 'libadwaita_dep'],
   default_options: [
     'examples=false',
@@ -181,11 +187,6 @@ conf.set('HAVE_SYSPROF', libsysprof_capture_dep.found())
 if get_option('mogwai')
   mogwai_schedule_client = dependency('mogwai-schedule-client-0', version : '>= 0.2.0')
   conf.set('HAVE_MOGWAI', 1)
-endif
-
-gsettings_desktop_schemas = dependency('gsettings-desktop-schemas', version : '>= 3.18.0', required: get_option('gsettings_desktop_schemas'))
-if gsettings_desktop_schemas.found()
-  conf.set('HAVE_GSETTINGS_DESKTOP_SCHEMAS', 1)
 endif
 
 if get_option('polkit')
@@ -283,6 +284,7 @@ conf.set_quoted('LIBEXECDIR',
                 join_paths(get_option('prefix'),
                            get_option('libexecdir')))
 conf.set('ENABLE_EXTERNAL_APPSTREAM', get_option('external_appstream'))
+conf.set('ENABLE_DKMS', get_option('dkms'))
 configure_file(
   output : 'config.h',
   configuration : conf
@@ -312,6 +314,7 @@ if get_option('external_appstream')
 endif
 subdir('po')
 subdir('doc')
+subdir('help')
 
 # FIXME: remove when https://github.com/mesonbuild/meson/issues/837 fixed
 meson.add_install_script('meson_post_install.sh')

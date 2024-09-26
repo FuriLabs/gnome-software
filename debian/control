@@ -13,13 +13,14 @@ Build-Depends: appstream,
                docbook-xsl,
                gsettings-desktop-schemas-dev (>= 3.18),
                gtk-doc-tools,
-               libadwaita-1-dev (>= 1.4),
+               itstool,
+               libadwaita-1-dev (>= 1.6~beta),
                libappstream-dev (>= 1.0.0),
                libflatpak-dev (>= 1.14.0) [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
                libfwupd-dev (>= 1.5.6) [linux-any],
                libglib-testing-0-dev,
-               libglib2.0-dev (>= 2.70.0),
-               libgtk-4-dev (>= 4.12.0),
+               libglib2.0-dev (>= 2.76.0),
+               libgtk-4-dev (>= 4.13.4),
                libgudev-1.0-dev [linux-any],
                libjson-glib-dev (>= 1.6.0),
                libmalcontent-0-dev [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
@@ -28,8 +29,9 @@ Build-Depends: appstream,
                libpolkit-gobject-1-dev,
                libsnapd-glib-dev (>= 1.63) [amd64 arm64 armel armhf i386 ppc64el s390x],
                libsoup-3.0-dev,
+               libsysprof-capture-4-dev (>= 3.38.0) [amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x powerpc ppc64],
                libxml2-utils,
-               libxmlb-dev (>= 0.1.7),
+               libxmlb-dev (>= 0.3.4),
                meson (>= 0.55.0),
                pkgconf,
                polkitd,
@@ -40,7 +42,7 @@ Build-Depends-Indep: libgdk-pixbuf2.0-doc <!nodoc>,
                      libjson-glib-doc <!nodoc>,
                      libsoup-3.0-doc <!nodoc>,
 Rules-Requires-Root: no
-Standards-Version: 4.6.2
+Standards-Version: 4.7.0
 Vcs-Browser: https://salsa.debian.org/gnome-team/gnome-software
 Vcs-Git: https://salsa.debian.org/gnome-team/gnome-software.git
 Homepage: https://apps.gnome.org/Software/
@@ -172,12 +174,13 @@ Section: libdevel
 Architecture: any
 Multi-Arch: same
 Depends: libappstream-dev (>= 0.14.0),
-         libglib2.0-dev (>= 2.70.0),
-         libgtk-4-dev (>= 4.12.0),
+         libglib2.0-dev (>= 2.76.0),
+         libgtk-4-dev (>= 4.13.4),
          libjson-glib-dev (>= 1.6.0),
          libpolkit-gobject-1-dev,
          libsoup-3.0-dev,
-         libxmlb-dev (>= 0.1.7),
+         libsysprof-capture-4-dev (>= 3.38.0) [amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x powerpc ppc64],
+         libxmlb-dev (>= 0.3.4),
          ${misc:Depends}
 Suggests: gnome-software-doc
 Description: Software Center for GNOME - development files

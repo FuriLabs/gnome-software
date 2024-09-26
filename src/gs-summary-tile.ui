@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <!-- interface-requires gtk+ 3.10 -->
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adwaita" version="1.0"/>
   <template class="GsSummaryTile" parent="GsAppTile">
     <property name="hexpand">True</property>
     <!-- This is the minimum (sic!) width of a tile when the GtkFlowBox parent container switches to 3 columns -->
@@ -16,7 +17,7 @@
                 <property name="halign">center</property>
                 <property name="valign">center</property>
                 <property name="pixel-size">16</property>
-                <property name="icon-name">content-loading-symbolic</property>
+                <property name="icon-name">app-info-loading-symbolic</property>
                 <style>
                   <class name="dim-label"/>
                 </style>
@@ -118,9 +119,6 @@
                             <attributes>
                               <attribute name="weight" value="bold"/>
                             </attributes>
-                            <style>
-                              <class name="app-tile-label"/>
-                            </style>
                           </object>
                         </child>
                         <child>
@@ -132,9 +130,6 @@
                             <property name="vexpand">True</property>
                             <property name="single-line-mode">True</property>
                             <property name="wrap">True</property>
-                            <style>
-                              <class name="app-tile-label"/>
-                            </style>
                           </object>
                         </child>
                         <layout>
