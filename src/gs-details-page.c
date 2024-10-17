@@ -99,6 +99,7 @@ struct _GsDetailsPage
 	GAppInfoMonitor		*app_info_monitor; /* (owned) */
 	gchar		       **packaging_format_preference; /* (owned) */
 	GtkWidget		*app_reviews_dialog;
+	GtkWidget		*review_dialog;
 	GtkCssProvider		*origin_css_provider; /* (nullable) (owned) */
 	GtkCssProvider		*developer_verified_image_css_provider; /* (nullable) (owned) */
 	GtkCssProvider		*developer_verified_label_css_provider; /* (nullable) (owned) */
@@ -201,10 +202,10 @@ static void
 gs_details_page_cancel_cb (GCancellable *cancellable,
 			   GsDetailsPage *self)
 {
-	if (self->app_reviews_dialog) {
-		gtk_window_destroy (GTK_WINDOW (self->app_reviews_dialog));
-		g_clear_object (&self->app_reviews_dialog);
-	}
+	if (self->app_reviews_dialog)
+		adw_dialog_force_close (ADW_DIALOG (self->app_reviews_dialog));
+	if (self->review_dialog)
+		adw_dialog_force_close (ADW_DIALOG (self->review_dialog));
 }
 
 static GsDetailsPageState
@@ -2033,7 +2034,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 		const gchar *id = gs_app_get_id (self->app);
 		str = g_strdup_printf (_("Software failed to retrieve information for “%s” and is unable to show the details for this app."),
 				       id == NULL ? gs_app_get_source_default (self->app) : id);
-		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), str);
+		adw_status_page_set_description (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -2050,7 +2051,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 		const gchar *id = gs_app_get_id (self->app);
 		str = g_strdup_printf (_("Software failed to retrieve information for “%s” and is unable to show the details for this app."),
 				       id == NULL ? gs_app_get_source_default (self->app) : id);
-		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), str);
+		adw_status_page_set_description (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
 	}
@@ -2415,13 +2416,23 @@ gs_details_page_review_send_cb (GsReviewDialog *dialog,
 }
 
 static void
+review_dialog_destroy_cb (GsDetailsPage *self)
+{
+	self->review_dialog = NULL;
+}
+
+static void
 gs_details_page_write_review (GsDetailsPage *self)
 {
-	GtkWidget *dialog;
-	dialog = gs_review_dialog_new ();
-	g_signal_connect (dialog, "send",
+	g_assert (self->review_dialog == NULL);
+
+	self->review_dialog = gs_review_dialog_new ();
+	g_signal_connect (self->review_dialog, "send",
 			  G_CALLBACK (gs_details_page_review_send_cb), self);
-	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (self));
+	g_signal_connect_swapped (self->review_dialog, "destroy",
+				  G_CALLBACK (review_dialog_destroy_cb), self);
+
+	adw_dialog_present (ADW_DIALOG (self->review_dialog), GTK_WIDGET (self));
 }
 
 static void
@@ -2973,7 +2984,7 @@ gs_details_page_metainfo_ready_cb (GObject *source_object,
 
 	app = g_task_propagate_pointer (G_TASK (result), &error);
 	if (error) {
-		adw_status_page_set_title (ADW_STATUS_PAGE (self->page_failed), error->message);
+		adw_status_page_set_description (ADW_STATUS_PAGE (self->page_failed), error->message);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
 	}

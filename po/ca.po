@@ -2,16 +2,16 @@
 # Copyright (C) 2012 gnome-software's COPYRIGHT HOLDER
 # This file is distributed under the same license as the gnome-calendar package.
 #
-# Jordi Mas i Hernandez <jmas@softcatala.org>, 2013-2023
+# Jordi Mas i Hernandez <jmas@softcatala.org>, 2013-2024
 # Gil Forcada <gilforcada@guifi.net>, 2014-2020.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: gnome-software\n"
 "Report-Msgid-Bugs-To: https://gitlab.gnome.org/GNOME/gnome-software/issues\n"
-"POT-Creation-Date: 2024-08-18 22:36+0000\n"
-"PO-Revision-Date: 2024-09-06 22:25+0200\n"
-"Last-Translator: Quique Serrano <qserrano@outlook.com>\n"
+"POT-Creation-Date: 2024-09-14 06:33+0000\n"
+"PO-Revision-Date: 2024-09-15 22:25+0200\n"
+"Last-Translator: Jordi Mas i Hernandez <jmas@softcatala.org>\n"
 "Language-Team: Catalan <tradgnome@softcatala.org>\n"
 "Language: ca\n"
 "MIME-Version: 1.0\n"
@@ -75,42 +75,42 @@ msgid "The update details"
 msgstr "Detalls de l'actualització"
 
 #. developer_name tag deprecated with Appstream 1.0
-#: data/metainfo/org.gnome.Software.metainfo.xml.in:2564
+#: data/metainfo/org.gnome.Software.metainfo.xml.in:2625
 #: src/gs-application.c:263
 msgid "The GNOME Project"
 msgstr "El projecte GNOME"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:11
 msgid "Test akmods key in Shim UEFI"
-msgstr ""
+msgstr "Prova la clau akmods a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:12
 msgid "Authentication is required to test akmods key in Shim UEFI"
-msgstr ""
+msgstr "Es requereix autenticació per a provar la clau akmods a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:22
 msgid "Enroll akmods key to Shim UEFI"
-msgstr ""
+msgstr "Inscriu la clau akmods a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:23
 msgid "Authentication is required to enroll akmods key to Shim UEFI"
-msgstr ""
+msgstr "Es requereix autenticació per a inscriure la clau akmods a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:33
 msgid "Test DKMS key in Shim UEFI"
-msgstr ""
+msgstr "Prova la clau DKMS a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:34
 msgid "Authentication is required to test DKMS key in Shim UEFI"
-msgstr ""
+msgstr "Es requereix autenticació per a provar la clau DKMS a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:44
 msgid "Enroll DKMS key to Shim UEFI"
-msgstr ""
+msgstr "Inscriu la clau DKMS a Shim UEFI"
 
 #: data/org.gnome.software.dkms-helper.policy.in.in:45
 msgid "Authentication is required to enroll DKMS key to Shim UEFI"
-msgstr ""
+msgstr "Es requereix autenticació per a inscriure la clau DKMS a Shim UEFI"
 
 #: data/org.gnome.software.external-appstream.policy.in.in:11
 msgid "Install an appstream file into a system location"
@@ -1186,8 +1186,7 @@ msgstr "Copyright © 2016-2023 Contribuïdors de Programari del GNOME"
 #: src/gs-application.c:272
 msgid "translator-credits"
 msgstr ""
-"equip de traducció:\n"
-"Jordi Mas i Hernàndez <jmas@softcatala.org>, 2013-2021\n"
+"Jordi Mas i Hernàndez <jmas@softcatala.org>, 2013-2024\n"
 "Miquel-Àngel Burgos i Fradeja <miquel.angel.burgos@gmail.com>, 2020"
 
 #. TRANSLATORS: we tried to show an app that did not exist
@@ -2451,7 +2450,7 @@ msgstr "Aquesta aplicació apareixerà en anglès americà"
 
 #: src/gs-details-page.c:1370 src/gs-details-page.ui:76
 msgid "Help _Translate"
-msgstr "_Ajudeu a traduir-lo"
+msgstr "_Ajudeu a traduir-la"
 
 #. Translators: the '%s' is replaced with a developer name or a project group
 #: src/gs-details-page.c:1435
@@ -2525,6 +2524,8 @@ msgid ""
 "Software failed to retrieve information for “%s” and is unable to show the "
 "details for this app."
 msgstr ""
+"El programari ha fallat en recuperar la informació de «%s» i no pot mostrar "
+"els detalls d'aquesta aplicació."
 
 #: src/gs-details-page.c:2406
 #, c-format
@@ -2674,13 +2675,11 @@ msgstr "No s'ha trobat la clau"
 
 #: src/gs-dkms-dialog.c:102
 msgid "The key is not enrolled"
-msgstr ""
+msgstr "La clau no està inscrita"
 
 #: src/gs-dkms-dialog.ui:17 src/gs-dkms-dialog.ui:108
-#, fuzzy
-#| msgid "Mouse Required"
 msgid "MOK Enrollment Required"
-msgstr "Requereix un ratolí"
+msgstr "Cal inscripció MOK"
 
 #: src/gs-dkms-dialog.ui:36
 msgid "_Next"
@@ -2693,26 +2692,32 @@ msgid ""
 "password to be entered later in the process. Please note down the following "
 "password associated with the key:"
 msgstr ""
+"Aquest dispositiu té activat l'arrencada segura. Per a permetre que "
+"s'habilitin els controladors nous, s'ha d'inscriure una clau nova del "
+"propietari de la màquina (MOK). El procés requereix que s'introdueixi una "
+"contrasenya més endavant en el procés. Tingueu en compte la següent "
+"contrasenya associada a la clau:"
 
 #: src/gs-dkms-dialog.ui:83
 msgid "I have made a note of the MOK _password"
-msgstr ""
+msgstr "_He fet una nota de la contrasenya MOK"
 
 #: src/gs-dkms-dialog.ui:128
-#, fuzzy
-#| msgid "_Restart Now…"
 msgid "_Restart & Enroll…"
-msgstr "_Reinicia ara…"
+msgstr "_Reinicia i inscriu…"
 
 #: src/gs-dkms-dialog.ui:149
 msgid "Setup Instructions: Please Read Carefully"
-msgstr ""
+msgstr "Instruccions de configuració: Llegiu amb cura"
 
 #: src/gs-dkms-dialog.ui:166
 msgid ""
 "After restart, a device setup screen will be shown. To enable new drivers, "
 "proceed through the setup steps:"
 msgstr ""
+"Després de reiniciar, es mostrarà una pantalla de configuració del "
+"dispositiu. Per a habilitar els controladors nous, procediu a través dels "
+"passos de configuració:"
 
 #: src/gs-dkms-dialog.ui:179
 msgid ""
@@ -2721,6 +2726,10 @@ msgid ""
 "• Enter the MOK password when prompted\n"
 "• Then select “Reboot”"
 msgstr ""
+"• Seleccioneu «Inscriure MOK»\n"
+"• Seleccioneu «Sí» per a inscriure claus\n"
+"• Introduïu la contrasenya MOK quan se us demani\n"
+"• Després seleccioneu «Reinicia»"
 
 #: src/gs-dkms-dialog.ui:211
 msgid "Security Implications"
@@ -2732,12 +2741,18 @@ msgid ""
 "module or any other module will be implicitly trusted. All future updates "
 "will happen transparently with no interaction and or authorization."
 msgstr ""
+"Després d'una correcta inscripció de la clau, tingueu en compte que "
+"qualsevol actualització futura del mòdul o qualsevol altre mòdul serà de "
+"confiança implícita. Totes les actualitzacions futures es produiran de "
+"manera transparent sense cap interacció ni autorització."
 
 #: src/gs-dkms-dialog.ui:244
 msgid ""
 "Further guidance can be found on the <a href=\"https://docs.fedoraproject."
 "org/en-US/quick-docs/mok-enrollment/\">docs page</a>."
 msgstr ""
+"Podeu trobar més orientació a la <a href=\"https://docs.fedoraproject.org/en-"
+"US/quick-docs/mok-enrollment/\">pàgina de documentació</a>."
 
 #. TRANSLATORS: status text when downloading
 #: lib/gs-external-appstream-utils.c:272
@@ -2971,7 +2986,7 @@ msgstr "No s'ha trobat cap resultat"
 
 #: src/gs-extras-page.ui:100
 msgid "Unable To Perform Search"
-msgstr ""
+msgstr "No s'ha pogut realitzar la cerca"
 
 #: src/gs-featured-carousel.ui:43
 msgid "Previous"
@@ -3205,7 +3220,7 @@ msgstr "Navegació"
 
 #: src/gs-help-overlay.ui:18
 msgid "Navigate to Explore Page"
-msgstr "Navega per a explorar la pàgina"
+msgstr "Navega a la pàgina d'exploració"
 
 #: src/gs-help-overlay.ui:24
 msgid "Navigate to Installed Page"
@@ -3415,8 +3430,8 @@ msgid ""
 "\n"
 "You may or may not be able to contribute to this app."
 msgstr ""
-"Aquesta aplicació es desenvolupa sota la llicència especial <a href=\"%s\">"
-"%s</a>.\n"
+"Aquesta aplicació es desenvolupa sota la llicència especial <a "
+"href=\"%s\">%s</a>.\n"
 "\n"
 "És possible que no pugueu contribuir a aquesta aplicació."
 
@@ -3440,8 +3455,8 @@ msgid ""
 "\n"
 "You may or may not be able to contribute to this software."
 msgstr ""
-"Aquest programari es desenvolupa sota la llicència especial <a href=\"%s\">"
-"%s</a>.\n"
+"Aquest programari es desenvolupa sota la llicència especial <a "
+"href=\"%s\">%s</a>.\n"
 "\n"
 "És possible que no pugueu contribuir a aquest programari."
 
@@ -3458,9 +3473,9 @@ msgstr ""
 "És possible que no pugueu contribuir a aquest programari."
 
 #. TRANSLATORS: initial start
-#: src/gs-loading-page.c:56
+#: src/gs-loading-page.c:80
 msgid "Refreshing Data"
-msgstr ""
+msgstr "Actualització de les dades"
 
 #: src/gs-loading-page.ui:7
 msgid "Loading page"
@@ -3674,6 +3689,8 @@ msgstr ""
 msgid ""
 "Hardware which depends on %s may no longer function correctly after removal."
 msgstr ""
+"El maquinari que depèn de %s pot deixar de funcionar correctament després de "
+"l'eliminació."
 
 #: src/gs-page.c:641
 msgid "App Settings & Data"
@@ -3734,7 +3751,7 @@ msgid ""
 msgstr ""
 "La comprovació i descàrrega d'actualitzacions utilitza dades i energia. Per "
 "tant, les funcions d'actualització automàtica es posen en pausa quan es "
-"troba a les connexions de xarxa mesurades i quan l'estalvi d'energia està "
+"troba a les connexions de xarxa limitades i quan l'estalvi d'energia està "
 "activat."
 
 #: src/gs-prefs-dialog.ui:42
@@ -3834,7 +3851,7 @@ msgstr "_Suprimeix"
 
 #: src/gs-repos-dialog.c:611
 msgid "Enable New Repositories"
-msgstr "Habilita els dipòsits nous"
+msgstr "Habilita els repositoris nous"
 
 #: src/gs-repos-dialog.c:612
 msgid "Turn on new repositories when they are added"
@@ -4046,7 +4063,7 @@ msgid ""
 "to report problems: instead, contact the developer or your support provider."
 msgstr ""
 "Proporcioneu una valoració, un resum i una ressenya. Les ressenyes no s'han "
-"d'utilitzar per informar de problemes: en lloc d'això, poseu-vos en contacte "
+"d'utilitzar per a informar de problemes: en lloc d'això, poseu-vos en contacte "
 "amb el desenvolupador o el vostre proveïdor de suport."
 
 #: src/gs-review-dialog.ui:76
@@ -4061,9 +4078,9 @@ msgstr "Escriviu una ressenya"
 
 #: src/gs-review-dialog.ui:150
 msgid ""
-"Find what data is sent in our <a href=\"https://odrs.gnome.org/privacy"
-"\">privacy policy</a>. The full name attached to your account will be shown "
-"publicly."
+"Find what data is sent in our <a href=\"https://odrs.gnome.org/"
+"privacy\">privacy policy</a>. The full name attached to your account will be "
+"shown publicly."
 msgstr ""
 "Conegueu quines dades s'envien en la nostra <a href=\"https://odrs.gnome.org/"
 "privacy\">política de privadesa</a>. El vostre nom complet relacionat amb el "
@@ -4121,19 +4138,15 @@ msgstr "Voleu esborrar una ressenya?"
 #. TRANSLATORS: we ask the user if they really want to do this
 #: src/gs-review-row.c:261
 msgid "Removing a review cannot be undone."
-msgstr ""
+msgstr "No es pot desfer l'eliminació d'una revisió."
 
 #: src/gs-review-row.ui:89
-#, fuzzy
-#| msgid "Write R_eview"
 msgid "Like Review"
-msgstr "_Escriviu una ressenya"
+msgstr "M'agrada la ressenya"
 
 #: src/gs-review-row.ui:101
-#, fuzzy
-#| msgid "Write R_eview"
 msgid "Dislike Review"
-msgstr "_Escriviu una ressenya"
+msgstr "Em desagrada la ressenya"
 
 #: src/gs-review-row.ui:117
 msgid "Report…"
@@ -4480,6 +4493,9 @@ msgid ""
 "This app uses an outdated version of the software platform (SDK) and might "
 "contain bugs or security vulnerabilities which will not be fixed."
 msgstr ""
+"Aquesta aplicació utilitza una versió obsoleta de la plataforma de "
+"programari (SDK) i pot contenir errors o vulnerabilitats de seguretat que no "
+"es corregiran."
 
 #. Translators: This is the accessible description for a button to go to the previous screenshot in the screenshot carousel.
 #: src/gs-screenshot-carousel.ui:46
@@ -5637,25 +5653,25 @@ msgstr "Actualitzacions de programari en pausa"
 #: src/gs-updates-paused-banner.c:84
 msgid "Network connection is metered — software updates paused"
 msgstr ""
-"La connexió de xarxa està mesurada — s'han pausat les actualitzacions de "
+"La connexió de xarxa està mesurada — s'han posat en pausa les actualitzacions de "
 "programari"
 
 #: src/gs-updates-paused-banner.c:86
 msgid "Network connection prohibits large downloads — software updates paused"
 msgstr ""
-"La connexió de xarxa prohibeix les baixades grans — s'han pausat les "
+"La connexió de xarxa prohibeix les baixades grans — s'han posat en pausa les "
 "actualitzacions de programari"
 
 #: src/gs-updates-paused-banner.c:88
 msgid "Power saver mode is active — software updates paused"
 msgstr ""
-"El mode d'estalvi d'energia està actiu — s'han pausat les actualitzacions de "
+"El mode d'estalvi d'energia està actiu — s'han posat en pausa les actualitzacions de "
 "programari"
 
 #: src/gs-updates-paused-banner.c:90
 msgid "Game mode is active — software updates paused"
 msgstr ""
-"El mode de joc està actiu — s'han pausat les actualitzacions de programari"
+"El mode de joc està actiu — s'han posat en pausa les actualitzacions de programari"
 
 #. TRANSLATORS: This is the button for installing all
 #. * offline updates
@@ -5793,6 +5809,8 @@ msgstr "%s Llest"
 #, c-format
 msgid "The %s is ready to be enabled and staged for the next boot."
 msgstr ""
+"El %s està a punt per a activar-se i posar-se en fase per a la següent "
+"arrencada."
 
 #: plugins/dkms/gs-plugin-dkms.c:189
 msgid "Enable"
@@ -6034,8 +6052,8 @@ msgstr "La bateria és massa baixa per a realitzar l'actualització"
 #, c-format
 msgid "System power is too low to perform the update (%u%%, requires %u%%)"
 msgstr ""
-"La bateria és massa baixa per a realitzar l'actualització (%u%%, requereix %u"
-"%%)"
+"La bateria és massa baixa per a realitzar l'actualització (%u%%, requereix "
+"%u%%)"
 
 #. TRANSLATORS: for example, a Bluetooth mouse that is in powersave mode
 #: plugins/fwupd/gs-fwupd-app.c:76
@@ -6322,7 +6340,7 @@ msgstr "Paquets"
 #: plugins/rpm-ostree/gs-plugin-rpm-ostree.c:1410
 #: plugins/rpm-ostree/gs-plugin-rpm-ostree.c:1433
 msgid "Failed to wait on transaction end before download: "
-msgstr ""
+msgstr "No s'ha pogut esperar al final de l'operació abans de baixar:"
 
 #: plugins/rpm-ostree/gs-plugin-rpm-ostree.c:1440
 #: plugins/rpm-ostree/gs-plugin-rpm-ostree.c:1453
@@ -6350,278 +6368,3 @@ msgstr "Compatibilitat amb Snap"
 #: plugins/snap/org.gnome.Software.Plugin.Snap.metainfo.xml.in:7
 msgid "A snap is a universal Linux package"
 msgstr "Un «snap» és un paquet Linux universal"
-
-#~ msgid "A nice way to manage the software on your system."
-#~ msgstr "Una forma engrescadora de gestionar el programari del sistema."
-
-#, c-format
-#~ msgid "Please enter a number from 1 to %u: "
-#~ msgstr "Introduïu un nombre de l'1 al %u: "
-
-#~ msgid "Choose an app:"
-#~ msgstr "Escolliu una aplicació:"
-
-#, c-format
-#~ msgid "%s is now installed"
-#~ msgstr "S'ha instal·lat %s"
-
-#~ msgid "An app has been removed"
-#~ msgid_plural "Apps have been removed"
-#~ msgstr[0] "S'ha eliminat una aplicació"
-#~ msgstr[1] "S'han eliminat les aplicacions"
-
-#, c-format
-#~ msgid "Unable to find “%s”"
-#~ msgstr "No s'ha trobat «%s»"
-
-#~ msgid "Downloading Software Catalog"
-#~ msgstr "S'està baixant el catàleg de programari"
-
-#~ msgid "Moderate page"
-#~ msgstr "Pàgina de moderació"
-
-#~ msgid "There are no reviews to moderate"
-#~ msgstr "No hi ha ressenyes per a moderar"
-
-#~ msgid "Was this review useful to you?"
-#~ msgstr "Li ha estat útil aquesta ressenya?"
-
-#~ msgid "Yes"
-#~ msgstr "Sí"
-
-#~ msgid "No"
-#~ msgstr "No"
-
-#~ msgid "Meh"
-#~ msgstr "Pse"
-
-#~ msgid "Outdated SDK version"
-#~ msgstr "Versió obsoleta de l'SDK"
-
-#~ msgid "Unable to install updates"
-#~ msgstr "No s'han pogut instal·lar les actualitzacions"
-
-#~ msgid "Unable to uninstall: authentication invalid"
-#~ msgstr "No s'ha pogut desinstal·lar: l'autenticació no és vàlida"
-
-#~ msgid "Network Settings"
-#~ msgstr "Paràmetres de xarxa"
-
-#~ msgid "Operating System Updates Unavailable"
-#~ msgstr "Hi ha actualitzacions del sistema operatiu disponibles"
-
-#~ msgid "An important operating system update failed to be installed."
-#~ msgstr ""
-#~ "No s'ha pogut realitzar una actualització important del sistema operatiu."
-
-#~ msgid "No Network"
-#~ msgstr "Sense xarxa"
-
-#~ msgid "Internet access is required to check for updates."
-#~ msgstr ""
-#~ "Es requereix accés a Internet per a comprovar si hi ha actualitzacions."
-
-#~ msgid "Network _Settings"
-#~ msgstr "_Paràmetres de xarxa"
-
-#~ msgid ""
-#~ "Software upgrades have been downloaded and are ready to be installed."
-#~ msgstr ""
-#~ "S'han descarregat les actualitzacions de programari i estan a punt per a "
-#~ "ser instal·lades."
-
-#~ msgid "Software updates have been downloaded and are ready to be installed."
-#~ msgstr ""
-#~ "S'han descarregat les actualitzacions de programari i estan a punt per a "
-#~ "ser instal·lades."
-
-#~ msgid "Downloading upgrade information…"
-#~ msgstr "S'està baixant la informació de l'actualització…"
-
-#~ msgid ""
-#~ "What did you like about this app? Leaving your feedback along with your "
-#~ "reasons for leaving a review is helpful for others."
-#~ msgstr ""
-#~ "Què t'ha agradat d'aquesta aplicació? Deixar els vostres comentaris "
-#~ "juntament amb els vostres motius per a deixar una ressenya és útil per a "
-#~ "altres."
-
-#~ msgid "An important software update is ready to be installed."
-#~ msgstr ""
-#~ "Hi ha una actualització de programari important a punt per a ser "
-#~ "instal·lada."
-
-#~ msgid "Important: critical software updates are waiting."
-#~ msgstr ""
-#~ "Important: les actualitzacions de programari crítiques estan esperant."
-
-#~ msgid "Please download waiting software updates."
-#~ msgstr "Baixa les actualitzacions de programari en espera."
-
-#~ msgid "Automatic Updates Paused"
-#~ msgstr "Actualitzacions automàtiques en pausa"
-
-#~ msgid ""
-#~ "The current network is metered, so it may have data limits or charges "
-#~ "associated with it. To save data, automatic updates have been paused.\n"
-#~ "\n"
-#~ "If the network has been incorrectly identified as metered, this can be "
-#~ "changed in Settings."
-#~ msgstr ""
-#~ "La xarxa actual està limitada. Les connexions limitades tenen límits de "
-#~ "dades o càrrecs associats amb ells. Per a estalviar dades, les "
-#~ "actualitzacions automàtiques s'han posat en pausa.\n"
-#~ "\n"
-#~ "Si la xarxa actual ha estat identificada incorrectament com a limitada, "
-#~ "es pot canviar als Paràmetres."
-
-#~ msgid "Open Network _Settings"
-#~ msgstr "Obre els _paràmetres de xarxa"
-
-#~ msgid ""
-#~ "To avoid charges and network caps, software updates are not automatically "
-#~ "downloaded on mobile or metered connections."
-#~ msgstr ""
-#~ "Per a evitar costos no desitjats, les actualitzacions automàtiques estan "
-#~ "inhabilitades quan s'està amb una connexió mòbil o limitada."
-
-#~ msgid ""
-#~ "Downloads and installs software updates in the background, when possible"
-#~ msgstr ""
-#~ "Baixa i instal·la les actualitzacions pendents en segon pla, quan sigui "
-#~ "possible"
-
-#~ msgid "Show Only _Free Apps"
-#~ msgstr "_Mostra només les aplicacions lliures"
-
-#~ msgid "Show only freely licensed apps and hide any proprietary apps"
-#~ msgstr ""
-#~ "Mostra només les aplicacions amb llicència lliure i oculta qualsevol "
-#~ "aplicació propietària"
-
-#~ msgid ""
-#~ "Unable to download updates: internet access was required but wasn’t "
-#~ "available"
-#~ msgstr ""
-#~ "No s'han pogut baixar les actualitzacions: calia accés a Internet però no "
-#~ "estava disponible"
-
-#~ msgid "Unable to download updates: not enough disk space"
-#~ msgstr ""
-#~ "No s'han pogut baixar les actualitzacions: no hi havia prou espai al disc"
-
-#~ msgid "Unable to download updates: authentication was required"
-#~ msgstr "No s'han pogut baixar les actualitzacions: calia una autenticació"
-
-#~ msgid "Unable to download updates: authentication was invalid"
-#~ msgstr ""
-#~ "No s'han pogut baixar les actualitzacions: l'autenticació no era vàlida"
-
-#~ msgid "Unable to install %s: you do not have permission to install software"
-#~ msgstr ""
-#~ "No s'ha pogut instal·lar %s: no teniu permisos per a instal·lar el "
-#~ "programari"
-
-#~ msgid "Unable to install %s: The battery level is too low"
-#~ msgstr "No s'ha pogut instal·lar %s: el nivell de la bateria és massa baix"
-
-#~ msgid "Unable to install updates: not enough disk space"
-#~ msgstr ""
-#~ "No s'han pogut instal·lar les actualitzacions: no hi ha prou espai al disc"
-
-#~ msgid "Unable to install updates: authentication was required"
-#~ msgstr ""
-#~ "No s'han pogut instal·lar les actualitzacions: calia una autenticació"
-
-#~ msgid "Unable to install updates: authentication was invalid"
-#~ msgstr ""
-#~ "No s'han pogut instal·lar les actualitzacions: l'autenticació era invàlida"
-
-#~ msgid "Unable to update %s: you do not have permission to update software"
-#~ msgstr ""
-#~ "No s'ha pogut actualitzar %s: no teniu permís per a actualitzar programari"
-
-#~ msgid ""
-#~ "Unable to install updates: you do not have permission to update software"
-#~ msgstr ""
-#~ "No s'han pogut instal·lar les actualitzacions: no teniu permís per a "
-#~ "actualitzar programari"
-
-#~ msgid "Unable to install updates: AC power is required"
-#~ msgstr ""
-#~ "No s'han pogut instal·lar les actualitzacions: cal estar connectat al "
-#~ "corrent"
-
-#~ msgid "Unable to update %s: The battery level is too low"
-#~ msgstr "No s'ha pogut actualitzar %s: el nivell de la bateria és massa baix"
-
-#~ msgid "Unable to install updates: The battery level is too low"
-#~ msgstr ""
-#~ "No s'han pogut instal·lar les actualitzacions: el nivell de la bateria és "
-#~ "massa baix"
-
-#~ msgid ""
-#~ "Unable to upgrade to %s: internet access was required but wasn’t available"
-#~ msgstr ""
-#~ "No s'ha pogut actualitzar a %s: calia accés a Internet però no estava "
-#~ "disponible"
-
-#~ msgid "Unable to upgrade to %s: you do not have permission to upgrade"
-#~ msgstr "No s'ha pogut actualitzar %s: o teniu permís per a actualitzar"
-
-#~ msgid "Unable to upgrade to %s: The battery level is too low"
-#~ msgstr "No s'ha pogut actualitzar %s: el nivell de la bateria és massa baix"
-
-#~ msgid "Unable to remove %s: authentication was required"
-#~ msgstr "No s'ha pogut suprimir %s: calia una autenticació"
-
-#~ msgid "Unable to remove %s: authentication was invalid"
-#~ msgstr "No s'ha pogut suprimir %s: l'autenticació era invàlida"
-
-#~ msgid "Unable to remove %s: you do not have permission to remove software"
-#~ msgstr ""
-#~ "No s'ha pogut suprimir %s: no teniu permís per a suprimir programari"
-
-#~ msgid "Unable to remove %s: AC power is required"
-#~ msgstr "No s'ha pogut suprimir %s: cal estar connectat al corrent"
-
-#~ msgid "Unable to remove %s: The battery level is too low"
-#~ msgstr "No s'ha pogut suprimir %s: el nivell de la bateria és massa baix"
-
-#~ msgid "Unable to remove %s"
-#~ msgstr "No s'ha pogut suprimir %s"
-
-#~ msgid "Failed to install file: not supported"
-#~ msgstr "No s'ha pogut instal·lar el fitxer: no és compatible"
-
-#~ msgid "Failed to install: not supported"
-#~ msgstr "No s'ha pogut instal·lar: no és compatible"
-
-#~ msgid "AC power is required"
-#~ msgstr "Cal estar connectat al corrent"
-
-#~ msgid "Metered network ‒ automatic updates paused"
-#~ msgstr "Actualitzacions automàtiques en pausa"
-
-#~ msgid "Find Out _More"
-#~ msgstr "_Descobriu-ne més"
-
-#~ msgid "Loading update description, please wait…"
-#~ msgstr "S'està carregant la descripció de l'actualització, espereu…"
-
-#~ msgid "Show verbose debugging information"
-#~ msgstr "Mostra informació de depuració detallada"
-
-#~ msgid "Can access arbitrary files"
-#~ msgstr "Pot accedir a fitxers arbitraris"
-
-#~ msgid "Downloading featured images…"
-#~ msgstr "S'estan baixant les imatges destacades…"
-
-#~ msgid "Are you sure you want to uninstall %s?"
-#~ msgstr "Esteu segur que voleu desinstal·lar %s?"
-
-#~ msgid ""
-#~ "%s will be uninstalled, and you will have to install it to use it again."
-#~ msgstr ""
-#~ "%s es desinstal·larà i l'haureu d'instal·lar per a tornar-la a utilitzar."
