@@ -16,20 +16,20 @@ Build-Depends: appstream,
                itstool,
                libadwaita-1-dev (>= 1.6~beta),
                libappstream-dev (>= 1.0.0),
-               libflatpak-dev (>= 1.14.0) [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
+               libflatpak-dev (>= 1.14.0) [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
                libfwupd-dev (>= 1.5.6) [linux-any],
                libglib-testing-0-dev,
                libglib2.0-dev (>= 2.76.0),
                libgtk-4-dev (>= 4.13.4),
                libgudev-1.0-dev [linux-any],
                libjson-glib-dev (>= 1.6.0),
-               libmalcontent-0-dev [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
+               libmalcontent-0-dev [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
                libostree-dev (>= 2022.5-2~) [linux-any],
                libpackagekit-glib2-dev (>= 1.2.5),
                libpolkit-gobject-1-dev,
                libsnapd-glib-dev (>= 1.63) [amd64 arm64 armel armhf i386 ppc64el s390x],
                libsoup-3.0-dev,
-               libsysprof-capture-4-dev (>= 3.38.0) [amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x powerpc ppc64],
+               libsysprof-capture-4-dev (>= 3.38.0) [amd64 arm64 armel armhf i386 loong64 mips64el ppc64el riscv64 s390x powerpc ppc64],
                libxml2-utils,
                libxmlb-dev (>= 0.3.4),
                meson (>= 0.55.0),
@@ -58,7 +58,7 @@ Depends: gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin
 Conflicts: sessioninstaller
 Recommends: ${plugin:Recommends}
 Suggests: gnome-software-plugin-deb,
-          gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
+          gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
           gnome-software-plugin-snap [amd64 arm64 armel armhf i386 ppc64el s390x]
 Description: Software Center for GNOME
  Software lets you install and update applications and system extensions.
@@ -110,7 +110,7 @@ Description: .deb support for GNOME Software
  managing .deb packages with apt.
 
 Package: gnome-software-plugin-flatpak
-Architecture: amd64 arm64 armel armhf hppa i386 mips64el mipsel powerpc ppc64 ppc64el riscv64 s390x x32
+Architecture: amd64 arm64 armel armhf hppa i386 loong64 mips64el mipsel powerpc ppc64 ppc64el riscv64 s390x x32
 Depends: flatpak (>= 1.14.0),
          gnome-software (= ${binary:Version}),
          ${misc:Depends},
@@ -179,7 +179,7 @@ Depends: libappstream-dev (>= 0.14.0),
          libjson-glib-dev (>= 1.6.0),
          libpolkit-gobject-1-dev,
          libsoup-3.0-dev,
-         libsysprof-capture-4-dev (>= 3.38.0) [amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x powerpc ppc64],
+         libsysprof-capture-4-dev (>= 3.38.0) [amd64 arm64 armel armhf i386 loong64 mips64el ppc64el riscv64 s390x powerpc ppc64],
          libxmlb-dev (>= 0.3.4),
          ${misc:Depends}
 Suggests: gnome-software-doc
