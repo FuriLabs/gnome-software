@@ -15,6 +15,7 @@ License: GPL-2+
 
 Files: data/metainfo/org.gnome.Software.metainfo.xml*
        plugins/*/*.metainfo.xml*
+       plugins/*/*/*/*/*/*/*/*appdata.xml
 Copyright: 2013-2021, Richard Hughes <richard@hughsie.com>
 License: CC0-1.0
 
