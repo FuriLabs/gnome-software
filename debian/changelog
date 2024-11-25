@@ -1,8 +1,12 @@
-gnome-software (47.2-1) UNRELEASED; urgency=medium
+gnome-software (47.2-1) unstable; urgency=medium
 
+  [ Jeremy Bícha ]
   * New upstream release
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 25 Nov 2024 08:40:34 -0500
+  [ Dandan Zhang ]
+  * Build flatpak plugin & sysprof support for loong64
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 25 Nov 2024 08:51:19 -0500
 
 gnome-software (47.1-1) unstable; urgency=medium
 
