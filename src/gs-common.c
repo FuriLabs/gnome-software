@@ -134,43 +134,16 @@ typedef enum {
 	GS_APP_LICENSE_PATENT_CONCERN	= 2
 } GsAppLicenseHint;
 
-/* We need to ignore the use of AdwMessageDialog in gnome-47 */
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-
-typedef struct
-{
-	gint response_id;
-	GMainLoop *loop;
-} RunInfo;
-
 static void
-shutdown_loop (RunInfo *run_info)
+async_result_cb (GObject      *source_object,
+                 GAsyncResult *result,
+                 gpointer      user_data)
 {
-	if (g_main_loop_is_running (run_info->loop))
-		g_main_loop_quit (run_info->loop);
-}
+	GAsyncResult **result_out = user_data;
 
-static void
-unmap_cb (GtkDialog *dialog,
-          RunInfo   *run_info)
-{
-	shutdown_loop (run_info);
-}
-
-static void
-response_cb (AdwMessageDialog *self,
-             const gchar      *response,
-             RunInfo          *run_info)
-{
-	if (g_strcmp0 (response, "accept") == 0)
-		run_info->response_id = GTK_RESPONSE_OK;
-	else if (g_strcmp0 (response, "install") == 0)
-		run_info->response_id = GTK_RESPONSE_OK;
-	else if (g_strcmp0 (response, "dont-warn-again") == 0)
-		run_info->response_id = GTK_RESPONSE_YES;
-	else
-		run_info->response_id = GTK_RESPONSE_CANCEL;
-	shutdown_loop (run_info);
+	g_assert (*result_out == NULL);
+	*result_out = g_object_ref (result);
+	g_main_context_wakeup (g_main_context_get_thread_default ());
 }
 
 static gboolean
@@ -188,10 +161,10 @@ gs_common_app_is_from_official_repository (GsApp *app,
 }
 
 GtkResponseType
-gs_app_notify_unavailable (GsApp *app, GtkWindow *parent)
+gs_app_notify_unavailable (GsApp *app, GtkWidget *parent)
 {
 	GsAppLicenseHint hint = GS_APP_LICENSE_FREE;
-	GtkWidget *dialog;
+	AdwDialog *dialog;
 	const gchar *license;
 	gboolean already_enabled = FALSE;	/* FIXME */
 	g_autofree gchar *origin_ui = NULL;
@@ -208,11 +181,9 @@ gs_app_notify_unavailable (GsApp *app, GtkWindow *parent)
 	g_autoptr(GSettings) settings = NULL;
 	g_autoptr(GString) body = NULL;
 	const gchar *title;
-
-	RunInfo run_info = {
-		GTK_RESPONSE_NONE,
-		NULL,
-	};
+	g_autoptr(GAsyncResult) result = NULL;
+	const char *response;
+	int response_id = GTK_RESPONSE_NONE;
 
 	/* this is very crude */
 	license = gs_app_get_license (app);
@@ -294,42 +265,47 @@ gs_app_notify_unavailable (GsApp *app, GtkWindow *parent)
 		}
 	}
 
-	dialog = adw_message_dialog_new (parent,
-					 title,
-					 body->str);
-	adw_message_dialog_set_body_use_markup (ADW_MESSAGE_DIALOG (dialog), TRUE);
+	dialog = adw_alert_dialog_new (title, body->str);
+	adw_alert_dialog_set_body_use_markup (ADW_ALERT_DIALOG (dialog), TRUE);
 
-	adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (dialog),
-					 "cancel",  _("_Cancel"));
+	adw_alert_dialog_add_response (ADW_ALERT_DIALOG (dialog),
+				       "cancel",  _("_Cancel"));
 
 	/* TRANSLATORS: this is button text to not ask about non-free content again */
-	if (0) adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (dialog), "dont-warn-again",  _("Don’t _Warn Again"));
+	if (0) adw_alert_dialog_add_response (ADW_ALERT_DIALOG (dialog), "dont-warn-again",  _("Don’t _Warn Again"));
 	if (already_enabled) {
-		adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (dialog),
-						 /* TRANSLATORS: button text */
-						 "install", _("_Install"));
+		adw_alert_dialog_add_response (ADW_ALERT_DIALOG (dialog),
+					       /* TRANSLATORS: button text */
+					       "install", _("_Install"));
 
 	} else {
-		adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (dialog),
-						 /* TRANSLATORS: button text */
-						 "install", _("Enable and _Install"));
+		adw_alert_dialog_add_response (ADW_ALERT_DIALOG (dialog),
+					       /* TRANSLATORS: button text */
+					       "install", _("Enable and _Install"));
 	}
 
-	/* Run */
-	gtk_window_present (GTK_WINDOW (dialog));
+	adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (dialog), "cancel");
 
-	g_signal_connect (dialog, "response", G_CALLBACK (response_cb), &run_info);
-	g_signal_connect (dialog, "unmap", G_CALLBACK (unmap_cb), &run_info);
+	/* Run.
+	 * FIXME: Make this properly async, see https://gitlab.gnome.org/GNOME/gnome-software/-/issues/2741 */
+	adw_alert_dialog_choose (ADW_ALERT_DIALOG (dialog), parent, NULL, async_result_cb, &result);
 
-	run_info.loop = g_main_loop_new (NULL, FALSE);
-	g_main_loop_run (run_info.loop);
-	g_clear_pointer (&run_info.loop, g_main_loop_unref);
+	while (result == NULL)
+		g_main_context_iteration (NULL, TRUE);
 
-	if (run_info.response_id == GTK_RESPONSE_YES) {
-		run_info.response_id = GTK_RESPONSE_OK;
+	response = adw_alert_dialog_choose_finish (ADW_ALERT_DIALOG (dialog), result);
+
+	/* Map responses. */
+	if (g_strcmp0 (response, "install") == 0) {
+		response_id = GTK_RESPONSE_OK;
+	} else if (g_strcmp0 (response, "dont-warn-again") == 0) {
+		response_id = GTK_RESPONSE_OK;
 		g_settings_set_boolean (settings, "prompt-for-nonfree", FALSE);
+	} else {
+		response_id = GTK_RESPONSE_CANCEL;
 	}
-	return run_info.response_id;
+
+	return response_id;
 }
 
 gboolean
@@ -499,19 +475,16 @@ unset_focus (GtkWidget *widget, gpointer data)
  * Inserts a widget displaying the detailed message into the message dialog.
  */
 static void
-insert_details_widget (AdwMessageDialog *dialog,
-		       const gchar *details,
-		       gboolean add_prefix)
+insert_details_widget (AdwAlertDialog *dialog,
+		       const gchar    *details,
+		       gboolean        add_prefix)
 {
-	GtkWidget *box, *sw, *label;
-	GtkWidget *tv;
+	GtkWidget *group, *sw, *tv;
 	GtkTextBuffer *buffer;
 	g_autoptr(GString) msg = NULL;
 
-	g_assert (ADW_IS_MESSAGE_DIALOG (dialog));
+	g_assert (ADW_IS_ALERT_DIALOG (dialog));
 	g_assert (details != NULL);
-
-	gtk_window_set_resizable (GTK_WINDOW (dialog), TRUE);
 
 	if (add_prefix) {
 		msg = g_string_new ("");
@@ -523,32 +496,36 @@ insert_details_widget (AdwMessageDialog *dialog,
 					details);
 	}
 
-	box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-	adw_message_dialog_set_extra_child (ADW_MESSAGE_DIALOG (dialog), box);
-
-	label = gtk_label_new (_("Details"));
-	gtk_widget_set_halign (label, GTK_ALIGN_START);
-	gtk_widget_set_visible (label, TRUE);
-	gtk_box_append (GTK_BOX (box), label);
+	group = adw_preferences_group_new ();
+	adw_preferences_group_set_title (ADW_PREFERENCES_GROUP (group), _("Details"));
+	adw_alert_dialog_set_extra_child (ADW_ALERT_DIALOG (dialog), group);
 
 	sw = gtk_scrolled_window_new ();
 	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw),
 	                                GTK_POLICY_NEVER,
 	                                GTK_POLICY_AUTOMATIC);
 	gtk_scrolled_window_set_min_content_height (GTK_SCROLLED_WINDOW (sw), 150);
-	gtk_widget_set_visible (sw, TRUE);
+	gtk_widget_set_overflow (sw, GTK_OVERFLOW_HIDDEN);
+	gtk_widget_set_vexpand (sw, TRUE);
+	gtk_widget_add_css_class (sw, "card");
 
 	tv = gtk_text_view_new ();
 	buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (tv));
 	gtk_text_view_set_editable (GTK_TEXT_VIEW (tv), FALSE);
 	gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (tv), GTK_WRAP_WORD);
-	gtk_widget_add_css_class (tv, "update-failed-details");
+	gtk_text_view_set_monospace (GTK_TEXT_VIEW (tv), TRUE);
+	gtk_widget_add_css_class (tv, "inline");
+	gtk_widget_add_css_class (tv, "monospace");
+	gtk_text_view_set_top_margin (GTK_TEXT_VIEW (tv), 12);
+	gtk_text_view_set_bottom_margin (GTK_TEXT_VIEW (tv), 12);
+	gtk_text_view_set_right_margin (GTK_TEXT_VIEW (tv), 12);
+	gtk_text_view_set_left_margin (GTK_TEXT_VIEW (tv), 12);
+
 	gtk_text_buffer_set_text (buffer, msg ? msg->str : details, -1);
-	gtk_widget_set_visible (tv, TRUE);
 
 	gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (sw), tv);
-	gtk_widget_set_vexpand (sw, TRUE);
-	gtk_box_append (GTK_BOX (box), sw);
+
+	adw_preferences_group_add (ADW_PREFERENCES_GROUP (group), sw);
 
 	g_signal_connect (dialog, "map", G_CALLBACK (unset_focus), NULL);
 }
@@ -563,27 +540,32 @@ insert_details_widget (AdwMessageDialog *dialog,
  * Shows a message dialog for displaying error messages.
  */
 void
-gs_utils_show_error_dialog (GtkWindow *parent,
+gs_utils_show_error_dialog (GtkWidget *parent,
                             const gchar *title,
                             const gchar *msg,
                             const gchar *details)
 {
-	GtkWidget *dialog;
+	AdwDialog *dialog;
 
-	dialog = adw_message_dialog_new (parent, title, msg);
-	if (details != NULL)
-		insert_details_widget (ADW_MESSAGE_DIALOG (dialog), details, TRUE);
-	adw_message_dialog_add_response (ADW_MESSAGE_DIALOG (dialog),
-					 /* TRANSLATORS: button text */
-					 "close", _("_Close"));
-	gtk_window_present (GTK_WINDOW (dialog));
+	dialog = adw_alert_dialog_new (title, msg);
+	if (details != NULL) {
+		insert_details_widget (ADW_ALERT_DIALOG (dialog), details, TRUE);
+		adw_dialog_set_follows_content_size (dialog, FALSE);
+		adw_dialog_set_content_width (dialog, 500);
+	}
+	adw_alert_dialog_add_response (ADW_ALERT_DIALOG (dialog),
+				       /* TRANSLATORS: button text */
+				       "close", _("_Close"));
+	adw_dialog_present (dialog, parent);
 }
 
 #ifndef TESTDATADIR
 static void
 copy_error_text_clicked_cb (GtkButton *button,
-			    GtkTextView *text_view)
+			    GtkBuilder *builder)
 {
+	AdwToastOverlay *toast_overlay = ADW_TOAST_OVERLAY (gtk_builder_get_object (builder, "toast_overlay"));
+	GtkTextView *text_view = GTK_TEXT_VIEW (gtk_builder_get_object (builder, "text_view"));
 	GdkClipboard *clipboard = gtk_widget_get_clipboard (GTK_WIDGET (text_view));
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (text_view);
 	GtkTextIter start, end;
@@ -592,6 +574,8 @@ copy_error_text_clicked_cb (GtkButton *button,
 	gtk_text_buffer_get_bounds (buffer, &start, &end);
 	text = gtk_text_buffer_get_text (buffer, &start, &end, FALSE);
 	gdk_clipboard_set_text (clipboard, text);
+
+  	adw_toast_overlay_add_toast (toast_overlay, adw_toast_new (_("Details copied to clipboard")));
 }
 #endif
 
@@ -607,110 +591,30 @@ copy_error_text_clicked_cb (GtkButton *button,
  * Since: 44
  */
 void
-gs_utils_show_error_dialog_simple (GtkWindow *parent,
+gs_utils_show_error_dialog_simple (GtkWidget *parent,
 				   const gchar *title,
 				   const gchar *text)
 {
 #ifndef TESTDATADIR
-	GtkWidget *window, *button, *container, *text_view, *vbox, *hbox, *label;
-	g_autoptr(PangoAttrList) bold = NULL;
+	g_autoptr(GtkBuilder) builder = NULL;
+	AdwDialog *dialog;
+	GtkButton *button;
+	GtkLabel *label;
+	GtkTextView *text_view;
 
-	g_return_if_fail (text != NULL);
+	builder = gtk_builder_new_from_resource ("/org/gnome/Software/gs-utils-error-dialog-simple.ui");
+	dialog = ADW_DIALOG (gtk_builder_get_object (builder, "dialog"));
+	button = GTK_BUTTON (gtk_builder_get_object (builder, "button"));
+	label = GTK_LABEL (gtk_builder_get_object (builder, "label"));
+	text_view = GTK_TEXT_VIEW (gtk_builder_get_object (builder, "text_view"));
 
-	bold = pango_attr_list_new ();
-	pango_attr_list_insert (bold, pango_attr_weight_new (PANGO_WEIGHT_BOLD));
-
-	window = adw_window_new ();
-	g_object_set (window,
-		      "modal", TRUE,
-		      "title", " ",
-		      "destroy-with-parent", TRUE,
-		      "default-width", 500,
-		      "default-height", 350,
-		      "resizable", TRUE,
-		      "transient-for", parent,
-		      NULL);
-	vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-	adw_window_set_content (ADW_WINDOW (window), vbox);
-
-	container = adw_header_bar_new ();
-	gtk_widget_add_css_class (container, "flat");
-	gtk_box_append (GTK_BOX (vbox), container);
-
-	label = gtk_label_new (title);
-	g_object_set (label,
-		      "halign", GTK_ALIGN_CENTER,
-		      "margin-start", 12,
-		      "margin-end", 12,
-		      "margin-top", 0,
-		      "margin-bottom", 12,
-		      "justify", GTK_JUSTIFY_CENTER,
-		      "wrap-mode", PANGO_WRAP_WORD_CHAR,
-		      "wrap", TRUE,
-		      "width-chars", 40,
-		      "max-width-chars", 40,
-		      NULL);
-	gtk_widget_add_css_class (label, "title-4");
-	gtk_box_append (GTK_BOX (vbox), label);
-
-	hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-	g_object_set (hbox,
-		      "halign", GTK_ALIGN_FILL,
-		      "hexpand", TRUE,
-		      "margin-start", 12,
-		      "margin-end", 12,
-		      "margin-bottom", 6,
-		      NULL);
-	gtk_box_append (GTK_BOX (vbox), hbox);
-
-	label = gtk_label_new (_("Details"));
-	g_object_set (label,
-		      "halign", GTK_ALIGN_START,
-		      "hexpand", TRUE,
-		      "attributes", bold,
-		      NULL);
-	gtk_box_append (GTK_BOX (hbox), label);
-
-	button = gtk_button_new_from_icon_name ("edit-copy-symbolic");
-	g_object_set (button,
-		      "focus-on-click", FALSE,
-		      NULL);
-	gtk_widget_set_halign (button, GTK_ALIGN_END);
-	gtk_widget_add_css_class (button, "flat");
-	gtk_box_append (GTK_BOX (hbox), button);
-
-	container = gtk_scrolled_window_new ();
-	g_object_set (container,
-		      "hscrollbar-policy", GTK_POLICY_AUTOMATIC,
-		      "vscrollbar-policy", GTK_POLICY_AUTOMATIC,
-		      "margin-start", 12,
-		      "margin-end", 12,
-		      "margin-bottom", 12,
-		      "has-frame", TRUE,
-		      NULL);
-	gtk_widget_add_css_class (container, "gs-rounded");
-	gtk_box_append (GTK_BOX (vbox), container);
-
-	text_view = gtk_text_view_new ();
-	g_object_set (text_view,
-		      "can-focus", FALSE,
-		      "editable", FALSE,
-		      "hexpand", TRUE,
-		      "vexpand", TRUE,
-		      "wrap-mode", GTK_WRAP_WORD_CHAR,
-		      "right-margin", 12,
-		      "left-margin", 12,
-		      "top-margin", 12,
-		      "bottom-margin", 12,
-		      NULL);
-	gtk_widget_add_css_class (text_view, "gs-rounded");
+	gtk_label_set_label (GTK_LABEL (label), title);
 	gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (text_view)), text, -1);
-	gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (container), text_view);
 
 	g_signal_connect (button, "clicked",
-			  G_CALLBACK (copy_error_text_clicked_cb), text_view);
+			  G_CALLBACK (copy_error_text_clicked_cb), builder);
 
-	gtk_widget_set_visible (window, TRUE);
+	adw_dialog_present (dialog, parent);
 #endif /* TESTDATADIR */
 }
 
@@ -729,16 +633,17 @@ gs_utils_show_error_dialog_simple (GtkWindow *parent,
  * Since: 42
  **/
 gboolean
-gs_utils_ask_user_accepts (GtkWindow *parent,
+gs_utils_ask_user_accepts (GtkWidget *parent,
 			   const gchar *title,
 			   const gchar *msg,
 			   const gchar *details,
 			   const gchar *accept_label)
 {
-	GtkWidget *dialog;
-	RunInfo run_info;
+	AdwDialog *dialog;
+	g_autoptr(GAsyncResult) result = NULL;
+	const char *response;
+	int response_id = GTK_RESPONSE_NONE;
 
-	g_return_val_if_fail (parent == NULL || GTK_IS_WINDOW (parent), FALSE);
 	g_return_val_if_fail (title != NULL, FALSE);
 	g_return_val_if_fail (msg != NULL, FALSE);
 
@@ -747,32 +652,35 @@ gs_utils_ask_user_accepts (GtkWindow *parent,
 		accept_label = _("_Accept");
 	}
 
-	dialog = adw_message_dialog_new (parent, title, msg);
+	dialog = adw_alert_dialog_new (title, msg);
 	if (details != NULL)
-		insert_details_widget (ADW_MESSAGE_DIALOG (dialog), details, FALSE);
-	adw_message_dialog_add_responses (ADW_MESSAGE_DIALOG (dialog),
-					  /* TRANSLATORS: button text */
-					  "cancel", _("_Cancel"),
-					  /* TRANSLATORS: button text */
-					  "accept", accept_label,
-					  NULL);
+		insert_details_widget (ADW_ALERT_DIALOG (dialog), details, FALSE);
+	adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
+					/* TRANSLATORS: button text */
+					"cancel", _("_Cancel"),
+					/* TRANSLATORS: button text */
+					"accept", accept_label,
+					NULL);
 
-	run_info.response_id = GTK_RESPONSE_NONE;
-	run_info.loop = g_main_loop_new (NULL, FALSE);
+	adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (dialog), "cancel");
 
-	/* Run */
-	gtk_window_present (GTK_WINDOW (dialog));
+	/* Run.
+	 * FIXME: Make this properly async, see https://gitlab.gnome.org/GNOME/gnome-software/-/issues/2741 */
+	adw_alert_dialog_choose (ADW_ALERT_DIALOG (dialog), parent, NULL, async_result_cb, &result);
 
-	g_signal_connect (dialog, "response", G_CALLBACK (response_cb), &run_info);
-	g_signal_connect (dialog, "unmap", G_CALLBACK (unmap_cb), &run_info);
+	while (result == NULL)
+		g_main_context_iteration (NULL, TRUE);
 
-	g_main_loop_run (run_info.loop);
-	g_clear_pointer (&run_info.loop, g_main_loop_unref);
+	response = adw_alert_dialog_choose_finish (ADW_ALERT_DIALOG (dialog), result);
 
-	return run_info.response_id == GTK_RESPONSE_OK;
+	/* Map responses. */
+	if (g_strcmp0 (response, "accept") == 0)
+		response_id = GTK_RESPONSE_OK;
+	else
+		response_id = GTK_RESPONSE_CANCEL;
+
+	return response_id == GTK_RESPONSE_OK;
 }
-
-G_GNUC_END_IGNORE_DEPRECATIONS
 
 /**
  * gs_utils_get_error_value:
@@ -989,37 +897,31 @@ gs_utils_split_time_difference (gint64 unix_time_seconds,
 	return TRUE;
 }
 
-/**
- * gs_utils_time_to_string:
- * @unix_time_seconds: Time since the epoch in seconds
+/*
+ * gs_utils_split_time_to_datestring:
+ * @days_ago: number of days since the event we want to fetch the relative date as
+ * @weeks_ago: number of weeks since the event we want to fetch the relative date as
+ * @months_ago: number of months since the event we want to fetch the relative date as
+ * @years_ago: number of years since the event we want to fetch the relative date as
  *
- * Converts a time to a string such as "5 minutes ago" or "2 weeks ago"
+ * Converts a time split in days/weeks/months/years difference 
+ * to a relative date string such as "5 days ago" or "2 weeks ago"
  *
- * Returns: (transfer full): the time string, or %NULL if @unix_time_seconds is
- *   not valid
+ * This function returns up to a day level accurate string.
+ * This should not be used outside of gs_utils_time_to_datestring()
+ * or gs_utils_time_to_timestring().
+ * 
+ * Returns: (transfer full): the relative date string
  */
-gchar *
-gs_utils_time_to_string (gint64 unix_time_seconds)
+static gchar *
+gs_utils_split_time_to_datestring (gint days_ago, gint weeks_ago, gint months_ago, gint years_ago)
 {
-	gint minutes_ago, hours_ago, days_ago;
-	gint weeks_ago, months_ago, years_ago;
-
-	if (!gs_utils_split_time_difference (unix_time_seconds,
-		&minutes_ago, &hours_ago, &days_ago,
-		&weeks_ago, &months_ago, &years_ago))
-		return NULL;
-
-	if (minutes_ago < 5) {
-		/* TRANSLATORS: something happened less than 5 minutes ago */
-		return g_strdup (_("Just now"));
-	} else if (hours_ago < 1)
-		return g_strdup_printf (ngettext ("%d minute ago",
-						  "%d minutes ago", minutes_ago),
-					minutes_ago);
-	else if (days_ago < 1)
-		return g_strdup_printf (ngettext ("%d hour ago",
-						  "%d hours ago", hours_ago),
-					hours_ago);
+	if (days_ago < 1) {
+		/* TRANSLATORS: something happened less than a day ago */
+		return g_strdup (_("Today"));
+	} else if (days_ago < 2)
+		/* TRANSLATORS: something happened more than a day ago but less than 2 days ago */
+		return g_strdup (_("Yesterday"));
 	else if (days_ago < 15)
 		return g_strdup_printf (ngettext ("%d day ago",
 						  "%d days ago", days_ago),
@@ -1036,6 +938,67 @@ gs_utils_time_to_string (gint64 unix_time_seconds)
 		return g_strdup_printf (ngettext ("%d year ago",
 						  "%d years ago", years_ago),
 					years_ago);
+}
+
+/**
+ * gs_utils_time_to_datestring:
+ * @unix_time_seconds: Time since the epoch in seconds
+ *
+ * Converts a time to a relative date string such as "5 days ago" or "2 weeks ago"
+ *
+ * This function returns up to a day level accurate string.
+ * This should be used in places like app release date etc.
+ * For accuracy to the minute gs_utils_time_to_timestring() should be used.
+ * 
+ * Returns: (transfer full): the relative date string, or %NULL if 
+ *   @unix_time_seconds is not valid
+ */
+gchar *
+gs_utils_time_to_datestring (gint64 unix_time_seconds)
+{
+	gint minutes_ago, hours_ago, days_ago;
+	gint weeks_ago, months_ago, years_ago;
+
+	if (!gs_utils_split_time_difference (unix_time_seconds,
+		&minutes_ago, &hours_ago, &days_ago,
+		&weeks_ago, &months_ago, &years_ago))
+		return NULL;
+
+	return gs_utils_split_time_to_datestring (days_ago, weeks_ago, months_ago, years_ago);
+}
+
+/**
+ * gs_utils_time_to_timestring:
+ * @unix_time_seconds: Time since the epoch in seconds
+ *
+ * Converts a time to a relative string such as "5 minutes ago" or "2 hours ago"
+ *
+ * This function returns up to a minute level accurate string.
+ * For accuracy to the date gs_utils_time_to_datestring() should be used.
+ *
+ * Returns: (transfer full): the relative time string, or %NULL if 
+ *   @unix_time_seconds is not valid
+ */
+gchar *
+gs_utils_time_to_timestring (gint64 unix_time_seconds)
+{
+	gint minutes_ago, hours_ago, days_ago;
+	gint weeks_ago, months_ago, years_ago;
+
+	if (!gs_utils_split_time_difference (unix_time_seconds,
+		&minutes_ago, &hours_ago, &days_ago,
+		&weeks_ago, &months_ago, &years_ago))
+		return NULL;
+
+	if (minutes_ago < 5) {
+		/* TRANSLATORS: something happened less than 5 minutes ago */
+		return g_strdup (_("Just now"));
+	} else if (hours_ago < 1)
+		return g_strdup_printf (ngettext ("%d minute ago", "%d minutes ago", minutes_ago), minutes_ago);
+	else if (days_ago < 1)
+		return g_strdup_printf (ngettext ("%d hour ago", "%d hours ago", hours_ago), hours_ago);
+	else
+		return gs_utils_split_time_to_datestring (days_ago, weeks_ago, months_ago, years_ago);
 }
 
 static void

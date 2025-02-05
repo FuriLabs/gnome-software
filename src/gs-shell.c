@@ -72,7 +72,6 @@ struct _GsShell
 	GtkWidget		*header_end_widget;
 	GtkWidget		*sub_header_end_widget;
 	GQueue			*back_entry_stack;
-	GPtrArray		*modal_dialogs;
 	AdwLeaflet		*main_leaflet;
 	AdwLeaflet		*details_leaflet;
 	AdwViewStack		*stack_loading;
@@ -124,40 +123,6 @@ enum {
 static GParamSpec *obj_props[PROP_ALLOCATION_WIDTH + 1] = { NULL, };
 
 static guint signals [SIGNAL_LAST] = { 0 };
-
-static void
-modal_dialog_unmapped_cb (GtkWidget *dialog,
-                          GsShell *shell)
-{
-	g_debug ("modal dialog %p unmapped", dialog);
-	g_ptr_array_remove (shell->modal_dialogs, dialog);
-}
-
-void
-gs_shell_modal_dialog_present (GsShell *shell, GtkWindow *window)
-{
-	GtkWindow *parent;
-
-	/* show new modal on top of old modal */
-	if (shell->modal_dialogs->len > 0) {
-		parent = g_ptr_array_index (shell->modal_dialogs,
-					    shell->modal_dialogs->len - 1);
-		g_debug ("using old modal %p as parent", parent);
-	} else {
-		parent = GTK_WINDOW (shell);
-		g_debug ("using main window");
-	}
-	gtk_window_set_transient_for (window, parent);
-
-	/* add to stack, transfer ownership to here */
-	g_ptr_array_add (shell->modal_dialogs, window);
-	g_signal_connect (GTK_WIDGET (window), "unmap",
-	                  G_CALLBACK (modal_dialog_unmapped_cb), shell);
-
-	/* present the new one */
-	gtk_window_set_modal (window, TRUE);
-	gtk_window_present (window);
-}
 
 void
 gs_shell_activate (GsShell *shell)
@@ -401,8 +366,8 @@ gs_shell_basic_auth_start_cb (GsPluginLoader *plugin_loader,
 {
 	GtkWidget *dialog;
 
-	dialog = gs_basic_auth_dialog_new (GTK_WINDOW (shell), remote, realm, callback, callback_data);
-	gs_shell_modal_dialog_present (shell, GTK_WINDOW (dialog));
+	dialog = gs_basic_auth_dialog_new (remote, realm, callback, callback_data);
+	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (shell));
 }
 
 static gboolean
@@ -413,7 +378,7 @@ gs_shell_ask_untrusted_cb (GsPluginLoader *plugin_loader,
 			   const gchar *accept_label,
 			   GsShell *shell)
 {
-	return gs_utils_ask_user_accepts (GTK_WINDOW (shell), title, msg, details, accept_label);
+	return gs_utils_ask_user_accepts (GTK_WIDGET (shell), title, msg, details, accept_label);
 }
 
 static void
@@ -486,7 +451,6 @@ stack_notify_visible_child_cb (GObject    *object,
 	GsPage *page;
 	GtkWidget *widget;
 	GsShellMode mode = gs_shell_get_mode (shell);
-	gsize i;
 
 	update_header_widgets (shell);
 
@@ -562,22 +526,6 @@ stack_notify_visible_child_cb (GObject    *object,
 	if (TRUE)
 #endif
 		gs_shell_refresh_auto_updates_ui (shell);
-
-	/* destroy any existing modals */
-	if (shell->modal_dialogs != NULL) {
-		/* block signal emission of 'unmapped' since that will
-		 * call g_ptr_array_remove_index. The unmapped signal may
-		 * be emitted whilst running unref handlers for
-		 * g_ptr_array_set_size */
-		for (i = 0; i < shell->modal_dialogs->len; ++i) {
-			GtkWidget *dialog = g_ptr_array_index (shell->modal_dialogs, i);
-			g_signal_handlers_disconnect_by_func (dialog,
-							      modal_dialog_unmapped_cb,
-							      shell);
-			gtk_window_destroy (GTK_WINDOW (dialog));
-		}
-		g_ptr_array_set_size (shell->modal_dialogs, 0);
-	}
 }
 
 void
@@ -715,7 +663,7 @@ gs_shell_plugin_events_details_text_cb (GsShell *shell,
 	if (details_message == NULL || *details_message == '\0')
 		details_message = adw_toast_get_title (toast);
 
-	gs_utils_show_error_dialog_simple (GTK_WINDOW (shell),
+	gs_utils_show_error_dialog_simple (GTK_WIDGET (shell),
 					   details_message,
 					   details_text);
 }
@@ -2146,16 +2094,6 @@ gs_shell_setup_pages (GsShell *shell)
 }
 
 static void
-gs_shell_add_about_menu_item (GsShell *shell)
-{
-	g_autoptr(GMenuItem) menu_item = NULL;
-
-	/* TRANSLATORS: this is the menu item that opens the about window */
-	menu_item = g_menu_item_new (_("About Software"), "app.about");
-	g_menu_append_item (G_MENU (shell->primary_menu), menu_item);
-}
-
-static void
 updates_page_notify_counter_cb (GObject    *obj,
                                 GParamSpec *pspec,
                                 gpointer    user_data)
@@ -2194,6 +2132,23 @@ details_page_app_clicked_cb (GsDetailsPage *page,
 	GsShell *shell = GS_SHELL (user_data);
 
 	gs_shell_show_app (shell, app);
+}
+
+/**
+ * gs_shell_is_running:
+ * @self: a #GsShell
+ *
+ * Check whether the @self has been already set up, which roughly means
+ * the gs_shell_setup() has been called.
+ *
+ * Returns: whether the @self has been already set up
+ *
+ * Since: 48
+ **/
+gboolean
+gs_shell_is_running (GsShell *self)
+{
+	return self->plugin_loader != NULL;
 }
 
 void
@@ -2237,9 +2192,6 @@ gs_shell_setup (GsShell *shell, GsPluginLoader *plugin_loader, GCancellable *can
 
 	/* coldplug */
 	gs_shell_rescan_events (shell);
-
-	/* primary menu */
-	gs_shell_add_about_menu_item (shell);
 
 	if (g_settings_get_boolean (shell->settings, "download-updates")) {
 		/* show loading page, which triggers the initial refresh */
@@ -2511,7 +2463,6 @@ gs_shell_dispose (GObject *object)
 	g_clear_object (&shell->header_end_widget);
 	g_clear_object (&shell->sub_header_end_widget);
 	g_clear_object (&shell->page);
-	g_clear_pointer (&shell->modal_dialogs, g_ptr_array_unref);
 	g_clear_object (&shell->settings);
 
 #ifdef HAVE_MOGWAI
@@ -2701,7 +2652,6 @@ gs_shell_init (GsShell *shell)
 	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (shell->search_bar), GTK_EDITABLE (shell->entry_search));
 
 	shell->back_entry_stack = g_queue_new ();
-	shell->modal_dialogs = g_ptr_array_new ();
 }
 
 GsShell *

@@ -1,5 +1,5 @@
 project('gnome-software', 'c',
-  version : '47.4',
+  version : '48.beta',
   license : 'GPL-2.0-or-later',
   default_options : ['warning_level=2', 'c_std=c11'],
   meson_version : '>=1.0.1'
@@ -23,7 +23,7 @@ conf.set_quoted('APPLICATION_ID', application_id)
 
 # this refers to the gnome-software plugin API version
 # this is not in any way related to a package or soname version
-gs_plugin_api_version = '21'
+gs_plugin_api_version = '22'
 conf.set_quoted('GS_PLUGIN_API_VERSION', gs_plugin_api_version)
 
 # private subdirectory of libdir for the private shared libgnomesoftware to live in
@@ -131,13 +131,14 @@ libxmlb = dependency('xmlb', version : '>= 0.3.4', fallback : ['libxmlb', 'libxm
 gio_unix = dependency('gio-unix-2.0', version : '>= 2.56.0')
 gmodule = dependency('gmodule-2.0')
 gtk = dependency('gtk4',
-  version : '>= 4.13.4',
+  version : '>= 4.16.0',
   fallback: ['gtk', 'gtk_dep'],
   default_options: [
+      'build-demos=false',
       'build-examples=false',
       'build-tests=false',
+      'build-testsuite=false',
       'introspection=disabled',
-      'demos=false',
       'vulkan=disabled',
     ]
   )
@@ -145,16 +146,9 @@ glib = dependency('glib-2.0', version : '>= 2.76.0')
 gsettings_desktop_schemas = dependency('gsettings-desktop-schemas', version : '>= 3.18.0')
 json_glib = dependency('json-glib-1.0', version : '>= 1.6.0')
 libm = cc.find_library('m', required: false)
-if get_option('soup2')
-  libsoup = dependency('libsoup-2.4', version : '>= 2.52.0')
-  libsoupapiversion = '2.4'
-  conf.set('SOUP_HTTP_URI_FLAGS', '(G_URI_FLAGS_HAS_PASSWORD | G_URI_FLAGS_ENCODED_PATH | G_URI_FLAGS_ENCODED_QUERY | G_URI_FLAGS_ENCODED_FRAGMENT | G_URI_FLAGS_SCHEME_NORMALIZE)')
-else
-  libsoup = dependency('libsoup-3.0', version : '>= 3.0')
-  libsoupapiversion = '3.0'
-endif
+libsoup = dependency('libsoup-3.0', version : '>= 3.0')
 libadwaita = dependency('libadwaita-1',
-  version: '>=1.6.alpha',
+  version: '>=1.6.0',
   fallback: ['libadwaita', 'libadwaita_dep'],
   default_options: [
     'examples=false',
@@ -215,8 +209,26 @@ if get_option('fwupd')
 endif
 
 if get_option('flatpak')
-  flatpak = dependency('flatpak', version : '>= 1.9.1')
+  flatpak = dependency('flatpak', version : '>= 1.14.1')
   ostree = dependency('ostree-1')
+
+  flatpak_httpbackend = flatpak.get_variable('httpbackend')
+  if flatpak_httpbackend == 'soup'
+    flatpak_soupapiversion = flatpak.get_variable('soupapiversion', default_value: '2')
+    if flatpak_soupapiversion.version_compare('< 3')
+      error('''Flatpak library has been built with 'libsoup2' http backend, which conflicts with 'libsoup3' used by gnome-software.
+
+You can either:
+
+1. Build gnome-software without flatpak support (with -Dflatpak=false) or
+2. Rebuild flatpak library with http backend other than 'libsoup2'.''')
+    else
+      flatpak_summary = '@0@ (@1@)'.format(flatpak_httpbackend, flatpak_soupapiversion)
+    endif
+  else
+    flatpak_summary = flatpak_httpbackend
+  endif
+  summary('Flatpak http backend', '@0@'.format(flatpak_summary), section : 'Misc')
 endif
 
 if get_option('malcontent')
@@ -234,11 +246,7 @@ if get_option('gudev')
 endif
 
 if get_option('snap')
-  if get_option('soup2')
-    snap = dependency('snapd-glib', version : '>= 1.50')
-  else
-    snap = dependency('snapd-glib-2', version : '>= 1.62')
-  endif
+    snap = dependency('snapd-glib-2', version : '>= 1.64')
 endif
 
 if get_option('hardcoded_foss_webapps') or get_option('hardcoded_proprietary_webapps')

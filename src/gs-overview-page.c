@@ -259,7 +259,7 @@ gs_overview_page_get_recent_cb (GObject *source_object, GAsyncResult *res, gpoin
 		/* Shows the latest release date of the app in
 		   relative format (e.g. "10 days ago") on hover. */
 		release_date = gs_app_get_release_date (app);
-		release_date_tooltip = gs_utils_time_to_string (release_date);
+		release_date_tooltip = gs_utils_time_to_datestring (release_date);
 		gtk_widget_set_tooltip_text (tile, release_date_tooltip);
 
 		gtk_flow_box_insert (GTK_FLOW_BOX (self->box_recent), tile, -1);
@@ -383,6 +383,8 @@ decrement_gather_apps (GatherAppsData *data)
 {
 	if (!g_atomic_int_dec_and_test (&data->n_pending))
 		return;
+
+	g_debug ("%s: gathered %u apps", G_STRFUNC, gs_app_list_length (data->list));
 
 	gtk_widget_set_visible (data->self->heading_all_apps, gs_app_list_length (data->list) > 0);
 	gtk_widget_set_visible (data->self->box_all_apps, gs_app_list_length (data->list) > 0);
@@ -1211,6 +1213,8 @@ gs_overview_page_setup (GsPage *page,
 static void
 refreshed_cb (GsOverviewPage *self, gpointer user_data)
 {
+	g_debug ("Overview refresh finished: setting UI to %s", self->empty ? "empty" : "show results");
+
 	if (self->empty) {
 		gtk_stack_set_visible_child_name (GTK_STACK (self->stack_overview), "no-results");
 	} else {
