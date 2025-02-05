@@ -1867,7 +1867,7 @@ gs_app_get_icon_for_size (GsApp       *app,
 		guint icon_width = gs_icon_get_width (icon);
 		guint icon_scale = gs_icon_get_scale (icon);
 
-		g_debug ("\tConsidering icon of type %s (%s), width %u×%u",
+		g_debug ("\tConsidering icon of type %s (%s), width %u@%u",
 			 G_OBJECT_TYPE_NAME (icon), icon_str, icon_width, icon_scale);
 
 		/* To avoid excessive I/O, the loading of AppStream data does
@@ -2821,7 +2821,8 @@ _gs_app_has_desktop_group (GsApp *app, const gchar *desktop_group)
  * The resulting array is an internal structure and must not be
  * modified or freed.
  *
- * Returns: a %NULL-terminated array of strings
+ * Returns: (array zero-terminated=1) (element-type utf8) (transfer none):
+ *         a %NULL-terminated array of strings
  *
  * Since: 3.22
  **/
@@ -2873,7 +2874,8 @@ gs_app_get_menu_path (GsApp *app)
 /**
  * gs_app_set_menu_path:
  * @app: a #GsApp
- * @menu_path: a %NULL-terminated array of strings
+ * @menu_path: (array zero-terminated=1) (element-type utf8) (transfer none):
+ *            a %NULL-terminated array of strings
  *
  * Sets the new menu path. The menu path is an array of path elements.
  * This function creates a deep copy of the path.

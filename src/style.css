@@ -1,10 +1,5 @@
 @define-color flatpak_packaging_color @blue_4;
 
-/* Fix for padding in updates-paused-banner */
-toolbarview.undershoot-top > revealer > windowhandle > box {
-	padding-bottom: 0px;
-}
-
 .details-page {
 	margin: 24px 0px;
 }
@@ -44,7 +39,7 @@ gs-summary-tile image.loading-icon {
 
 .review-row > box {
 	margin: 12px;
-	border-spacing: 3px;
+	border-spacing: 3px 0px;
 }
 
 .review-row textview {
@@ -323,12 +318,6 @@ star-image > image.non-starred {
 	opacity: 0.25;
 }
 
-.update-failed-details {
-	font-family: Monospace;
-	font-size: smaller;
-	padding: 16px;
-}
-
 .gs-rounded {
 	border-radius: 8px;
 }
@@ -368,32 +357,6 @@ scrolledwindow.list-page > viewport > clamp > box {
 .section > label:not(:first-child) { margin-top: 6px; }
 
 .section > box:not(:first-child) { margin-top: 12px; }
-
-/* The following style is taken from libhandy's AdwStatusPage style.
- * FIXME: Drop this style if AdwStatusPage or its GTK 4 successor allows setting
- * a spinner and the updates spinner page can be ported to it. */
-
-clamp.status-page {
-	margin: 36px 12px;
-}
-
-clamp.status-page .iconbox {
-	min-height: 96px;
-	min-width: 96px;
-}
-
-clamp.status-page .icon {
-	min-height: 32px;
-	min-width: 32px;
-}
-
-clamp.status-page .icon:not(:last-child) {
-	margin-bottom: 36px;
-}
-
-clamp.status-page .title:not(:last-child) {
-	margin-bottom: 12px;
-}
 
 app-context-bar .context-tile {
 	border: 1px solid @card_shade_color;

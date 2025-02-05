@@ -1,4 +1,4 @@
-FROM fedora:39
+FROM fedora:41
 
 RUN dnf -y install \
     appstream \
@@ -16,6 +16,7 @@ RUN dnf -y install \
     gcc \
     gdk-pixbuf2-devel \
     gettext \
+    gi-docgen \
     git \
     glib2-devel \
     gobject-introspection \
@@ -38,7 +39,7 @@ RUN dnf -y install \
     libjpeg-turbo-devel \
     liboauth-devel \
     libsecret-devel \
-    libsoup-devel \
+    libsoup3-devel \
     libstemmer-devel \
     libXcursor-devel \
     libXdamage-devel \

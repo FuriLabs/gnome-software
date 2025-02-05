@@ -33,7 +33,6 @@ struct _GsReposDialog
 	GsPluginLoader	*plugin_loader;
 	GtkWidget	*status_empty;
 	GtkWidget	*content_page;
-	GtkWidget	*spinner;
 	GtkWidget	*stack;
 };
 
@@ -564,9 +563,6 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 		g_hash_table_iter_remove (&iter);
 	}
 
-	/* stop the spinner */
-	gtk_spinner_stop (GTK_SPINNER (dialog->spinner));
-
 	/* no results */
 	if (gs_app_list_length (list) == 0) {
 		g_debug ("no sources to show");
@@ -605,9 +601,7 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 		adw_switch_row_set_active (ADW_SWITCH_ROW (row), dialog->third_party_enabled);
 		g_signal_connect_object (row, "notify::active",
 					 G_CALLBACK (fedora_third_party_repos_switch_notify_cb), dialog, 0);
-#if ADW_CHECK_VERSION(1,2,0)
 		adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (row), FALSE);
-#endif
 		adw_preferences_row_set_title (ADW_PREFERENCES_ROW (row), _("Enable New Repositories"));
 		adw_action_row_set_subtitle (ADW_ACTION_ROW (row), _("Turn on new repositories when they are added"));
 		gtk_widget_set_visible (row, TRUE);
@@ -853,7 +847,6 @@ gs_repos_dialog_class_init (GsReposDialogClass *klass)
 
 	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, status_empty);
 	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, content_page);
-	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, spinner);
 	gtk_widget_class_bind_template_child (widget_class, GsReposDialog, stack);
 }
 
@@ -867,7 +860,6 @@ gs_repos_dialog_new (GsPluginLoader *plugin_loader)
 	dialog->third_party = gs_fedora_third_party_new (plugin_loader);
 	set_plugin_loader (dialog, plugin_loader);
 	gtk_stack_set_visible_child_name (GTK_STACK (dialog->stack), "waiting");
-	gtk_spinner_start (GTK_SPINNER (dialog->spinner));
 	reload_third_party_repos (dialog);
 
 	return GTK_WIDGET (dialog);

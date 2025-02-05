@@ -10,6 +10,7 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -qq -y \
     gcc \
     g++ \
     gettext \
+    gi-docgen \
     git \
     gnome-pkg-tools \
     gobject-introspection \
@@ -46,7 +47,7 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -qq -y \
     libpango1.0-dev \
     libpolkit-gobject-1-dev \
     librsvg2-common \
-    libsoup2.4-dev \
+    libsoup-3.0-dev \
     libstemmer-dev \
     libxcursor-dev \
     libxdamage-dev \

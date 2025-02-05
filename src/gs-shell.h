@@ -49,8 +49,6 @@ void		 gs_shell_change_mode		(GsShell	*shell,
 void		 gs_shell_reset_state		(GsShell	*shell);
 void		 gs_shell_set_mode		(GsShell	*shell,
 						 GsShellMode	 mode);
-void		 gs_shell_modal_dialog_present	(GsShell	*shell,
-						 GtkWindow	*window);
 GsShellMode	 gs_shell_get_mode		(GsShell	*shell);
 const gchar	*gs_shell_get_mode_string	(GsShell	*shell);
 void		 gs_shell_install		(GsShell		*shell,
@@ -79,6 +77,7 @@ void		 gs_shell_show_extras_search	(GsShell	*shell,
 						 const gchar	*ident);
 void		 gs_shell_show_uri		(GsShell	*shell,
 						 const gchar	*url);
+gboolean	 gs_shell_is_running		(GsShell	*self);
 void		 gs_shell_setup			(GsShell	*shell,
 						 GsPluginLoader	*plugin_loader,
 						 GCancellable	*cancellable);

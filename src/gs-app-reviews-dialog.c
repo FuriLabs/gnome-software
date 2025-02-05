@@ -18,6 +18,7 @@
 struct _GsAppReviewsDialog
 {
 	AdwDialog	 parent_instance;
+	GtkWidget       *toast_overlay;
 	GtkWidget	*listbox;
 	GtkWidget	*stack;
 
@@ -36,6 +37,14 @@ typedef enum {
 	PROP_PLUGIN_LOADER,
 } GsAppReviewsDialogProperty;
 
+typedef struct {
+	GsReviewRow        *row; /* (not nullable) (unowned) */
+	GsAppReviewsDialog *dialog; /* (not nullable) (unowned) */
+	GsReviewAction      action;
+} AsyncReviewData;
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (AsyncReviewData, g_free)
+
 static GParamSpec *obj_props[PROP_PLUGIN_LOADER + 1] = { NULL, };
 
 enum {
@@ -47,10 +56,89 @@ static guint signals[SIGNAL_LAST] = { 0 };
 
 static void refresh_reviews (GsAppReviewsDialog *self);
 
+static void
+display_error_toast (GsAppReviewsDialog *dialog,
+                     const gchar *error_text)
+{
+	AdwToast *toast;
+
+	g_return_if_fail (GS_IS_APP_REVIEWS_DIALOG (dialog));
+	g_return_if_fail (error_text != NULL);
+
+	toast = adw_toast_new (error_text);
+
+	adw_toast_overlay_add_toast (ADW_TOAST_OVERLAY (dialog->toast_overlay), toast);
+}
+
 static gint
 sort_reviews (AsReview **a, AsReview **b)
 {
 	return -g_date_time_compare (as_review_get_date (*a), as_review_get_date (*b));
+}
+
+static void
+review_action_completed_cb (GObject      *source_object,
+                            GAsyncResult *result,
+                            gpointer      user_data)
+{
+	GsOdrsProvider *odrs_provider = GS_ODRS_PROVIDER (source_object);
+	g_autoptr(GError) local_error = NULL;
+	g_autoptr(AsyncReviewData) data = g_steal_pointer (&user_data);
+	gboolean success;
+
+	/* enable review actions after action completion */
+	gs_review_row_actions_set_sensitive (data->row, TRUE);
+
+	if (g_cancellable_is_cancelled (g_task_get_cancellable (G_TASK (result))))
+		return;
+
+	switch (data->action) {
+	case GS_REVIEW_ACTION_UPVOTE:
+		success = gs_odrs_provider_upvote_review_finish (odrs_provider, result, &local_error);
+		break;
+	case GS_REVIEW_ACTION_DOWNVOTE:
+		success = gs_odrs_provider_downvote_review_finish (odrs_provider, result, &local_error);
+		break;
+	case GS_REVIEW_ACTION_REPORT:
+		success = gs_odrs_provider_report_review_finish (odrs_provider, result, &local_error);
+		break;
+	case GS_REVIEW_ACTION_REMOVE:
+		success = gs_odrs_provider_remove_review_finish (odrs_provider, result, &local_error);
+		/* update the local app */
+		if (success) {
+			gs_app_remove_review (data->dialog->app, gs_review_row_get_review (data->row));
+			refresh_reviews (data->dialog);
+		}
+		break;
+	default:
+		g_assert_not_reached ();
+	}
+
+	if (!success) {
+		const char *translatable_message;
+
+		g_assert (local_error != NULL);
+
+		g_warning ("failed to %s review on %s: %s",
+			   gs_review_row_action_to_string (data->action),
+			   gs_app_get_id (data->dialog->app),
+			   local_error->message);
+
+		if (g_error_matches (local_error, GS_ODRS_PROVIDER_ERROR,
+				     GS_ODRS_PROVIDER_ERROR_PARSING_DATA)) {
+			translatable_message = _("Invalid ratings data received from server");
+		} else if (g_error_matches (local_error, GS_ODRS_PROVIDER_ERROR,
+					    GS_ODRS_PROVIDER_ERROR_SERVER_ERROR)) {
+			translatable_message = _("Could not communicate with ratings server");
+		} else {
+			/* likely a programming error in gnome-software, so don’t
+			 * waste a translatable string on it */
+			translatable_message = local_error->message;
+		}
+
+		display_error_toast (data->dialog, translatable_message);
+		return;
+	}
 }
 
 static void
@@ -60,41 +148,48 @@ review_button_clicked_cb (GsReviewRow        *row,
 {
 	AsReview *review = gs_review_row_get_review (row);
 	g_autoptr(GError) local_error = NULL;
+	g_autoptr(AsyncReviewData) data = g_new0 (AsyncReviewData, 1);
 
 	g_assert (self->odrs_provider != NULL);
 
-	/* FIXME: Make this async */
+	data->row = row;
+	data->dialog = self;
+	data->action = action;
+
+	/* avoid submitting duplicate requests */
+	gs_review_row_actions_set_sensitive (row, FALSE);
+
 	switch (action) {
 	case GS_REVIEW_ACTION_UPVOTE:
-		gs_odrs_provider_upvote_review (self->odrs_provider, self->app,
-						review, self->cancellable,
-						&local_error);
-		break;
+		gs_odrs_provider_upvote_review_async (self->odrs_provider, self->app,
+						      review, self->cancellable,
+						      review_action_completed_cb,
+						      g_steal_pointer (&data));
+
+		return;
 	case GS_REVIEW_ACTION_DOWNVOTE:
-		gs_odrs_provider_downvote_review (self->odrs_provider, self->app,
-						  review, self->cancellable,
-						  &local_error);
-		break;
+		gs_odrs_provider_downvote_review_async (self->odrs_provider, self->app,
+							review, self->cancellable,
+							review_action_completed_cb,
+							g_steal_pointer (&data));
+
+		return;
 	case GS_REVIEW_ACTION_REPORT:
-		gs_odrs_provider_report_review (self->odrs_provider, self->app,
-						review, self->cancellable,
-						&local_error);
-		break;
+		gs_odrs_provider_report_review_async (self->odrs_provider, self->app,
+						      review, self->cancellable,
+						      review_action_completed_cb,
+						      g_steal_pointer (&data));
+
+		return;
 	case GS_REVIEW_ACTION_REMOVE:
-		if (gs_odrs_provider_remove_review (self->odrs_provider, self->app,
-						    review, self->cancellable,
-						    &local_error)) {
-			refresh_reviews (self);
-		}
-		break;
+		gs_odrs_provider_remove_review_async (self->odrs_provider, self->app,
+						      review, self->cancellable,
+						      review_action_completed_cb,
+						      g_steal_pointer (&data));
+
+		return;
 	default:
 		g_assert_not_reached ();
-	}
-
-	if (local_error != NULL) {
-		g_warning ("failed to set review on %s: %s",
-			   gs_app_get_id (self->app), local_error->message);
-		return;
 	}
 }
 
@@ -203,7 +298,7 @@ populate_reviews (GsAppReviewsDialog *self)
 		else
 			actions = possible_actions & ~(1u << GS_REVIEW_ACTION_REMOVE);
 		gs_review_row_set_actions (GS_REVIEW_ROW (row), actions);
-		gs_review_row_set_network_available (GS_REVIEW_ROW (row),
+		gs_review_row_actions_set_sensitive (GS_REVIEW_ROW (row),
 						     GS_IS_PLUGIN_LOADER (self->plugin_loader) && gs_plugin_loader_get_network_available (self->plugin_loader));
 	}
 
@@ -422,6 +517,7 @@ gs_app_reviews_dialog_class_init (GsAppReviewsDialogClass *klass)
 
 	gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Software/gs-app-reviews-dialog.ui");
 
+	gtk_widget_class_bind_template_child (widget_class, GsAppReviewsDialog, toast_overlay);
 	gtk_widget_class_bind_template_child (widget_class, GsAppReviewsDialog, listbox);
 	gtk_widget_class_bind_template_child (widget_class, GsAppReviewsDialog, stack);
 }

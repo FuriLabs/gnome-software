@@ -14,6 +14,7 @@ src/gs-app-addon-row.c
 src/gs-app-addon-row.ui
 src/gs-app-details-page.c
 src/gs-app-details-page.ui
+src/gs-app-reviews-dialog.c
 src/gs-app-reviews-dialog.ui
 src/gs-app-version-history-dialog.ui
 src/gs-app-version-history-row.c
@@ -68,6 +69,7 @@ src/gs-page.c
 src/gs-prefs-dialog.ui
 src/gs-removal-dialog.c
 src/gs-removal-dialog.ui
+src/gs-remove-app-dialog.ui
 src/gs-repos-dialog.c
 src/gs-repos-dialog.ui
 src/gs-repo-row.c
@@ -105,6 +107,7 @@ src/gs-updates-section.c
 src/gs-updates-section.ui
 src/gs-upgrade-banner.c
 src/gs-upgrade-banner.ui
+src/gs-utils-error-dialog-simple.ui
 lib/gs-utils.c
 src/org.gnome.Software.desktop.in
 plugins/dkms/gs-plugin-dkms.c
@@ -126,3 +129,4 @@ plugins/packagekit/gs-plugin-packagekit.c
 plugins/rpm-ostree/gs-plugin-rpm-ostree.c
 plugins/snap/gs-plugin-snap.c
 plugins/snap/org.gnome.Software.Plugin.Snap.metainfo.xml.in
+plugins/systemd-sysupdate/gs-plugin-systemd-sysupdate.c

@@ -24,7 +24,9 @@ G_BEGIN_DECLS
  * @GS_ODRS_PROVIDER_ERROR_DOWNLOADING: Error while downloading ODRS data.
  * @GS_ODRS_PROVIDER_ERROR_PARSING_DATA: Problem parsing downloaded ODRS data.
  * @GS_ODRS_PROVIDER_ERROR_NO_NETWORK: Offline or network unavailable.
- * @GS_ODRS_PROVIDER_ERROR_SERVER_ERROR: Server rejected ODRS submission or returned an error.
+ * @GS_ODRS_PROVIDER_ERROR_SERVER_ERROR: Server returned an error.
+ * @GS_ODRS_PROVIDER_ERROR_CLIENT_ERROR: Client made an invalid submission,
+ *    such as upvoting a review twice. (Since: 48)
  *
  * Error codes for #GsOdrsProvider.
  *
@@ -35,6 +37,7 @@ typedef enum {
 	GS_ODRS_PROVIDER_ERROR_PARSING_DATA,
 	GS_ODRS_PROVIDER_ERROR_NO_NETWORK,
 	GS_ODRS_PROVIDER_ERROR_SERVER_ERROR,
+	GS_ODRS_PROVIDER_ERROR_CLIENT_ERROR,
 } GsOdrsProviderError;
 
 #define GS_ODRS_PROVIDER_ERROR gs_odrs_provider_error_quark ()
@@ -86,29 +89,49 @@ gboolean	 gs_odrs_provider_refine_finish		(GsOdrsProvider		 *self,
 							 GAsyncResult		 *result,
 							 GError			**error);
 
-gboolean	 gs_odrs_provider_submit_review		(GsOdrsProvider		 *self,
+void		 gs_odrs_provider_submit_review_async	(GsOdrsProvider		 *self,
 							 GsApp			 *app,
 							 AsReview		 *review,
 							 GCancellable		 *cancellable,
+							 GAsyncReadyCallback	  callback,
+							 gpointer		  user_data);
+gboolean	 gs_odrs_provider_submit_review_finish	(GsOdrsProvider		 *self,
+							 GAsyncResult		 *result,
 							 GError			**error);
-gboolean	 gs_odrs_provider_report_review		(GsOdrsProvider		 *self,
+void		 gs_odrs_provider_upvote_review_async	(GsOdrsProvider		 *self,
 							 GsApp			 *app,
 							 AsReview		 *review,
 							 GCancellable		 *cancellable,
+							 GAsyncReadyCallback	  callback,
+							 gpointer		  user_data);
+gboolean	 gs_odrs_provider_upvote_review_finish	(GsOdrsProvider		 *self,
+							 GAsyncResult		 *result,
 							 GError			**error);
-gboolean	 gs_odrs_provider_upvote_review		(GsOdrsProvider		 *self,
+void		 gs_odrs_provider_downvote_review_async	(GsOdrsProvider		 *self,
 							 GsApp			 *app,
 							 AsReview		 *review,
 							 GCancellable		 *cancellable,
+							 GAsyncReadyCallback	  callback,
+							 gpointer		  user_data);
+gboolean	 gs_odrs_provider_downvote_review_finish(GsOdrsProvider		 *self,
+							 GAsyncResult		 *result,
 							 GError			**error);
-gboolean	 gs_odrs_provider_downvote_review	(GsOdrsProvider		 *self,
+void		 gs_odrs_provider_report_review_async	(GsOdrsProvider		 *self,
 							 GsApp			 *app,
 							 AsReview		 *review,
 							 GCancellable		 *cancellable,
+							 GAsyncReadyCallback	  callback,
+							 gpointer		  user_data);
+gboolean	 gs_odrs_provider_report_review_finish	(GsOdrsProvider		 *self,
+							 GAsyncResult		 *result,
 							 GError			**error);
-gboolean	 gs_odrs_provider_remove_review		(GsOdrsProvider		 *self,
+void		 gs_odrs_provider_remove_review_async	(GsOdrsProvider		 *self,
 							 GsApp			 *app,
 							 AsReview		 *review,
 							 GCancellable		 *cancellable,
+							 GAsyncReadyCallback	  callback,
+							 gpointer		  user_data);
+gboolean	 gs_odrs_provider_remove_review_finish	(GsOdrsProvider		 *self,
+							 GAsyncResult		 *result,
 							 GError			**error);
 G_END_DECLS

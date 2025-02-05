@@ -164,7 +164,6 @@ struct _GsDetailsPage
 	GtkWidget		*histogram_row;
 	GtkWidget		*write_review_button_row;
 	GtkWidget		*scrolledwindow_details;
-	GtkWidget		*spinner_details;
 	GtkWidget		*stack_details;
 	GtkWidget		*box_with_source;
 	GtkWidget		*origin_popover;
@@ -229,19 +228,6 @@ gs_details_page_set_state (GsDetailsPage *self,
 {
 	if (state == gs_details_page_get_state (self))
 		return;
-
-	/* spinner */
-	switch (state) {
-	case GS_DETAILS_PAGE_STATE_LOADING:
-		gtk_spinner_start (GTK_SPINNER (self->spinner_details));
-		break;
-	case GS_DETAILS_PAGE_STATE_READY:
-	case GS_DETAILS_PAGE_STATE_FAILED:
-		gtk_spinner_stop (GTK_SPINNER (self->spinner_details));
-		break;
-	default:
-		g_assert_not_reached ();
-	}
 
 	/* stack */
 	switch (state) {
@@ -766,8 +752,17 @@ sort_by_packaging_format_preference (GsApp *app1,
 	index2 = gs_details_page_get_app_packaging_format_preference_index (self, app2);
 
 	if (index1 == index2) {
-		g_autofree gchar *a1_origin = gs_app_dup_origin_ui (app1, TRUE);
-		g_autofree gchar *a2_origin = gs_app_dup_origin_ui (app2, TRUE);
+		gboolean app1_verified = gs_app_has_quirk (app1, GS_APP_QUIRK_DEVELOPER_VERIFIED);
+		gboolean app2_verified = gs_app_has_quirk (app2, GS_APP_QUIRK_DEVELOPER_VERIFIED);
+		g_autofree gchar *a1_origin = NULL;
+		g_autofree gchar *a2_origin = NULL;
+
+		/* Prefer verified before unverified formats */
+		if (app1_verified != app2_verified)
+			return app1_verified ? -1 : 1;
+
+		a1_origin = gs_app_dup_origin_ui (app1, TRUE);
+		a2_origin = gs_app_dup_origin_ui (app2, TRUE);
 
 		return gs_utils_sort_strcmp (a1_origin, a2_origin);
 	}
@@ -1212,17 +1207,11 @@ update_action_row_from_link (AdwActionRow *row,
 {
 	const gchar *url = gs_app_get_url (app, url_kind);
 
-#if ADW_CHECK_VERSION(1,2,0)
 	adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (row), FALSE);
+	adw_action_row_set_subtitle_selectable (row, TRUE);
 
 	if (url != NULL)
 		adw_action_row_set_subtitle (row, url);
-#else
-	if (url != NULL) {
-		g_autofree gchar *escaped_url = g_markup_escape_text (url, -1);
-		adw_action_row_set_subtitle (row, escaped_url);
-	}
-#endif
 
 	gtk_widget_set_visible (GTK_WIDGET (row), url != NULL);
 
@@ -1816,7 +1805,7 @@ gs_details_page_refresh_reviews (GsDetailsPage *self)
 		gtk_list_box_row_set_activatable (GTK_LIST_BOX_ROW (row), FALSE);
 		gtk_list_box_prepend (GTK_LIST_BOX (self->list_box_featured_review), row);
 
-		gs_review_row_set_network_available (GS_REVIEW_ROW (row),
+		gs_review_row_actions_set_sensitive (GS_REVIEW_ROW (row),
 						     gs_plugin_loader_get_network_available (self->plugin_loader));
 	}
 
@@ -1874,10 +1863,12 @@ gs_details_page_app_refine_cb (GObject *source,
 static void
 _set_app (GsDetailsPage *self, GsApp *app)
 {
-	GsJobManager *job_manager = gs_plugin_loader_get_job_manager (self->plugin_loader);
+	GsJobManager *job_manager;
 
 	if (self->app == app)
 		return;
+
+	job_manager = gs_plugin_loader_get_job_manager (self->plugin_loader);
 
 	/* do not show all the reviews by default */
 	self->show_all_reviews = FALSE;
@@ -2374,6 +2365,73 @@ gs_details_page_app_launch_button_cb (GtkWidget *widget, GsDetailsPage *self)
 	gs_page_launch_app (GS_PAGE (self), self->app, self->cancellable);
 }
 
+typedef struct {
+	GsDetailsPage *details_page;  /* (not nullable) (unowned) */
+	GWeakRef dialog_weak; /* (element-type GsReviewDialog) (owned) */
+	GsApp *app;  /* (not nullable) (owned) */
+} ReviewSubmitData;
+
+static void
+submit_review_data_free (ReviewSubmitData *data)
+{
+	g_clear_object (&data->app);
+	g_weak_ref_clear (&data->dialog_weak);
+	g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (ReviewSubmitData, submit_review_data_free);
+
+static void
+review_submitted_cb (GObject *source_object,
+		     GAsyncResult *result,
+		     gpointer user_data)
+{
+	GsOdrsProvider *odrs_provider = GS_ODRS_PROVIDER (source_object);
+	g_autoptr(ReviewSubmitData) data = g_steal_pointer (&user_data);
+	GsDetailsPage *self = data->details_page;
+	g_autoptr(GsReviewDialog) review_dialog = g_weak_ref_get (&data->dialog_weak);
+	g_autoptr(GError) local_error = NULL;
+
+	/* enable submit action after action completion */
+	gs_review_dialog_submit_set_sensitive (review_dialog, TRUE);
+
+	/* if the dialog which triggered this callback is open. */
+	if (!gs_odrs_provider_submit_review_finish (odrs_provider, result, &local_error)) {
+		g_autofree gchar *tmp = NULL;
+		const char *translatable_message;
+
+		/* Print a warning with the full error message, before we simplify
+		 * it for display in the UI. */
+		g_warning ("Failed to submit review for “%s”: %s",
+			   gs_app_get_name (data->app),
+			   local_error->message);
+
+		if (g_error_matches (local_error, GS_ODRS_PROVIDER_ERROR,
+				     GS_ODRS_PROVIDER_ERROR_PARSING_DATA)) {
+			translatable_message = _("Invalid review response received from server");
+		} else if (g_error_matches (local_error, GS_ODRS_PROVIDER_ERROR,
+					    GS_ODRS_PROVIDER_ERROR_SERVER_ERROR)) {
+			translatable_message = _("Could not communicate with ratings server");
+		} else {
+			/* likely a programming error in gnome-software, so don’t
+			 * waste a translatable string on it */
+			translatable_message = local_error->message;
+		}
+
+		tmp = g_strdup_printf (_("Failed to submit review for “%s”: %s"), gs_app_get_name (data->app), translatable_message);
+		if (review_dialog != NULL)
+			gs_review_dialog_set_error_text (review_dialog, tmp);
+
+		return;
+	}
+
+	gs_details_page_refresh_reviews (self);
+
+	/* ensure the dialog is now closed */
+	if (review_dialog != NULL)
+		adw_dialog_force_close (ADW_DIALOG (review_dialog));
+}
+
 static void
 gs_details_page_review_send_cb (GsReviewDialog *dialog,
 				GsDetailsPage  *self)
@@ -2381,8 +2439,8 @@ gs_details_page_review_send_cb (GsReviewDialog *dialog,
 	g_autofree gchar *text = NULL;
 	g_autoptr(GDateTime) now = NULL;
 	g_autoptr(AsReview) review = NULL;
+	g_autoptr(ReviewSubmitData) user_data = NULL;
 	GsReviewDialog *rdialog = GS_REVIEW_DIALOG (dialog);
-	g_autoptr(GError) local_error = NULL;
 
 	review = as_review_new ();
 	as_review_set_summary (review, gs_review_dialog_get_summary (rdialog));
@@ -2394,25 +2452,17 @@ gs_details_page_review_send_cb (GsReviewDialog *dialog,
 	as_review_set_date (review, now);
 
 	/* call into the plugins to set the new value */
-	/* FIXME: Make this async */
 	g_assert (self->odrs_provider != NULL);
 
-	gs_odrs_provider_submit_review (self->odrs_provider, self->app, review,
-					self->cancellable, &local_error);
+	user_data = g_new0 (ReviewSubmitData, 1);
+	user_data->details_page = self;
+	g_weak_ref_init (&user_data->dialog_weak, rdialog);
+	user_data->app = g_object_ref (self->app);
 
-	if (local_error != NULL) {
-		g_autofree gchar *tmp = NULL;
-		g_debug ("failed to submit review on '%s': %s",
-			   gs_app_get_id (self->app), local_error->message);
-		tmp = g_strdup_printf (_("Failed to submit review for “%s”: %s"), gs_app_get_name (self->app), local_error->message);
-		gs_review_dialog_set_error_text (rdialog, tmp);
-		return;
-	}
-
-	gs_details_page_refresh_reviews (self);
-
-	/* unmap the dialog */
-	adw_dialog_force_close (ADW_DIALOG (dialog));
+	/* avoid submitting duplicate requests */
+	gs_review_dialog_submit_set_sensitive (rdialog, FALSE);
+	gs_odrs_provider_submit_review_async (self->odrs_provider, self->app, review,
+					      self->cancellable, review_submitted_cb, g_steal_pointer (&user_data));
 }
 
 static void
@@ -2759,7 +2809,6 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, histogram_row);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, write_review_button_row);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, scrolledwindow_details);
-	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, spinner_details);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, stack_details);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_with_source);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, origin_popover);

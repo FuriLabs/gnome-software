@@ -23,6 +23,11 @@
 #include "gs-upgrade-banner.h"
 #include "gs-application.h"
 
+/* The "updates-changed" is delays by 3 seconds; give it twice time to be delivered
+   and the page reload ignored when the signal comes within this time limit. It's
+   because the plugins can emit the signal when the they are refreshing metadata. */
+#define IGNORE_UPDATES_CHANGED_WITHIN_SECS 6
+
 typedef enum {
 	GS_UPDATES_PAGE_FLAG_NONE		= 0,
 	GS_UPDATES_PAGE_FLAG_HAS_UPDATES	= 1 << 0,
@@ -70,7 +75,6 @@ struct _GsUpdatesPage
 	GtkLabel		*uptodate_description;
 	GtkLabel		*label_last_checked;
 	GtkWidget		*scrolledwindow_updates;
-	GtkWidget		*spinner_updates;
 	GtkWidget		*stack_updates;
 	GtkWidget		*upgrade_banner;
 	GtkWidget		*banner_end_of_life;
@@ -84,6 +88,7 @@ struct _GsUpdatesPage
 	GsUpdatesSection	*sections[GS_UPDATES_SECTION_KIND_LAST];
 
 	guint			 refresh_last_checked_id;
+	gint64			 last_loaded_time;
 };
 
 enum {
@@ -197,7 +202,7 @@ gs_updates_page_last_checked_time_string (GsUpdatesPage *self,
 	gchar *res;
 
 	g_settings_get (self->settings, "check-timestamp", "x", &last_checked);
-	res = gs_utils_time_to_string (last_checked);
+	res = gs_utils_time_to_timestring (last_checked);
 	if (res) {
 		g_assert (gs_utils_split_time_difference (last_checked, NULL, out_hours_ago, out_days_ago, NULL, NULL, NULL));
 	}
@@ -295,11 +300,7 @@ gs_updates_page_update_ui_state (GsUpdatesPage *self)
 	switch (self->state) {
 	case GS_UPDATES_PAGE_STATE_STARTUP:
 	case GS_UPDATES_PAGE_STATE_ACTION_GET_UPDATES:
-	case GS_UPDATES_PAGE_STATE_ACTION_REFRESH:
-		gtk_spinner_start (GTK_SPINNER (self->spinner_updates));
-		break;
 	default:
-		gtk_spinner_stop (GTK_SPINNER (self->spinner_updates));
 		gtk_spinner_stop (GTK_SPINNER (self->header_spinner_start));
 		gtk_widget_set_visible (self->header_spinner_start, FALSE);
 		break;
@@ -350,9 +351,6 @@ gs_updates_page_update_ui_state (GsUpdatesPage *self)
 		gtk_stack_set_visible_child_name (GTK_STACK (self->stack_updates), "failed");
 		break;
 	case GS_UPDATES_PAGE_STATE_ACTION_GET_UPDATES:
-		gtk_stack_set_visible_child_name (GTK_STACK (self->stack_updates),
-						  "spinner");
-		break;
 	case GS_UPDATES_PAGE_STATE_ACTION_REFRESH:
 		gtk_stack_set_visible_child_name (GTK_STACK (self->stack_updates), "spinner");
 		break;
@@ -463,6 +461,8 @@ gs_updates_page_get_updates_cb (GsPluginLoader *plugin_loader,
 		refresh_headerbar_updates_counter (self);
 		return;
 	}
+
+	self->last_loaded_time = g_get_real_time ();
 
 	/* add the results */
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
@@ -1111,13 +1111,21 @@ static void
 gs_updates_page_changed_cb (GsPluginLoader *plugin_loader,
                             GsUpdatesPage *self)
 {
+	gint64 diff_secs;
+
 	/* if we do a live update and the upgrade is waiting to be deployed
 	 * then make sure all new packages are downloaded */
 	gs_updates_page_invalidate_downloaded_upgrade (self);
 
 	/* check to see if any apps in the app list are in a processing state */
 	if (gs_shell_update_are_updates_in_progress (self)) {
-		g_debug ("ignoring updates-changed as updates in progress");
+		g_debug ("updates-page: ignoring updates-changed as updates in progress");
+		return;
+	}
+
+	diff_secs = (g_get_real_time () - self->last_loaded_time) / G_USEC_PER_SEC;
+	if (diff_secs <= IGNORE_UPDATES_CHANGED_WITHIN_SECS) {
+		g_debug ("updates-page: ignoring updates-changed as did load only %" G_GINT64_FORMAT " secs ago", diff_secs);
 		return;
 	}
 
@@ -1382,7 +1390,6 @@ gs_updates_page_class_init (GsUpdatesPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, uptodate_description);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, label_last_checked);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, scrolledwindow_updates);
-	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, spinner_updates);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, stack_updates);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, upgrade_banner);
 	gtk_widget_class_bind_template_child (widget_class, GsUpdatesPage, banner_end_of_life);

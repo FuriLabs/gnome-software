@@ -99,6 +99,8 @@ libgnomesoftware_include_directories = [
   include_directories('.'),
 ]
 
+libgnomesoftware_generated_sources = libgnomesoftware_enums + [gs_build_ident_h]
+
 libgnomesoftware = library(
   'gnomesoftware',
   sources : [
@@ -150,7 +152,7 @@ libgnomesoftware = library(
     'gs-test.c',
     'gs-utils.c',
     'gs-worker-thread.c',
-  ] + libgnomesoftware_enums + [gs_build_ident_h] + dkms_private_files,
+  ] + libgnomesoftware_generated_sources + dkms_private_files,
   soversion: gs_plugin_api_version,
   include_directories : libgnomesoftware_include_directories,
   dependencies : librarydeps,
@@ -160,7 +162,7 @@ libgnomesoftware = library(
 )
 
 libgnomesoftware_dep = declare_dependency(link_with : libgnomesoftware,
-  sources : libgnomesoftware_enums,
+  sources : libgnomesoftware_generated_sources,
   include_directories : libgnomesoftware_include_directories,
   dependencies: librarydeps,
 )
@@ -176,7 +178,9 @@ pkg.generate(
     variables : [
       'gs_private_libdir=${libdir}/gnome-software',
       'plugindir=${gs_private_libdir}/plugins-' + gs_plugin_api_version,
-      'soupapiversion=' + libsoupapiversion,
+      'soupapiversion=3.0' # This is here for any out-of-tree plugins
+                           # depending on it, and should be removed in
+                           # future.
     ],
     install_dir : join_paths(get_option('prefix'), get_option('libdir'), 'pkgconfig'),  # or it defaults to gs_private_libdir, which is wrong
 )

@@ -38,8 +38,8 @@ struct _GsAppDetailsPage
 {
 	GtkBox		 parent_instance;
 
+	GtkStack	*stack_details;
 	GtkWidget	*label_details;
-	GtkWidget	*spinner_details;
 	GtkWidget	*permissions_section;
 	GtkWidget	*permissions_section_list;
 	GtkWidget	*status_page;
@@ -62,7 +62,7 @@ static const struct {
   { GS_APP_PERMISSIONS_FLAGS_SESSION_BUS, N_("Session Services"), N_("Can access D-Bus services on the session bus") },
   { GS_APP_PERMISSIONS_FLAGS_DEVICES, N_("Devices"), N_("Can access arbitrary devices such as webcams") },
   { GS_APP_PERMISSIONS_FLAGS_INPUT_DEVICES, N_("Devices"), N_("Can access input devices") },
-  { GS_APP_PERMISSIONS_FLAGS_PULSEAUDIO_DEVICES, N_("Devices"), N_("Can access microphones") },
+  { GS_APP_PERMISSIONS_FLAGS_AUDIO_DEVICES, N_("Devices"), N_("Can access microphones and play audio") },
   { GS_APP_PERMISSIONS_FLAGS_SYSTEM_DEVICES, N_("Devices"), N_("Can access system device files") },
   { GS_APP_PERMISSIONS_FLAGS_SCREEN, N_("Screen contents"), N_("Can access screen contents") },
   { GS_APP_PERMISSIONS_FLAGS_HOME_FULL, N_("Home folder"), N_("Can view, edit and create files") },
@@ -93,9 +93,7 @@ add_permissions_row (GsAppDetailsPage *page,
 	if (!is_warning_row)
 		gtk_widget_set_opacity (image, 0);
 
-#if ADW_CHECK_VERSION(1,2,0)
 	adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (row), FALSE);
-#endif
 	adw_action_row_add_prefix (ADW_ACTION_ROW (row), image);
 	adw_preferences_row_set_title (ADW_PREFERENCES_ROW (row), title);
 	adw_action_row_set_subtitle (ADW_ACTION_ROW (row), subtitle);
@@ -192,8 +190,7 @@ set_update_description (GsAppDetailsPage *self,
 		   thus the row does not resize when the details are on-line text only.
 		   It will resize when the details are multiple lines of text. */
 		gtk_label_set_text (GTK_LABEL (self->label_details), "");
-		gtk_widget_set_visible (self->spinner_details, TRUE);
-		gtk_spinner_start (GTK_SPINNER (self->spinner_details));
+		gtk_stack_set_visible_child_name (self->stack_details, "spinner");
 
 		g_assert (self->refine_cancellable == NULL);
 		self->refine_cancellable = g_cancellable_new ();
@@ -207,9 +204,6 @@ set_update_description (GsAppDetailsPage *self,
 		return;
 	}
 
-	gtk_spinner_stop (GTK_SPINNER (self->spinner_details));
-	gtk_widget_set_visible (self->spinner_details, FALSE);
-
 	if (update_details == NULL || *update_details == '\0') {
 		/* TRANSLATORS: this is where the packager did not write
 		 * a description for the update */
@@ -217,6 +211,7 @@ set_update_description (GsAppDetailsPage *self,
 	}
 
 	gtk_label_set_markup (GTK_LABEL (self->label_details), update_details);
+	gtk_stack_set_visible_child_name (self->stack_details, "label");
 }
 
 static void
@@ -442,8 +437,8 @@ gs_app_details_page_class_init (GsAppDetailsPageClass *klass)
 
 	gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Software/gs-app-details-page.ui");
 
+	gtk_widget_class_bind_template_child (widget_class, GsAppDetailsPage, stack_details);
 	gtk_widget_class_bind_template_child (widget_class, GsAppDetailsPage, label_details);
-	gtk_widget_class_bind_template_child (widget_class, GsAppDetailsPage, spinner_details);
 	gtk_widget_class_bind_template_child (widget_class, GsAppDetailsPage, permissions_section);
 	gtk_widget_class_bind_template_child (widget_class, GsAppDetailsPage, permissions_section_list);
 	gtk_widget_class_bind_template_child (widget_class, GsAppDetailsPage, status_page);
