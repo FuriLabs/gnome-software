@@ -1275,6 +1275,8 @@ refine_icons (GsApp        *app,
 		if (g_strcmp0 (snapd_media_get_media_type (m), "icon") != 0)
 			continue;
 
+		/* Unfortunately the snapd client API doesn’t expose information
+		 * about icon scales, so leave that unset for now. */
 		icon = gs_remote_icon_new (snapd_media_get_url (m));
 		gs_icon_set_width (icon, snapd_media_get_width (m));
 		gs_icon_set_height (icon, snapd_media_get_height (m));
@@ -1529,6 +1531,7 @@ get_snaps_cb (GObject      *object,
 	GsPluginRefineData *data = g_task_get_task_data (task);
 	GsAppList *list = data->list;
 	GsPluginRefineFlags flags = data->flags;
+	g_autoptr(GsAppList) get_icons_list = NULL;
 	g_autoptr(GPtrArray) local_snaps = NULL;
 	g_autoptr(GError) local_error = NULL;
 
@@ -1700,8 +1703,14 @@ get_snaps_cb (GObject      *object,
 		}
 
 		/* load icon if requested */
-		if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON)
+		if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON) != 0 &&
+		    !gs_app_has_icons (app)) {
+			if (get_icons_list == NULL)
+				get_icons_list = gs_app_list_new ();
+			gs_app_list_add (get_icons_list, app);
+
 			refine_icons (app, snap);
+		}
 
 		if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE_DATA) != 0 &&
 		    gs_app_is_installed (app) &&
@@ -1719,8 +1728,13 @@ get_snaps_cb (GObject      *object,
 	}
 
 	/* Icons require async calls to get */
-	if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON && gs_app_list_length (list) > 0) {
-		GsApp *app = gs_app_list_index (list, 0);
+	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON) != 0 && get_icons_list != NULL) {
+		GsApp *app;
+
+		g_clear_object (&data->list);
+		data->list = g_steal_pointer (&get_icons_list);
+
+		app = gs_app_list_index (data->list, 0);
 		snapd_client_get_icon_async (client, gs_app_get_metadata_item (app, "snap::name"), cancellable, get_icon_cb, g_steal_pointer (&task));
 	} else {
 		g_task_return_boolean (task, TRUE);
