@@ -2066,8 +2066,23 @@ gs_app_add_icon (GsApp *app, GIcon *icon)
 
 	locker = g_mutex_locker_new (&priv->mutex);
 
-	if (priv->icons == NULL)
+	if (priv->icons == NULL) {
 		priv->icons = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
+	} else {
+		gboolean icon_is_remote = GS_IS_REMOTE_ICON (icon);
+		const gchar *icon_remote_uri = icon_is_remote ? gs_remote_icon_get_uri (GS_REMOTE_ICON (icon)) : NULL;
+
+		/* ignore duplicate icons (with a special treatment of the GsRemoteIcon hack) */
+		for (guint i = 0; i < priv->icons->len; i++) {
+			GIcon *existing = g_ptr_array_index (priv->icons, i);
+			if (g_icon_equal (existing, icon)) {
+				if (GS_IS_REMOTE_ICON (existing) && icon_is_remote &&
+				    g_strcmp0 (gs_remote_icon_get_uri (GS_REMOTE_ICON (existing)), icon_remote_uri) == 0) {
+					return;
+				}
+			}
+		}
+	}
 
 	g_ptr_array_add (priv->icons, g_object_ref (icon));
 
@@ -3603,6 +3618,14 @@ gs_app_add_provided_item (GsApp *app, AsProvidedKind kind, const gchar *item)
 		prov = as_provided_new ();
 		as_provided_set_kind (prov, kind);
 		g_ptr_array_add (priv->provided, prov);
+	} else {
+		/* avoid duplicity */
+		GPtrArray *items = as_provided_get_items (prov);
+		for (guint i = 0; i < items->len; i++) {
+			const gchar *value = g_ptr_array_index (items, i);
+			if (g_strcmp0 (value, item) == 0)
+				return;
+		}
 	}
 	as_provided_add_item (prov, item);
 }
@@ -6689,17 +6712,19 @@ gs_app_set_version_history (GsApp *app, GPtrArray *version_history)
  * gs_app_ensure_icons_downloaded:
  * @app: a #GsApp
  * @soup_session: a #SoupSession
- * @maximum_icon_size: maximum icon size
+ * @maximum_icon_size: maximum icon size (in logical pixels)
+ * @scale: icon scale factor
  * @cancellable: (nullable): optional #GCancellable object
  *
  * Ensure all remote icons in the @app's icons are locally cached.
  *
- * Since: 41
+ * Since: 48
  **/
 void
 gs_app_ensure_icons_downloaded (GsApp *app,
 				SoupSession *soup_session,
 				guint maximum_icon_size,
+				guint scale,
 				GCancellable *cancellable)
 {
 	GsAppPrivate *priv;
@@ -6726,6 +6751,7 @@ gs_app_ensure_icons_downloaded (GsApp *app,
 		if (!gs_remote_icon_ensure_cached (GS_REMOTE_ICON (icon),
 						   soup_session,
 						   maximum_icon_size,
+						   scale,
 						   cancellable,
 						   &error_local)) {
 			/* we failed, but keep going */

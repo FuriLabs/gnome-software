@@ -2109,7 +2109,7 @@ gs_details_page_set_local_file (GsDetailsPage *self, GFile *file)
 	g_clear_object (&self->app_local_file);
 	_set_app (self, NULL);
 	self->origin_by_packaging_format = FALSE;
-	plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_NONE);
+	plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE);
 	gs_plugin_job_set_refine_flags (plugin_job, GS_DETAILS_PAGE_REFINE_FLAGS);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
@@ -2125,7 +2125,7 @@ gs_details_page_set_url (GsDetailsPage *self, const gchar *url)
 	g_clear_object (&self->app_local_file);
 	_set_app (self, NULL);
 	self->origin_by_packaging_format = FALSE;
-	plugin_job = gs_plugin_job_url_to_app_new (url, GS_PLUGIN_URL_TO_APP_FLAGS_NONE);
+	plugin_job = gs_plugin_job_url_to_app_new (url, GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE);
 	gs_plugin_job_set_refine_flags (plugin_job, GS_DETAILS_PAGE_REFINE_FLAGS |
 						    GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
@@ -2466,21 +2466,21 @@ gs_details_page_review_send_cb (GsReviewDialog *dialog,
 }
 
 static void
-review_dialog_destroy_cb (GsDetailsPage *self)
+review_dialog_closed_cb (GsDetailsPage *self,
+			 GtkWidget *review_dialog)
 {
-	self->review_dialog = NULL;
+	if (review_dialog == self->review_dialog)
+		self->review_dialog = NULL;
 }
 
 static void
 gs_details_page_write_review (GsDetailsPage *self)
 {
-	g_assert (self->review_dialog == NULL);
-
 	self->review_dialog = gs_review_dialog_new ();
 	g_signal_connect (self->review_dialog, "send",
 			  G_CALLBACK (gs_details_page_review_send_cb), self);
-	g_signal_connect_swapped (self->review_dialog, "destroy",
-				  G_CALLBACK (review_dialog_destroy_cb), self);
+	g_signal_connect_swapped (self->review_dialog, "closed",
+				  G_CALLBACK (review_dialog_closed_cb), self);
 
 	adw_dialog_present (ADW_DIALOG (self->review_dialog), GTK_WIDGET (self));
 }
@@ -3051,6 +3051,7 @@ gs_details_page_metainfo_thread (GTask *task,
 				 gpointer task_data,
 				 GCancellable *cancellable)
 {
+	GsDetailsPage *self = GS_DETAILS_PAGE (g_task_get_source_object (task));
 	g_autofree gchar *path = NULL;
 	g_autofree gchar *icon_path = NULL;
 	g_autoptr(XbBuilder) builder = NULL;
@@ -3134,16 +3135,15 @@ gs_details_page_metainfo_thread (GTask *task,
 		gs_app_add_icon (app, G_ICON (icon));
 	} else {
 		g_autoptr(SoupSession) soup_session = NULL;
-		guint maximum_icon_size;
+		guint maximum_icon_size, scale;
 
 		/* Currently a 160px icon is needed for #GsFeatureTile, at most.
-		 * The '2' is to pretend the hiDPI/GDK's scale factor is 2, to
-		 * allow larger icons. The 'icons' plugin uses proper scale factor.
 		 */
-		maximum_icon_size = 160 * 2;
+		maximum_icon_size = 160;
+		scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
 
 		soup_session = gs_build_soup_session ();
-		gs_app_ensure_icons_downloaded (app, soup_session, maximum_icon_size, cancellable);
+		gs_app_ensure_icons_downloaded (app, soup_session, maximum_icon_size, scale, cancellable);
 	}
 
 	gs_app_set_state (app, GS_APP_STATE_UNKNOWN);

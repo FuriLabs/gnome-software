@@ -324,6 +324,7 @@ gs_appstream_new_icon (XbNode *component, XbNode *n, AsIconKind icon_kind, guint
 {
 	AsIcon *icon = as_icon_new ();
 	g_autofree gchar *icon_path = NULL;
+	guint64 scale = 0;
 	as_icon_set_kind (icon, icon_kind);
 	switch (icon_kind) {
 	case AS_ICON_KIND_LOCAL:
@@ -345,6 +346,10 @@ gs_appstream_new_icon (XbNode *component, XbNode *n, AsIconKind icon_kind, guint
 		as_icon_set_width (icon, sz);
 		as_icon_set_height (icon, sz);
 	}
+
+	scale = xb_node_get_attr_as_uint (n, "scale");
+	if (scale > 0 && scale < G_MAXUINT)
+		as_icon_set_scale (icon, (guint) scale);
 
 	if (icon_kind != AS_ICON_KIND_LOCAL && icon_kind != AS_ICON_KIND_REMOTE) {
 		/* add partial filename for now, we will compose the full one later */
@@ -404,10 +409,22 @@ gs_appstream_refine_add_addons (GsPlugin *plugin,
 	g_autoptr(GError) error_local = NULL;
 	g_autoptr(GPtrArray) addons = NULL;
 	g_autoptr(GsAppList) addons_list = NULL;
+	AsProvided *provided;
 
 	/* get all components */
 	xpath = g_strdup_printf ("components/component/extends[text()='%s']/..",
 				 gs_app_get_id (app));
+	provided = gs_app_get_provided_for_kind (app, AS_PROVIDED_KIND_ID);
+	if (provided != NULL) {
+		GString *extended_xpath = g_string_new (xpath);
+		GPtrArray *items = as_provided_get_items (provided);
+		for (guint i = 0; i < items->len; i++) {
+			const gchar *id = g_ptr_array_index (items, i);
+			g_string_append_printf (extended_xpath, "|components/component/extends[text()='%s']", id);
+		}
+		g_free (xpath);
+		xpath = g_string_free (extended_xpath, FALSE);
+	}
 	addons = xb_silo_query (silo, xpath, 0, &error_local);
 	if (addons == NULL) {
 		if (g_error_matches (error_local, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
@@ -596,7 +613,7 @@ gs_appstream_refine_app_relation (GsApp           *app,
 			    g_strcmp0 (xb_node_get_attr (child, "type"), "id") == 0 &&
 			    g_strcmp0 (xb_node_get_text (child), "org.gnome.Software.desktop") == 0) {
 				/* is compatible */
-				gint rc = as_vercmp_simple (xb_node_get_attr (child, "version"), PACKAGE_VERSION);
+				gint rc = gs_utils_compare_versions (xb_node_get_attr (child, "version"), PACKAGE_VERSION);
 				if (rc > 0) {
 					g_set_error (error,
 						     GS_PLUGIN_ERROR,
@@ -1363,7 +1380,7 @@ gs_appstream_refine_app (GsPlugin *plugin,
 							g_autoptr(XbNode) issues_node = NULL;
 
 							/* use the first release description, then skip the currently installed version and all below it */
-							if (i != 0 && version != NULL && as_vercmp_simple (version, release_version) >= 0)
+							if (i != 0 && version != NULL && gs_utils_compare_versions (version, release_version) >= 0)
 								continue;
 
 							gs_appstream_find_description_and_issues_nodes (release, &description_node, &issues_node);
@@ -3051,7 +3068,8 @@ gs_appstream_apply_merges_cb (XbBuilderFixup *self,
 			      GError **error)
 {
 	MergeData *md = user_data;
-	if (g_strcmp0 (xb_builder_node_get_element (bn), "component") == 0 &&
+	if (!xb_builder_node_has_flag (bn, XB_BUILDER_NODE_FLAG_IGNORE) &&
+	    g_strcmp0 (xb_builder_node_get_element (bn), "component") == 0 &&
 	    !gs_appstream_is_merge_node (bn)) {
 		if (md->appstream_index != NULL) {
 			g_autoptr(XbBuilderNode) id_node = xb_builder_node_get_child (bn, "id", NULL);
