@@ -1,5 +1,6 @@
-gnome-software (48.0-1) UNRELEASED; urgency=medium
+gnome-software (48.0-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream release
 
  -- Alessandro Astone <alessandro.astone@canonical.com>  Fri, 14 Mar 2025 15:41:38 +0100
