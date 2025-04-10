@@ -1,8 +1,8 @@
-gnome-software (48.1-1) UNRELEASED; urgency=medium
+gnome-software (48.1-1) unstable; urgency=medium
 
-  * New upstream release
+  * New upstream bugfix release (LP: #2106772)
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 10 Apr 2025 14:49:07 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 10 Apr 2025 14:52:21 -0400
 
 gnome-software (48.0-1) unstable; urgency=medium
 
