@@ -12,6 +12,7 @@
 #include <glib/gstdio.h>
 #include <gnome-software.h>
 #include <locale.h>
+#include <malloc.h>
 
 #include "gs-external-appstream-utils.h"
 #include "gs-appstream.h"
@@ -566,6 +567,8 @@ gs_appstream_refine_app_relation (GsApp           *app,
                                   AsRelationKind   kind,
                                   GError         **error)
 {
+	g_autoptr(GPtrArray) relations = NULL;
+
 	/* Iterate over the children, which might be any combination of zero or
 	 * more <id/>, <modalias/>, <kernel/>, <memory/>, <firmware/>,
 	 * <control/> or <display_length/> elements. For the moment, we only
@@ -628,8 +631,12 @@ gs_appstream_refine_app_relation (GsApp           *app,
 			continue;
 		}
 
-		gs_app_add_relation (app, relation);
+		if (relations == NULL)
+			relations = g_ptr_array_new_with_free_func (g_object_unref);
+		g_ptr_array_add (relations, g_steal_pointer (&relation));
 	}
+
+	gs_app_set_relations (app, relations);
 
 	return TRUE;
 }
@@ -2877,6 +2884,12 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 								 XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
 								 XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
 								 cancellable, &local_error);
+			#ifdef __GLIBC__
+			/* https://gitlab.gnome.org/GNOME/gnome-software/-/issues/941 
+			* libxmlb <= 0.3.22 makes lots of temporary heap allocations parsing large XMLs
+			* trim the heap after parsing to control RSS growth. */
+			malloc_trim (0);
+			#endif
 			if (md->appstream_silo != NULL)
 				md->appstream_index = gs_appstream_create_silo_index (md->appstream_silo, TRUE);
 			else
