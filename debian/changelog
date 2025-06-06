@@ -1,3 +1,9 @@
+gnome-software (48.2-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 06 Jun 2025 15:13:51 -0400
+
 gnome-software (48.1-1) unstable; urgency=medium
 
   * New upstream bugfix release (LP: #2106772)
