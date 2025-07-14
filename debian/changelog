@@ -1,5 +1,6 @@
-gnome-software (48.3-1) UNRELEASED; urgency=medium
+gnome-software (48.3-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream bugfix release
     - Fix a crash on exit while a "toast" notification is shown
       (gnome-software#2853 upstream)
@@ -7,8 +8,9 @@ gnome-software (48.3-1) UNRELEASED; urgency=medium
       possible use-after-free crashes during exit
       (related to gnome-software#2853 upstream)
     - Translation updates
+  * d/control: Remove Gunnar Hjalmarsson from Uploaders (Closes: #1069562)
 
- -- Simon McVittie <smcv@debian.org>  Mon, 14 Jul 2025 17:37:11 +0100
+ -- Simon McVittie <smcv@debian.org>  Mon, 14 Jul 2025 18:02:25 +0100
 
 gnome-software (48.2-1) unstable; urgency=medium
 
