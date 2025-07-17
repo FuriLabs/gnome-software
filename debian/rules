@@ -12,7 +12,6 @@ GS_CONFIGURE_FLAGS = \
 	-Dpackagekit_autoremove=true \
 	-Drpm_ostree=false \
 	-Dapt=true \
-	-Dhardcoded_curated=true \
 	-Ddefault_featured_apps=true
 
 # these are conditionally re-enabled later
