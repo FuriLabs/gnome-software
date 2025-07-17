@@ -1,5 +1,6 @@
-gnome-software (48.3-2) UNRELEASED; urgency=medium
+gnome-software (48.3-2) unstable; urgency=medium
 
+  * Team upload
   * d/patches: Update from upstream gnome-48 branch, up to commit
     48.3-6-g10fb1a6bb
     - d/p/update-monitor-improve-logic-for-deciding-when-to-show-no.patch:
@@ -20,8 +21,14 @@ gnome-software (48.3-2) UNRELEASED; urgency=medium
       being prevented by configuration
       (gnome-software#2815 upstream)
     - Translation updates
+  * d/rules: Don't display the sample list of "Editor's Choice" apps.
+    Upstream no longer recommends using this list and does not maintain
+    it, and we don't want to keep recommending apps that are dead upstream
+    such as gnome-dictionary and gnome-photos. Ideally we should provide
+    our own curated list for forky, but until we can do that, a minimal
+    fix is to not display it. (Helps: #1100084)
 
- -- Simon McVittie <smcv@debian.org>  Thu, 17 Jul 2025 11:43:47 +0100
+ -- Simon McVittie <smcv@debian.org>  Thu, 17 Jul 2025 13:08:06 +0100
 
 gnome-software (48.3-1) unstable; urgency=medium
 
