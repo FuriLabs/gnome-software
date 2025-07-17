@@ -1,3 +1,28 @@
+gnome-software (48.3-2) UNRELEASED; urgency=medium
+
+  * d/patches: Update from upstream gnome-48 branch, up to commit
+    48.3-6-g10fb1a6bb
+    - d/p/update-monitor-improve-logic-for-deciding-when-to-show-no.patch:
+      Reduce frequency of update notifications
+      (gnome-software#2856 upstream)
+      + Don't notify users about out-of-date apt metadata until it's at
+        least 7 days old.
+      + Don't nag users about software update actions more than once per
+        day, with the frequency reducing according to the importance of
+        the action we are suggesting.
+      + Don't notify users about out-of-date apt metadata if we would not
+        be able to download it right now in any case. In particular this
+        prevents an annoying notification when resuming from suspend,
+        during which time we can expect that networking has not yet come
+        back up.
+    - d/p/gs-update-monitor-Do-not-show-Updates-are-Out-of-Date-whe.patch:
+      Don't notify users about out-of-date apt metadata if updates are
+      being prevented by configuration
+      (gnome-software#2815 upstream)
+    - Translation updates
+
+ -- Simon McVittie <smcv@debian.org>  Thu, 17 Jul 2025 11:43:47 +0100
+
 gnome-software (48.3-1) unstable; urgency=medium
 
   * Team upload
