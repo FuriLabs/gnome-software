@@ -1,3 +1,9 @@
+gnome-software (48.4-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 12 Aug 2025 19:04:27 -0400
+
 gnome-software (48.3-2) unstable; urgency=medium
 
   * Team upload
