@@ -1,3 +1,9 @@
+gnome-software (49~rc-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Sep 2025 17:09:05 -0400
+
 gnome-software (48.4-1) unstable; urgency=medium
 
   * New upstream bugfix release
