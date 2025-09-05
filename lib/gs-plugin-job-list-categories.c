@@ -126,6 +126,16 @@ gs_plugin_job_list_categories_set_property (GObject      *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_list_categories_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobListCategories *self = GS_PLUGIN_JOB_LIST_CATEGORIES (job);
+	return (self->flags & GS_PLUGIN_REFINE_CATEGORIES_FLAGS_INTERACTIVE) != 0;
+}
+
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 static void plugin_refine_categories_cb (GObject      *source_object,
                                          GAsyncResult *result,
                                          gpointer      user_data);
@@ -189,13 +199,28 @@ gs_plugin_job_list_categories_run_async (GsPluginJob         *job,
 
 		/* run the plugin */
 		self->n_pending_ops++;
-		plugin_class->refine_categories_async (plugin, self->category_list, self->flags, cancellable, plugin_refine_categories_cb, g_object_ref (task));
+		plugin_class->refine_categories_async (plugin, self->category_list, self->flags, plugin_event_cb, task, cancellable, plugin_refine_categories_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle listing categories");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle listing categories");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
+}
+
+static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
 }
 
 static void
@@ -226,8 +251,6 @@ plugin_refine_categories_cb (GObject      *source_object,
 			 local_error->message);
 		g_clear_error (&local_error);
 	}
-
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	finish_op (task, g_steal_pointer (&local_error));
 }
@@ -325,6 +348,7 @@ gs_plugin_job_list_categories_class_init (GsPluginJobListCategoriesClass *klass)
 	object_class->get_property = gs_plugin_job_list_categories_get_property;
 	object_class->set_property = gs_plugin_job_list_categories_set_property;
 
+	job_class->get_interactive = gs_plugin_job_list_categories_get_interactive;
 	job_class->run_async = gs_plugin_job_list_categories_run_async;
 	job_class->run_finish = gs_plugin_job_list_categories_run_finish;
 

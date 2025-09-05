@@ -66,72 +66,84 @@
    Validate with `appstreamcli validate *.metainfo.xml`
   -->
   <releases>
-    <release date="2025-08-01" version="48.4" type="stable">
+    <release date="2025-08-29" version="49~rc" type="development">
       <description>
-        <p>This is a stable release with the following change:</p>
+        <p>This is an unstable release with the following changes:</p>
         <ul>
-          <li>Improve update notifications</li>
+          <li>Show past updates in rpm-ostree plugin</li>
+          <li>Always include Flatpak system installation</li>
+          <li>Correct total review counter</li>
+          <li>Support external release notes in AppStream data</li>
+          <li>Support light/dark screenshots in AppStream data</li>
         </ul>
-        <p>This release also updates translation:</p>
+        <p>This release also updates translations:</p>
+        <ul>
+          <li>Catalan (Jordi Mas)</li>
+          <li>Chinese (China) (Luming Zh)</li>
+          <li>Czech (Daniel Rusek)</li>
+          <li>Dutch (Nathan Follens)</li>
+          <li>Galician (Fran Diéguez)</li>
+          <li>Japanese (Jun Oyamada)</li>
+          <li>Persian (Danial Behzadi)</li>
+          <li>Polish (Piotr Drąg)</li>
+          <li>Russian (Artur S0)</li>
+          <li>Slovenian (Martin)</li>
+        </ul>
+      </description>
+    </release>
+    <release date="2025-08-01" version="49~beta" type="development">
+      <description>
+        <p>This is an unstable release with the following changes:</p>
+        <ul>
+          <li>Fix read of hardware support tags from app metainfo</li>
+          <li>Switch to systemd-based startup</li>
+        </ul>
+        <p>This release also updates translations:</p>
         <ul>
           <li>Chinese (Taiwan) (Cheng-Chia Tseng)</li>
+          <li>Friulian (Fabio Tomat)</li>
+          <li>Japanese (Takayuki Kusano)</li>
+          <li>Romanian (Antonio Marin)</li>
           <li>Russian (Artur S0)</li>
         </ul>
       </description>
     </release>
-
-    <release date="2025-06-27" version="48.3" type="stable">
+    <release date="2025-06-27" version="49~alpha" type="development">
       <description>
-        <p>This is a stable release with the following change:</p>
-        <ul>
-          <li>Fix crash on application shutdown</li>
-        </ul>
-        <p>This release also updates translation:</p>
-        <ul>
-          <li>Chinese (Taiwan) (Cheng-Chia Tseng)</li>
-        </ul>
-      </description>
-    </release>
-
-    <release date="2025-06-02" version="48.2" type="stable">
-      <description>
-        <p>This is a stable release with the following changes:</p>
-        <ul>
-          <li>Improve memory fragmentation after checking for updates</li>
-        </ul>
-        <p>This release also updates translations:</p>
-        <ul>
-          <li>Czech (Daniel Rusek)</li>
-          <li>French (Vincent Chatelain)</li>
-          <li>Hindi (Scrambled 777)</li>
-          <li>Japanese (Takayuki Kusano)</li>
-          <li>Latvian (Rūdolfs Mazurs)</li>
-          <li>Swedish (Anders Jonsson)</li>
-        </ul>
-      </description>
-    </release>
-
-    <release date="2025-04-10" version="48.1" type="stable">
-      <description>
-        <p>This is a stable release with the following changes:</p>
+        <p>This is an unstable release with the following changes:</p>
         <ul>
           <li>Improve contrast of some app safety ratings in dark mode</li>
           <li>Improve error handling when fetching app reviews</li>
+          <li>Improve memory fragmentation after checking for updates</li>
+          <li>Rewrite threading model for better performance</li>
+          <li>Provide feedback in the UI after submitting a review</li>
+          <li>Fix crash on application shutdown</li>
+          <li>Disallow running gnome-software as root user</li>
         </ul>
         <p>This release also updates translations:</p>
         <ul>
+          <li>Belarusian (Vasil Pupkin)</li>
+          <li>Chinese (Taiwan) (Cheng-Chia Tseng)</li>
+          <li>Czech (Daniel Rusek)</li>
           <li>English (United Kingdom) (Andi Chandler)</li>
+          <li>Friulian (Fabio Tomat)</li>
           <li>German (Philipp Kiemle, Martin Wagner)</li>
+          <li>Interlingua (International Auxiliary Language Association) (Emilio Sepúlveda)</li>
+          <li>Japanese (Makoto Sakaguchi)</li>
           <li>Kabyle (Athmane MOKRAOUI)</li>
+          <li>Latvian (Rūdolfs Mazurs)</li>
           <li>Nepali (Pawan Chitrakar)</li>
           <li>Panjabi (A S Alam)</li>
+          <li>Portuguese (Brazil) (Álvaro Burns)</li>
+          <li>Romanian (Antonio Marin)</li>
+          <li>Slovenian (Martin)</li>
+          <li>Turkish (Emin Tufan Çetin)</li>
           <li>Ukrainian (Yuri Chornoivan)</li>
           <li>Uzbek (Baxrom Raxmatov)</li>
           <li>Vietnamese (Cas Pascal)</li>
         </ul>
       </description>
     </release>
-
     <release date="2025-03-14" version="48.0" type="stable">
       <description>
         <p>This is a stable release with the following changes:</p>
@@ -2819,6 +2831,10 @@
     <kudo>Notifications</kudo>
     <kudo>SearchProvider</kudo>
   </kudos>
+  <branding>
+    <color type="primary" scheme_preference="light">#90dbff</color>
+    <color type="primary" scheme_preference="dark">#00699c</color>
+  </branding>
   <url type="bugtracker">https://gitlab.gnome.org/GNOME/gnome-software/-/issues</url>
   <url type="contact">https://discourse.gnome.org/tag/gnome-software</url>
   <url type="contribute">https://welcome.gnome.org/app/Software/</url>

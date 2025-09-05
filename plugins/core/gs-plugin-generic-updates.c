@@ -13,6 +13,18 @@
 
 #include "gs-plugin-generic-updates.h"
 
+/**
+ * SECTION:
+ *
+ * Plugin to group system package updates together under a single ‘System
+ * Updates’ meta-update in the UI.
+ *
+ * Updates which qualify are chosen using
+ * gs_plugin_generic_updates_merge_os_update().
+ *
+ * This plugin runs entirely in the main thread and requires no locking.
+ */
+
 struct _GsPluginGenericUpdates
 {
 	GsPlugin		 parent;
@@ -82,12 +94,15 @@ gs_plugin_generic_updates_get_os_update (GsPlugin *plugin)
 }
 
 static void
-gs_plugin_generic_updates_refine_async (GsPlugin            *plugin,
-                                        GsAppList           *list,
-                                        GsPluginRefineFlags  flags,
-                                        GCancellable        *cancellable,
-                                        GAsyncReadyCallback  callback,
-                                        gpointer             user_data)
+gs_plugin_generic_updates_refine_async (GsPlugin                   *plugin,
+                                        GsAppList                  *list,
+                                        GsPluginRefineFlags         job_flags,
+                                        GsPluginRefineRequireFlags  require_flags,
+                                        GsPluginEventCallback       event_callback,
+                                        void                       *event_user_data,
+                                        GCancellable               *cancellable,
+                                        GAsyncReadyCallback         callback,
+                                        gpointer                    user_data)
 {
 	g_autoptr(GTask) task = NULL;
 	g_autoptr(GsApp) app = NULL;
@@ -98,8 +113,8 @@ gs_plugin_generic_updates_refine_async (GsPlugin            *plugin,
 	g_task_set_source_tag (task, gs_plugin_generic_updates_refine_async);
 
 	/* not from get_updates() */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS) == 0 &&
-	    (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY) == 0) {
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS) == 0 &&
+	    (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_SEVERITY) == 0) {
 		g_task_return_boolean (task, TRUE);
 		return;
 	}

@@ -28,6 +28,10 @@
  * It follows the procedure of installing the akmods key as described here:
  * https://src.fedoraproject.org/rpms/akmods/blob/f40/f/README.secureboot
  * only by simulating user input with a GUI front end, not on the command line.
+ *
+ * This plugin runs entirely in the main thread, deferring the bulk of its work
+ * to a `gnome-software-dkms-helper` subprocess, which it communicates with
+ * asynchronously. No locking is required.
  */
 #include "config.h"
 
@@ -270,12 +274,15 @@ gs_dkms_got_secureboot_state_refine_cb (GObject *source_object,
 }
 
 static void
-gs_plugin_dkms_refine_async (GsPlugin            *plugin,
-                             GsAppList           *list,
-                             GsPluginRefineFlags  flags,
-                             GCancellable        *cancellable,
-                             GAsyncReadyCallback  callback,
-                             gpointer             user_data)
+gs_plugin_dkms_refine_async (GsPlugin                   *plugin,
+                             GsAppList                  *list,
+                             GsPluginRefineFlags         job_flags,
+                             GsPluginRefineRequireFlags  require_flags,
+                             GsPluginEventCallback       event_callback,
+                             void                       *event_user_data,
+                             GCancellable               *cancellable,
+                             GAsyncReadyCallback         callback,
+                             gpointer                    user_data)
 {
 	g_autoptr(GTask) task = NULL;
 	gboolean requires_akmods_key = FALSE;

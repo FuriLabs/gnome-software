@@ -104,6 +104,13 @@ gs_plugin_job_cancel_offline_update_set_property (GObject      *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_cancel_offline_update_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobCancelOfflineUpdate *self = GS_PLUGIN_JOB_CANCEL_OFFLINE_UPDATE (job);
+	return (self->flags & GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE);
+}
+
 static void plugin_func_cb (GObject      *source_object,
 			    GAsyncResult *result,
 			    gpointer      user_data);
@@ -153,8 +160,12 @@ gs_plugin_job_cancel_offline_update_run_async (GsPluginJob         *job,
 		plugin_class->cancel_offline_update_async (plugin, self->flags, cancellable, plugin_func_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle cancel-offline-update operation");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle cancelling an offline update");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
 }
@@ -171,7 +182,6 @@ plugin_func_cb (GObject      *source_object,
 	g_autoptr(GError) local_error = NULL;
 
 	success = plugin_class->cancel_offline_update_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	g_assert (success || local_error != NULL);
 
@@ -227,6 +237,7 @@ gs_plugin_job_cancel_offline_update_class_init (GsPluginJobCancelOfflineUpdateCl
 	object_class->get_property = gs_plugin_job_cancel_offline_update_get_property;
 	object_class->set_property = gs_plugin_job_cancel_offline_update_set_property;
 
+	job_class->get_interactive = gs_plugin_job_cancel_offline_update_get_interactive;
 	job_class->run_async = gs_plugin_job_cancel_offline_update_run_async;
 	job_class->run_finish = gs_plugin_job_cancel_offline_update_run_finish;
 

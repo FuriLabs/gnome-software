@@ -32,6 +32,25 @@
  *
  * Information about other #GsApp objects can be stored in this object, for
  * instance in the gs_app_add_related() method or gs_app_get_history().
+ *
+ * ## Sources, origins and repositories
+ *
+ * A #GsApp may have sources and an origin. An app source is a string
+ * identifying where the app _can_ come from. For example, this could be a
+ * package name, such as `gnome-calculator`, or a flatpak ref, such as
+ * `org.gnome.Platform/x86_64/48`. An app can have zero or more sources.
+ *
+ * An app’s origin describes where it _has_ come from. For example, this could
+ * be a remote ID for a flatpak repository (such as `flathub-beta`), the ID
+ * of an RPM repository (such as `rpmfusion-nonfree`) or `local` for apps
+ * installed from a local package file which didn’t come from a repository.
+ *
+ * An app itself may be of kind %AS_COMPONENT_KIND_REPOSITORY, which means the
+ * app represents a software repository — either one on the internet, or a local
+ * `.flatpakrepo` or `.repo` file which the user has opened. Semantically, a
+ * repository is one possible origin for an app, although #GsApp’s origin
+ * properties don’t point to another #GsApp instance of kind
+ * %AS_COMPONENT_KIND_REPOSITORY.
  */
 
 #include "config.h"
@@ -100,7 +119,8 @@ typedef struct
 	guint			 priority;
 	gint			 rating;
 	GArray			*review_ratings;
-	GPtrArray		*reviews; /* of AsReview */
+	GPtrArray		*reviews; /* of AsReview; must be kept in sorted order according to review_score_sort_cb() */
+	gboolean		 reviews_sorted;  /* whether ->reviews is currently in sorted order */
 	GPtrArray		*provided; /* of AsProvided */
 
 	GsSizeType		 size_installed_type;
@@ -135,9 +155,7 @@ typedef struct
 	AsContentRating		*content_rating;
 	AsScreenshot		*action_screenshot;  /* (nullable) (owned) */
 	GCancellable		*cancellable;
-	GsPluginAction		 pending_action;
 	GsAppPermissions        *permissions;
-	gboolean		 is_update_downloaded;
 	GPtrArray		*version_history; /* (element-type AsRelease) (nullable) (owned) */
 	GPtrArray		*relations;  /* (nullable) (element-type AsRelation) (owned) */
 	gboolean		 has_translations;
@@ -164,9 +182,7 @@ typedef enum {
 	PROP_INSTALL_DATE,
 	PROP_RELEASE_DATE,
 	PROP_QUIRK,
-	PROP_PENDING_ACTION,
 	PROP_KEY_COLORS,
-	PROP_IS_UPDATE_DOWNLOADED,
 	PROP_URLS,
 	PROP_URL_MISSING,
 	PROP_CONTENT_RATING,
@@ -325,8 +341,8 @@ _as_component_quirk_flag_to_string (GsAppQuirk quirk)
 		return "provenance";
 	case GS_APP_QUIRK_COMPULSORY:
 		return "compulsory";
-	case GS_APP_QUIRK_HAS_SOURCE:
-		return "has-source";
+	case GS_APP_QUIRK_LOCAL_HAS_REPOSITORY:
+		return "local-has-repository";
 	case GS_APP_QUIRK_IS_WILDCARD:
 		return "is-wildcard";
 	case GS_APP_QUIRK_NEEDS_REBOOT:
@@ -576,7 +592,7 @@ gs_app_to_string_append (GsApp *app, GString *str)
 	for (i = 0; priv->icons != NULL && i < priv->icons->len; i++) {
 		GIcon *icon = g_ptr_array_index (priv->icons, i);
 		g_autofree gchar *icon_str = g_icon_to_string (icon);
-		gs_app_kv_lpad (str, "icon", icon_str);
+		gs_app_kv_lpad (str, "icon", (icon_str != NULL) ? icon_str : G_OBJECT_TYPE_NAME (icon));
 	}
 	if (priv->match_value != 0)
 		gs_app_kv_printf (str, "match-value", "%05x", priv->match_value);
@@ -721,7 +737,7 @@ gs_app_to_string_append (GsApp *app, GString *str)
 		GsApp *app_tmp = gs_app_list_index (priv->related, i);
 		const gchar *id = gs_app_get_unique_id (app_tmp);
 		if (id == NULL)
-			id = gs_app_get_source_default (app_tmp);
+			id = gs_app_get_default_source (app_tmp);
 		/* For example PackageKit can create apps without id */
 		if (id != NULL)
 			gs_app_kv_lpad (str, "related", id);
@@ -730,7 +746,7 @@ gs_app_to_string_append (GsApp *app, GString *str)
 		GsApp *app_tmp = gs_app_list_index (priv->history, i);
 		const gchar *id = gs_app_get_unique_id (app_tmp);
 		if (id == NULL)
-			id = gs_app_get_source_default (app_tmp);
+			id = gs_app_get_default_source (app_tmp);
 		/* For example PackageKit can create apps without id */
 		if (id != NULL)
 			gs_app_kv_lpad (str, "history", id);
@@ -1180,18 +1196,6 @@ gs_app_set_allow_cancel (GsApp *app, gboolean allow_cancel)
 	gs_app_queue_notify (app, obj_props[PROP_CAN_CANCEL_INSTALLATION]);
 }
 
-static void
-gs_app_set_pending_action_internal (GsApp *app,
-				    GsPluginAction action)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	if (priv->pending_action == action)
-		return;
-
-	priv->pending_action = action;
-	gs_app_queue_notify (app, obj_props[PROP_PENDING_ACTION]);
-}
-
 /**
  * gs_app_set_state:
  * @app: a #GsApp
@@ -1225,21 +1229,8 @@ gs_app_set_state (GsApp *app, GsAppState state)
 
 	locker = g_mutex_locker_new (&priv->mutex);
 
-	if (gs_app_set_state_internal (app, state)) {
-		/* since the state changed, and the pending-action refers to
-		 * actions that usually change the state, we assign it to the
-		 * appropriate action here */
-		GsPluginAction action = GS_PLUGIN_ACTION_UNKNOWN;
-		if (priv->state == GS_APP_STATE_QUEUED_FOR_INSTALL) {
-			if (priv->kind == AS_COMPONENT_KIND_REPOSITORY)
-				action = GS_PLUGIN_ACTION_INSTALL_REPO;
-			else
-				action = GS_PLUGIN_ACTION_INSTALL;
-		}
-		gs_app_set_pending_action_internal (app, action);
-
+	if (gs_app_set_state_internal (app, state))
 		gs_app_queue_notify (app, obj_props[PROP_STATE]);
-	}
 }
 
 /**
@@ -1511,17 +1502,18 @@ gs_app_set_branch (GsApp *app, const gchar *branch)
 }
 
 /**
- * gs_app_get_source_default:
+ * gs_app_get_default_source:
  * @app: a #GsApp
  *
  * Gets the default source.
  *
- * Returns: a string, or %NULL
+ * This is the first source in the app’s list of sources.
  *
- * Since: 3.22
+ * Returns: (nullable): a string, or %NULL if no sources are set
+ * Since: 49
  **/
 const gchar *
-gs_app_get_source_default (GsApp *app)
+gs_app_get_default_source (GsApp *app)
 {
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
 	g_return_val_if_fail (GS_IS_APP (app), NULL);
@@ -1567,6 +1559,8 @@ gs_app_add_source (GsApp *app, const gchar *source)
  *
  * Gets the list of sources for the application.
  *
+ * See the documentation for #GsApp for an overview of what sources are.
+ *
  * Returns: (element-type utf8) (transfer none): a list
  *
  * Since: 3.22
@@ -1601,17 +1595,20 @@ gs_app_set_sources (GsApp *app, GPtrArray *sources)
 }
 
 /**
- * gs_app_get_source_id_default:
+ * gs_app_get_default_source_id:
  * @app: a #GsApp
  *
  * Gets the default source ID.
  *
- * Returns: a string, or %NULL for unset
+ * This is the first source ID in the app’s list of source IDs.
  *
- * Since: 3.22
+ * See the documentation for #GsApp for an overview of what sources are.
+ *
+ * Returns: (nullable): a string, or %NULL if no source IDs are set
+ * Since: 49
  **/
 const gchar *
-gs_app_get_source_id_default (GsApp *app)
+gs_app_get_default_source_id (GsApp *app)
 {
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
 	g_return_val_if_fail (GS_IS_APP (app), NULL);
@@ -1625,6 +1622,8 @@ gs_app_get_source_id_default (GsApp *app)
  * @app: a #GsApp
  *
  * Gets the list of source IDs.
+ *
+ * See the documentation for #GsApp for an overview of what sources are.
  *
  * Returns: (element-type utf8) (transfer none): a list
  *
@@ -1933,38 +1932,6 @@ gs_app_get_action_screenshot (GsApp *app)
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
 	g_return_val_if_fail (GS_IS_APP (app), NULL);
 	return priv->action_screenshot;
-}
-
-/**
- * gs_app_get_icons:
- * @app: a #GsApp
- *
- * Gets the icons for the application.
- *
- * This will never return an empty array; it will always return either %NULL or
- * a non-empty array.
- *
- * Returns: (transfer none) (element-type GIcon) (nullable): an array of icons,
- *     or %NULL if there are no icons
- *
- * Since: 3.22
- *
- * Deprecated: 45: Use gs_app_dup_icons() or gs_app_has_icons() instead.
- **/
-GPtrArray *
-gs_app_get_icons (GsApp *app)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	g_autoptr(GMutexLocker) locker = NULL;
-
-	g_return_val_if_fail (GS_IS_APP (app), NULL);
-
-	locker = g_mutex_locker_new (&priv->mutex);
-
-	if (priv->icons == NULL || priv->icons->len == 0)
-		return NULL;
-
-	return priv->icons;
 }
 
 /**
@@ -2913,6 +2880,8 @@ gs_app_set_menu_path (GsApp *app, gchar **menu_path)
  *
  * Gets the origin for the application, e.g. "fedora".
  *
+ * See the documentation for #GsApp for an overview of what origins are.
+ *
  * Returns: a string, or %NULL for unset
  *
  * Since: 3.22
@@ -3490,11 +3459,27 @@ gs_app_set_review_ratings (GsApp *app, GArray *review_ratings)
 	_g_set_array (&priv->review_ratings, review_ratings);
 }
 
+static gint
+review_score_sort_cb (gconstpointer a, gconstpointer b)
+{
+	AsReview *ra = *((AsReview **) a);
+	AsReview *rb = *((AsReview **) b);
+	if (as_review_get_priority (ra) < as_review_get_priority (rb))
+		return 1;
+	if (as_review_get_priority (ra) > as_review_get_priority (rb))
+		return -1;
+	return 0;
+}
+
 /**
  * gs_app_get_reviews:
  * @app: a #GsApp
  *
  * Gets all the user-submitted reviews for the application.
+ *
+ * The reviews are guaranteed to be returned in decreasing order of review priority.
+ *
+ * The returned array must not be modified.
  *
  * Returns: (element-type AsReview) (transfer none): the list of reviews
  *
@@ -3504,7 +3489,20 @@ GPtrArray *
 gs_app_get_reviews (GsApp *app)
 {
 	GsAppPrivate *priv = gs_app_get_instance_private (app);
+	g_autoptr(GMutexLocker) locker = NULL;
+
 	g_return_val_if_fail (GS_IS_APP (app), NULL);
+
+	locker = g_mutex_locker_new (&priv->mutex);
+
+	/* Ensure the array is sorted. It’s more efficient to do this here than
+	 * inserting in sorted order in gs_app_add_review() because inserting
+	 * into the middle of a #GPtrArray is relatively expensive. */
+	if (!priv->reviews_sorted) {
+		g_ptr_array_sort (priv->reviews, review_score_sort_cb);
+		priv->reviews_sorted = TRUE;
+	}
+
 	return priv->reviews;
 }
 
@@ -3526,6 +3524,7 @@ gs_app_add_review (GsApp *app, AsReview *review)
 	g_return_if_fail (AS_IS_REVIEW (review));
 	locker = g_mutex_locker_new (&priv->mutex);
 	g_ptr_array_add (priv->reviews, g_object_ref (review));
+	priv->reviews_sorted = FALSE;
 }
 
 /**
@@ -4620,44 +4619,6 @@ gs_app_remove_category (GsApp *app, const gchar *category)
 	return FALSE;
 }
 
-/**
- * gs_app_set_is_update_downloaded:
- * @app: a #GsApp
- * @is_update_downloaded: Whether a new update is already downloaded locally
- *
- * Sets if the new update is already downloaded for the app.
- *
- * Since: 3.36
- * Deprecated: 44: No longer supported.
- **/
-void
-gs_app_set_is_update_downloaded (GsApp *app, gboolean is_update_downloaded)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	g_return_if_fail (GS_IS_APP (app));
-	priv->is_update_downloaded = is_update_downloaded;
-}
-
-/**
- * gs_app_get_is_update_downloaded:
- * @app: a #GsApp
- *
- * Gets if the new update is already downloaded for the app and
- * is locally available.
- *
- * Returns: (element-type gboolean): Whether a new update for the #GsApp is already downloaded.
- *
- * Since: 3.36
- * Deprecated: 44: No longer supported.
- **/
-gboolean
-gs_app_get_is_update_downloaded (GsApp *app)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	g_return_val_if_fail (GS_IS_APP (app), FALSE);
-	return priv->is_update_downloaded;
-}
-
 static void
 calculate_key_colors (GsApp *app)
 {
@@ -5321,68 +5282,6 @@ gs_app_get_cancellable (GsApp *app)
 	return priv->cancellable;
 }
 
-/**
- * gs_app_peek_cancellable:
- * @app: a #GsApp
- *
- * Peek the current cancellable used by the @app. It's referenced for thread safety;
- * if not %NULL, free it with g_object_unref() when no longer needed.
- *
- * Returns: (nullable) (transfer full): the current cancellable, or %NULL
- *
- * Since: 44
- **/
-GCancellable *
-gs_app_peek_cancellable (GsApp *app)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	g_autoptr(GMutexLocker) locker = NULL;
-
-	g_return_val_if_fail (GS_IS_APP (app), NULL);
-
-	locker = g_mutex_locker_new (&priv->mutex);
-	if (priv->cancellable)
-		return g_object_ref (priv->cancellable);
-
-	return NULL;
-}
-
-/**
- * gs_app_get_pending_action:
- * @app: a #GsApp
- *
- * Get the pending action for this #GsApp, or %NULL if no action is pending.
- *
- * Returns: the #GsAppAction of the @app.
- **/
-GsPluginAction
-gs_app_get_pending_action (GsApp *app)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	g_autoptr(GMutexLocker) locker = NULL;
-	g_return_val_if_fail (GS_IS_APP (app), GS_PLUGIN_ACTION_UNKNOWN);
-	locker = g_mutex_locker_new (&priv->mutex);
-	return priv->pending_action;
-}
-
-/**
- * gs_app_set_pending_action:
- * @app: a #GsApp
- * @action: a #GsPluginAction
- *
- * Set an action that is pending on this #GsApp.
- **/
-void
-gs_app_set_pending_action (GsApp *app,
-			   GsPluginAction action)
-{
-	GsAppPrivate *priv = gs_app_get_instance_private (app);
-	g_autoptr(GMutexLocker) locker = NULL;
-	g_return_if_fail (GS_IS_APP (app));
-	locker = g_mutex_locker_new (&priv->mutex);
-	gs_app_set_pending_action_internal (app, action);
-}
-
 static void
 gs_app_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
@@ -5432,14 +5331,8 @@ gs_app_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *
 	case PROP_QUIRK:
 		g_value_set_flags (value, priv->quirk);
 		break;
-	case PROP_PENDING_ACTION:
-		g_value_set_enum (value, priv->pending_action);
-		break;
 	case PROP_KEY_COLORS:
 		g_value_set_boxed (value, gs_app_get_key_colors (app));
-		break;
-	case PROP_IS_UPDATE_DOWNLOADED:
-		g_value_set_boolean (value, priv->is_update_downloaded);
 		break;
 	case PROP_URLS:
 		g_value_set_boxed (value, priv->urls);
@@ -5586,17 +5479,8 @@ gs_app_set_property (GObject *object, guint prop_id, const GValue *value, GParam
 	case PROP_QUIRK:
 		priv->quirk = g_value_get_flags (value);
 		break;
-	case PROP_PENDING_ACTION:
-		/* Read only */
-		g_assert_not_reached ();
-		break;
 	case PROP_KEY_COLORS:
 		gs_app_set_key_colors (app, g_value_get_boxed (value));
-		break;
-	case PROP_IS_UPDATE_DOWNLOADED:
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-		gs_app_set_is_update_downloaded (app, g_value_get_boolean (value));
-G_GNUC_END_IGNORE_DEPRECATIONS
 		break;
 	case PROP_URLS:
 		/* Read only */
@@ -5866,26 +5750,10 @@ gs_app_class_init (GsAppClass *klass)
 				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
 
 	/**
-	 * GsApp:pending-action:
-	 */
-	obj_props[PROP_PENDING_ACTION] = g_param_spec_enum ("pending-action", NULL, NULL,
-				     GS_TYPE_PLUGIN_ACTION, GS_PLUGIN_ACTION_UNKNOWN,
-				     G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-
-	/**
 	 * GsApp:key-colors:
 	 */
 	obj_props[PROP_KEY_COLORS] = g_param_spec_boxed ("key-colors", NULL, NULL,
 				    G_TYPE_ARRAY, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-
-	/**
-	 * GsApp:is-update-downloaded:
-	 *
-	 * Deprecated: 44: No longer supported.
-	 */
-	obj_props[PROP_IS_UPDATE_DOWNLOADED] = g_param_spec_boolean ("is-update-downloaded", NULL, NULL,
-					       FALSE,
-					       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_DEPRECATED);
 
 	/**
 	 * GsApp:urls: (nullable) (element-type AsUrlKind utf8)

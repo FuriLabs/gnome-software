@@ -33,6 +33,13 @@
  * while the rpm-ostreed API is asynchronous over D-Bus, the plugin also needs
  * to use lower level libostree APIs which are entirely synchronous.
  * Message passing to the worker thread is by gs_worker_thread_queue().
+ *
+ * State in the `GsPluginRpmOstree` struct is shared between the main thread and
+ * worker thread, and various fields must be locked before access.
+ *
+ * Callbacks to the calling context (such as #GsPluginEventCallback) are done in
+ * the thread-default #GMainContext at the time when the relevant async virtual
+ * function was called.
  */
 
 /* This shows up in the `rpm-ostree status` as the software that
@@ -68,11 +75,12 @@ struct _GsPluginRpmOstree {
 
 G_DEFINE_TYPE (GsPluginRpmOstree, gs_plugin_rpm_ostree, GS_TYPE_PLUGIN)
 
-static gboolean gs_rpm_ostree_refine_apps (GsPlugin             *plugin,
-                                           GsAppList            *list,
-                                           GsPluginRefineFlags   flags,
-                                           GCancellable         *cancellable,
-                                           GError              **error);
+static gboolean gs_rpm_ostree_refine_apps (GsPlugin                    *plugin,
+                                           GsAppList                   *list,
+                                           GsPluginRefineFlags          job_flags,
+                                           GsPluginRefineRequireFlags   require_flags,
+                                           GCancellable                *cancellable,
+                                           GError                     **error);
 
 #define assert_in_worker(self) \
 	g_assert (gs_worker_thread_is_in_worker_context (self->worker))
@@ -206,9 +214,37 @@ gs_rpmostree_error_convert (GError **perror)
 		return;
 }
 
+typedef struct {
+	GsPlugin *plugin;  /* (owned) (not nullable) */
+	GsPluginEvent *event;  /* (owned) (not nullable) */
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
+} EventCallbackData;
+
+static void
+event_callback_data_free (EventCallbackData *data)
+{
+	g_clear_object (&data->plugin);
+	g_clear_object (&data->event);
+	g_free (data);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (EventCallbackData, event_callback_data_free)
+
+static gboolean
+event_callback_idle_cb (void *user_data)
+{
+	EventCallbackData *data = user_data;
+
+	data->event_callback (data->plugin, data->event, data->event_user_data);
+	return G_SOURCE_REMOVE;
+}
+
 static void
 gs_rpm_ostree_task_return_error_with_gui (GsPluginRpmOstree *self,
 					  GTask *task,
+					  GsPluginEventCallback event_callback,
+					  void *event_user_data,
 					  GError *in_error,
 					  const gchar *error_prefix,
 					  gboolean interactive)
@@ -217,17 +253,26 @@ gs_rpm_ostree_task_return_error_with_gui (GsPluginRpmOstree *self,
 
 	g_prefix_error (&local_error, "%s", error_prefix);
 
-	if (local_error != NULL && local_error->domain != G_DBUS_ERROR &&
+	if (event_callback != NULL &&
+	    local_error != NULL && local_error->domain != G_DBUS_ERROR &&
 	    !g_error_matches (local_error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_NO_SECURITY) &&
 	    !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 		g_autoptr(GsPluginEvent) event = NULL;
+		g_autoptr(EventCallbackData) event_data = NULL;
 
 		event = gs_plugin_event_new ("error", local_error,
 					     NULL);
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+
+		event_data = g_new0 (EventCallbackData, 1);
+		event_data->plugin = GS_PLUGIN (g_object_ref (self));
+		event_data->event = g_steal_pointer (&event);
+		event_data->event_callback = event_callback;
+		event_data->event_user_data = event_user_data;
+		g_main_context_invoke_full (g_task_get_context (task), G_PRIORITY_DEFAULT,
+					    event_callback_idle_cb, g_steal_pointer (&event_data), (GDestroyNotify) event_callback_data_free);
 	}
 
 	g_task_return_error (task, g_steal_pointer (&local_error));
@@ -546,8 +591,9 @@ app_set_rpm_ostree_packaging_format (GsApp *app)
 	gs_app_set_metadata (app, "GnomeSoftware::PackagingBaseCssColor", "error_color");
 }
 
-void
-gs_plugin_adopt_app (GsPlugin *plugin, GsApp *app)
+static void
+gs_plugin_rpm_ostree_adopt_app (GsPlugin *plugin,
+				GsApp *app)
 {
 	if (gs_app_get_bundle_kind (app) == AS_BUNDLE_KIND_PACKAGE &&
 	    gs_app_get_scope (app) == AS_COMPONENT_SCOPE_SYSTEM) {
@@ -624,23 +670,6 @@ on_transaction_progress (GDBusProxy *proxy,
 
 		if (tp->app != NULL)
 			gs_app_set_progress (tp->app, (guint) percentage);
-
-		if (tp->app != NULL && tp->plugin != NULL) {
-			GsPluginStatus plugin_status;
-
-			switch (gs_app_get_state (tp->app)) {
-			case GS_APP_STATE_INSTALLING:
-				plugin_status = GS_PLUGIN_STATUS_INSTALLING;
-				break;
-			case GS_APP_STATE_REMOVING:
-				plugin_status = GS_PLUGIN_STATUS_REMOVING;
-				break;
-			default:
-				plugin_status = GS_PLUGIN_STATUS_DOWNLOADING;
-				break;
-			}
-			gs_plugin_status_update (tp->plugin, tp->app, plugin_status);
-		}
 	} else if (g_strcmp0 (signal_name, "DownloadProgress") == 0) {
 		guint32 percentage = 0;
 		guint32 fetched, requested;
@@ -658,8 +687,6 @@ on_transaction_progress (GDBusProxy *proxy,
 			gs_app_set_progress (tp->app, (guint) percentage);
 		if (tp->download_progress_list)
 			gs_app_list_override_progress (tp->download_progress_list, (guint) percentage);
-		if (tp->app != NULL && tp->plugin != NULL)
-			gs_plugin_status_update (tp->plugin, tp->app, GS_PLUGIN_STATUS_DOWNLOADING);
 	} else if (g_strcmp0 (signal_name, "Finished") == 0) {
 		if (tp->error == NULL) {
 			g_autofree gchar *error_message = NULL;
@@ -878,6 +905,8 @@ app_from_modified_pkg_variant (GsPlugin *plugin,
 		gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
 		gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
 		gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
+		/* do not know update details */
+		gs_app_set_update_details_markup (app, NULL);
 
 		/* update or downgrade */
 		gs_app_add_source (app, name);
@@ -925,6 +954,8 @@ app_from_single_pkg_variant (GsPlugin *plugin,
 		gs_app_set_kind (app, AS_COMPONENT_KIND_GENERIC);
 		gs_app_set_bundle_kind (app, AS_BUNDLE_KIND_PACKAGE);
 		gs_app_set_scope (app, AS_COMPONENT_SCOPE_SYSTEM);
+		/* do not know update details */
+		gs_app_set_update_details_markup (app, NULL);
 
 		if (addition) {
 			/* addition */
@@ -1096,6 +1127,8 @@ static void
 gs_plugin_rpm_ostree_refresh_metadata_async (GsPlugin                     *plugin,
                                              guint64                       cache_age_secs,
                                              GsPluginRefreshMetadataFlags  flags,
+                                             GsPluginEventCallback         event_callback,
+                                             void                         *event_user_data,
                                              GCancellable                 *cancellable,
                                              GAsyncReadyCallback           callback,
                                              gpointer                      user_data)
@@ -1106,7 +1139,7 @@ gs_plugin_rpm_ostree_refresh_metadata_async (GsPlugin                     *plugi
 
 	task = g_task_new (plugin, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_refresh_metadata_async);
-	g_task_set_task_data (task, gs_plugin_refresh_metadata_data_new (cache_age_secs, flags), (GDestroyNotify) gs_plugin_refresh_metadata_data_free);
+	g_task_set_task_data (task, gs_plugin_refresh_metadata_data_new (cache_age_secs, flags, event_callback, event_user_data), (GDestroyNotify) gs_plugin_refresh_metadata_data_free);
 
 	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
 				refresh_metadata_thread_cb, g_steal_pointer (&task));
@@ -1360,6 +1393,8 @@ gs_plugin_rpm_ostree_update_apps_async (GsPlugin                           *plug
                                         GsPluginUpdateAppsFlags             flags,
                                         GsPluginProgressCallback            progress_callback,
                                         gpointer                            progress_user_data,
+                                        GsPluginEventCallback               event_callback,
+                                        void                               *event_user_data,
                                         GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                         gpointer                            app_needs_user_action_data,
                                         GCancellable                       *cancellable,
@@ -1372,6 +1407,7 @@ gs_plugin_rpm_ostree_update_apps_async (GsPlugin                           *plug
 
 	task = gs_plugin_update_apps_data_new_task (plugin, apps, flags,
 						    progress_callback, progress_user_data,
+						    event_callback, event_user_data,
 						    app_needs_user_action_callback, app_needs_user_action_data,
 						    cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_update_apps_async);
@@ -1410,7 +1446,7 @@ update_apps_thread_cb (GTask        *task,
 		gboolean done;
 
 		if (!gs_rpmostree_wait_for_ongoing_transaction_end (sysroot_proxy, cancellable, &local_error)) {
-			gs_rpm_ostree_task_return_error_with_gui (self, task, g_steal_pointer (&local_error), _("Failed to wait on transaction end before download: "), interactive);
+			gs_rpm_ostree_task_return_error_with_gui (self, task, data->event_callback, data->event_user_data, g_steal_pointer (&local_error), _("Failed to wait on transaction end before download: "), interactive);
 			return;
 		}
 
@@ -1436,14 +1472,14 @@ update_apps_thread_cb (GTask        *task,
 				if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
 					g_clear_error (&local_error);
 					if (!gs_rpmostree_wait_for_ongoing_transaction_end (sysroot_proxy, cancellable, &local_error)) {
-						gs_rpm_ostree_task_return_error_with_gui (self, task, g_steal_pointer (&local_error), _("Failed to wait on transaction end before download: "), interactive);
+						gs_rpm_ostree_task_return_error_with_gui (self, task, data->event_callback, data->event_user_data, g_steal_pointer (&local_error), _("Failed to wait on transaction end before download: "), interactive);
 						return;
 					}
 					done = FALSE;
 					continue;
 				}
 				gs_rpmostree_error_convert (&local_error);
-				gs_rpm_ostree_task_return_error_with_gui (self, task, g_steal_pointer (&local_error), _("Failed to download updates: "), interactive);
+				gs_rpm_ostree_task_return_error_with_gui (self, task, data->event_callback, data->event_user_data, g_steal_pointer (&local_error), _("Failed to download updates: "), interactive);
 				return;
 			}
 		}
@@ -1456,7 +1492,7 @@ update_apps_thread_cb (GTask        *task,
 		                                                 &local_error)) {
 			gs_app_list_override_progress (data->apps, GS_APP_PROGRESS_UNKNOWN);
 			gs_rpmostree_error_convert (&local_error);
-			gs_rpm_ostree_task_return_error_with_gui (self, task, g_steal_pointer (&local_error), _("Failed to download updates: "), interactive);
+			gs_rpm_ostree_task_return_error_with_gui (self, task, data->event_callback, data->event_user_data, g_steal_pointer (&local_error), _("Failed to download updates: "), interactive);
 			return;
 		}
 
@@ -1495,7 +1531,7 @@ update_apps_thread_cb (GTask        *task,
 		/* we don't currently put all updates in the OsUpdate proxy app */
 		if (!gs_app_has_quirk (app, GS_APP_QUIRK_IS_PROXY)) {
 			if (!trigger_rpmostree_update (self, app, os_proxy, sysroot_proxy, interactive, cancellable, &local_error)) {
-				gs_rpm_ostree_task_return_error_with_gui (self, task, g_steal_pointer (&local_error), _("Failed to trigger update: "), interactive);
+				gs_rpm_ostree_task_return_error_with_gui (self, task, data->event_callback, data->event_user_data, g_steal_pointer (&local_error), _("Failed to trigger update: "), interactive);
 				return;
 			}
 		}
@@ -1505,7 +1541,7 @@ update_apps_thread_cb (GTask        *task,
 			GsApp *app_tmp = gs_app_list_index (related, j);
 
 			if (!trigger_rpmostree_update (self, app_tmp, os_proxy, sysroot_proxy, interactive, cancellable, &local_error)) {
-				gs_rpm_ostree_task_return_error_with_gui (self, task, g_steal_pointer (&local_error), _("Failed to trigger update: "), interactive);
+				gs_rpm_ostree_task_return_error_with_gui (self, task, data->event_callback, data->event_user_data, g_steal_pointer (&local_error), _("Failed to trigger update: "), interactive);
 				return;
 			}
 		}
@@ -1520,6 +1556,69 @@ gs_plugin_rpm_ostree_update_apps_finish (GsPlugin      *plugin,
                                          GError       **error)
 {
 	return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+static gchar *
+gs_plugin_rpm_ostree_build_version_refspec (GsPluginRpmOstree *self,
+					    GsRPMOSTreeOS *os_proxy,
+					    const gchar *new_version,
+					    GError **error)
+{
+	g_autoptr(GVariant) booted_deployment = gs_rpmostree_os_dup_booted_deployment (os_proxy);
+	g_autoptr(GsOsRelease) os_release = NULL;
+	g_autoptr(GError) local_error = NULL;
+	g_auto(GVariantDict) booted_deployment_dict = { 0, };
+	g_auto(GStrv) split_origin = NULL;
+	const gchar *origin = NULL;
+	const gchar *current_version = NULL;
+
+	/* get the distro name (e.g. 'Fedora') but allow a fallback */
+	os_release = gs_os_release_new (&local_error);
+	if (os_release != NULL) {
+		current_version = gs_os_release_get_version_id (os_release);
+		if (current_version == NULL) {
+			g_set_error_literal (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_INVALID_FORMAT, "no distro version specified");
+			return NULL;
+		}
+	} else {
+		g_set_error (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_INVALID_FORMAT, "failed to get distro version: %s", local_error->message);
+		return NULL;
+	}
+
+	g_variant_dict_init (&booted_deployment_dict, booted_deployment);
+	if (!g_variant_dict_lookup (&booted_deployment_dict, "origin", "&s", &origin)) {
+		g_set_error_literal (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_FAILED,
+				     "no origin property provided by the rpm-ostree daemon");
+		return NULL;
+	}
+
+	if (origin == NULL || !strchr (origin, '/')) {
+		g_set_error (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_INVALID_FORMAT,
+			     "received origin '%s' is in unexpected format", origin);
+		return NULL;
+	}
+
+	/*
+	expected formats contain:
+
+	   ostree://fedora/41/x86_64/silverblue
+	   fedora/41/x86_64/silverblue
+	   fedora:fedora/41/x86_64/kinoite
+
+	where the '41' is the `current_version`, to be replaced with the `new_version`
+	*/
+	split_origin = g_strsplit (origin, "/", -1);
+	for (guint i = 0; split_origin[i] != NULL; i++) {
+		if (g_strcmp0 (split_origin[i], current_version) == 0) {
+			g_free (split_origin[i]);
+			split_origin[i] = g_strdup (new_version);
+			return g_strjoinv ("/", split_origin);
+		}
+	}
+
+	g_set_error (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_INVALID_FORMAT,
+		     "cannot find current OS version '%s' in origin '%s'", current_version, origin);
+	return NULL;
 }
 
 static gboolean
@@ -1560,8 +1659,11 @@ gs_plugin_rpm_ostree_trigger_upgrade_sync (GsPlugin *plugin,
 	}
 
 	/* construct new refspec based on the distro version we're upgrading to */
-	new_refspec = g_strdup_printf ("ostree://fedora/%s/x86_64/silverblue",
-	                               gs_app_get_version (app));
+	new_refspec = gs_plugin_rpm_ostree_build_version_refspec (self, os_proxy, gs_app_get_version (app), error);
+	if (new_refspec == NULL) {
+		gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
+		return FALSE;
+	}
 
 	/* trigger the upgrade */
 	options = make_rpmostree_options_variant (RPMOSTREE_OPTION_ALLOW_DOWNGRADE |
@@ -1759,6 +1861,8 @@ gs_plugin_rpm_ostree_install_apps_async (GsPlugin                           *plu
                                          GsPluginInstallAppsFlags            flags,
                                          GsPluginProgressCallback            progress_callback,
                                          gpointer                            progress_user_data,
+                                         GsPluginEventCallback               event_callback,
+                                         void                               *event_user_data,
                                          GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                          gpointer                            app_needs_user_action_data,
                                          GCancellable                       *cancellable,
@@ -1770,9 +1874,10 @@ gs_plugin_rpm_ostree_install_apps_async (GsPlugin                           *plu
 	gboolean interactive = (flags & GS_PLUGIN_INSTALL_APPS_FLAGS_INTERACTIVE);
 
 	task = gs_plugin_install_apps_data_new_task (plugin, apps, flags,
-						    progress_callback, progress_user_data,
-						    app_needs_user_action_callback, app_needs_user_action_data,
-						    cancellable, callback, user_data);
+						     progress_callback, progress_user_data,
+						     event_callback, event_user_data,
+						     app_needs_user_action_callback, app_needs_user_action_data,
+						     cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_install_apps_async);
 
 	/* Queue a job to install the apps. */
@@ -1820,7 +1925,7 @@ install_apps_thread_cb (GTask        *task,
 		switch (gs_app_get_state (app)) {
 		case GS_APP_STATE_AVAILABLE:
 		case GS_APP_STATE_QUEUED_FOR_INSTALL:
-			if (gs_app_get_source_default (app) == NULL) {
+			if (gs_app_get_default_source (app) == NULL) {
 				g_task_return_new_error (task,
 							 GS_PLUGIN_ERROR,
 							 GS_PLUGIN_ERROR_NOT_SUPPORTED,
@@ -1828,7 +1933,7 @@ install_apps_thread_cb (GTask        *task,
 				return;
 			}
 
-			install_package = gs_app_get_source_default (app);
+			install_package = gs_app_get_default_source (app);
 			break;
 		case GS_APP_STATE_AVAILABLE_LOCAL:
 			if (gs_app_get_local_file (app) == NULL) {
@@ -1937,6 +2042,8 @@ gs_plugin_rpm_ostree_uninstall_apps_async (GsPlugin                           *p
                                            GsPluginUninstallAppsFlags          flags,
                                            GsPluginProgressCallback            progress_callback,
                                            gpointer                            progress_user_data,
+                                           GsPluginEventCallback               event_callback,
+                                           void                               *event_user_data,
                                            GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                            gpointer                            app_needs_user_action_data,
                                            GCancellable                       *cancellable,
@@ -1949,6 +2056,7 @@ gs_plugin_rpm_ostree_uninstall_apps_async (GsPlugin                           *p
 
 	task = gs_plugin_uninstall_apps_data_new_task (plugin, apps, flags,
 						       progress_callback, progress_user_data,
+						       event_callback, event_user_data,
 						       app_needs_user_action_callback, app_needs_user_action_data,
 						       cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_uninstall_apps_async);
@@ -2009,7 +2117,7 @@ uninstall_apps_thread_cb (GTask        *task,
 			done = TRUE;
 			if (!rpmostree_update_deployment (os_proxy,
 							  NULL /* install package */,
-							  gs_app_get_source_default (app),
+							  gs_app_get_default_source (app),
 							  NULL /* install local package */,
 							  options,
 							  interactive,
@@ -2058,8 +2166,9 @@ uninstall_apps_thread_cb (GTask        *task,
 
 	/* Refine the apps to ensure their new states are up to date. */
 	if (!gs_rpm_ostree_refine_apps (GS_PLUGIN (self), data->apps,
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN |
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION,
+					GS_PLUGIN_REFINE_FLAGS_NONE,
+					GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN |
+					GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION,
 					cancellable, &local_error)) {
 		gs_rpmostree_error_convert (&local_error);
 		g_debug ("Error refining apps after uninstall: %s", local_error->message);
@@ -2109,10 +2218,10 @@ resolve_installed_packages_app (GsPlugin *plugin,
 {
 	RpmOstreePackage *pkg;
 
-	if (!gs_app_get_source_default (app))
+	if (!gs_app_get_default_source (app))
 		return FALSE;
 
-	pkg = g_hash_table_lookup (packages, gs_app_get_source_default (app));
+	pkg = g_hash_table_lookup (packages, gs_app_get_default_source (app));
 
 	if (pkg) {
 		gs_app_set_version (app, rpm_ostree_package_get_evr (pkg));
@@ -2145,12 +2254,12 @@ resolve_installed_packages_app (GsPlugin *plugin,
 }
 
 static gboolean
-resolve_appstream_source_file_to_package_name (GsPlugin *plugin,
-                                               GsApp *app,
-                                               GsPluginRefineFlags flags,
-                                               rpmts *inout_rpmts,
-                                               GCancellable *cancellable,
-                                               GError **error)
+resolve_appstream_source_file_to_package_name (GsPlugin                    *plugin,
+                                               GsApp                       *app,
+                                               GsPluginRefineRequireFlags   require_flags,
+                                               rpmts                       *inout_rpmts,
+                                               GCancellable                *cancellable,
+                                               GError                     **error)
 {
 	Header h;
 	const gchar *fn;
@@ -2190,7 +2299,7 @@ resolve_appstream_source_file_to_package_name (GsPlugin *plugin,
 
 		/* add default source */
 		name = headerGetString (h, RPMTAG_NAME);
-		if (gs_app_get_source_default (app) == NULL) {
+		if (gs_app_get_default_source (app) == NULL) {
 			const gchar *nevra = headerGetString (h, RPMTAG_NEVRA);
 			g_debug ("rpm: setting source to '%s' with nevra '%s'", name, nevra);
 			gs_app_add_source (app, name);
@@ -2206,11 +2315,12 @@ resolve_appstream_source_file_to_package_name (GsPlugin *plugin,
 }
 
 static gboolean
-gs_rpm_ostree_refine_apps (GsPlugin *plugin,
-			   GsAppList *list,
-			   GsPluginRefineFlags flags,
-			   GCancellable *cancellable,
-			   GError **error)
+gs_rpm_ostree_refine_apps (GsPlugin                    *plugin,
+                           GsAppList                   *list,
+                           GsPluginRefineFlags          job_flags,
+                           GsPluginRefineRequireFlags   require_flags,
+                           GCancellable                *cancellable,
+                           GError                     **error)
 {
 	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
 	g_autoptr(GHashTable) packages = NULL;
@@ -2228,7 +2338,7 @@ gs_rpm_ostree_refine_apps (GsPlugin *plugin,
 	g_auto(GStrv) layered_local_packages_strv = NULL;
 	g_auto(rpmts) ts = NULL;
 	g_autofree gchar *checksum = NULL;
-	gboolean interactive = gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
+	gboolean interactive = (job_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0;
 
 	/* first check whether there's any rpm-ostree-related app, to not run the proxy for nothing */
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
@@ -2240,7 +2350,7 @@ gs_rpm_ostree_refine_apps (GsPlugin *plugin,
 		if (gs_app_has_management_plugin (app, NULL) &&
 		    gs_app_get_bundle_kind (app) == AS_BUNDLE_KIND_PACKAGE &&
 		    gs_app_get_scope (app) == AS_COMPONENT_SCOPE_SYSTEM &&
-		    gs_app_get_source_default (app) != NULL) {
+		    gs_app_get_default_source (app) != NULL) {
 			gs_app_set_management_plugin (app, plugin);
 			gs_app_add_quirk (app, GS_APP_QUIRK_NEEDS_REBOOT);
 			app_set_rpm_ostree_packaging_format (app);
@@ -2249,13 +2359,13 @@ gs_rpm_ostree_refine_apps (GsPlugin *plugin,
 		if (gs_app_has_management_plugin (app, NULL) &&
 		    gs_app_get_bundle_kind (app) == AS_BUNDLE_KIND_UNKNOWN &&
 		    gs_app_get_scope (app) == AS_COMPONENT_SCOPE_SYSTEM &&
-		    gs_app_get_source_default (app) == NULL) {
-			if (!resolve_appstream_source_file_to_package_name (plugin, app, flags, &ts, cancellable, error))
+		    gs_app_get_default_source (app) == NULL) {
+			if (!resolve_appstream_source_file_to_package_name (plugin, app, require_flags, &ts, cancellable, error))
 				return FALSE;
 		}
 		if (!gs_app_has_management_plugin (app, plugin))
 			continue;
-		if (gs_app_get_source_default (app) == NULL)
+		if (gs_app_get_default_source (app) == NULL)
 			continue;
 
 		gs_app_list_add (todo_apps, app);
@@ -2327,7 +2437,7 @@ gs_rpm_ostree_refine_apps (GsPlugin *plugin,
 		/* first try to resolve from installed packages and
 		   if we didn't find anything, try resolving from available packages */
 		if (!resolve_installed_packages_app (plugin, packages, layered_packages, layered_local_packages, app))
-			g_hash_table_insert (lookup_apps, (gpointer) gs_app_get_source_default (app), app);
+			g_hash_table_insert (lookup_apps, (gpointer) gs_app_get_default_source (app), app);
 	}
 
 	if (g_hash_table_size (lookup_apps) > 0) {
@@ -2414,18 +2524,21 @@ static void refine_thread_cb (GTask        *task,
                               GCancellable *cancellable);
 
 static void
-gs_plugin_rpm_ostree_refine_async (GsPlugin            *plugin,
-                                   GsAppList           *list,
-                                   GsPluginRefineFlags  flags,
-                                   GCancellable        *cancellable,
-                                   GAsyncReadyCallback  callback,
-                                   gpointer             user_data)
+gs_plugin_rpm_ostree_refine_async (GsPlugin                   *plugin,
+                                   GsAppList                  *list,
+                                   GsPluginRefineFlags         job_flags,
+                                   GsPluginRefineRequireFlags  require_flags,
+                                   GsPluginEventCallback       event_callback,
+                                   void                       *event_user_data,
+                                   GCancellable               *cancellable,
+                                   GAsyncReadyCallback         callback,
+                                   gpointer                    user_data)
 {
 	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
 	g_autoptr(GTask) task = NULL;
-	gboolean interactive = gs_plugin_has_flags (GS_PLUGIN (self), GS_PLUGIN_FLAGS_INTERACTIVE);
+	gboolean interactive = (job_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0;
 
-	task = gs_plugin_refine_data_new_task (plugin, list, flags, cancellable, callback, user_data);
+	task = gs_plugin_refine_data_new_task (plugin, list, job_flags, require_flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_refine_async);
 
 	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
@@ -2442,12 +2555,11 @@ refine_thread_cb (GTask        *task,
 	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
 	GsPluginRefineData *data = task_data;
 	GsAppList *list = data->list;
-	GsPluginRefineFlags flags = data->flags;
 	g_autoptr(GError) local_error = NULL;
 
 	assert_in_worker (self);
 
-	if (!gs_rpm_ostree_refine_apps (plugin, list, flags, cancellable, &local_error))
+	if (!gs_rpm_ostree_refine_apps (plugin, list, data->job_flags, data->require_flags, cancellable, &local_error))
 		g_task_return_error (task, g_steal_pointer (&local_error));
 	else
 		g_task_return_boolean (task, TRUE);
@@ -2494,8 +2606,9 @@ gs_plugin_rpm_ostree_download_upgrade_sync (GsPlugin *plugin,
 		return FALSE;
 
 	/* construct new refspec based on the distro version we're upgrading to */
-	new_refspec = g_strdup_printf ("ostree://fedora/%s/x86_64/silverblue",
-	                               gs_app_get_version (app));
+	new_refspec = gs_plugin_rpm_ostree_build_version_refspec (self, os_proxy, gs_app_get_version (app), error);
+	if (new_refspec == NULL)
+		return FALSE;
 
 	options = make_rpmostree_options_variant (RPMOSTREE_OPTION_ALLOW_DOWNGRADE |
 	                                          RPMOSTREE_OPTION_DOWNLOAD_ONLY);
@@ -2577,6 +2690,8 @@ static void
 gs_plugin_rpm_ostree_download_upgrade_async (GsPlugin *plugin,
 					     GsApp *app,
 					     GsPluginDownloadUpgradeFlags flags,
+					     GsPluginEventCallback event_callback,
+					     void *event_user_data,
 					     GCancellable *cancellable,
 					     GAsyncReadyCallback callback,
 					     gpointer user_data)
@@ -2585,7 +2700,7 @@ gs_plugin_rpm_ostree_download_upgrade_async (GsPlugin *plugin,
 	g_autoptr(GTask) task = NULL;
 	gboolean interactive = (flags & GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE) != 0;
 
-	task = gs_plugin_download_upgrade_data_new_task (plugin, app, flags, cancellable, callback, user_data);
+	task = gs_plugin_download_upgrade_data_new_task (plugin, app, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_download_upgrade_async);
 
 	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
@@ -2649,7 +2764,7 @@ add_quirks_from_package_name (GsApp *app, const gchar *package_name)
 		NULL };
 
 	if (g_strv_contains (packages_with_repos, package_name))
-		gs_app_add_quirk (app, GS_APP_QUIRK_HAS_SOURCE);
+		gs_app_add_quirk (app, GS_APP_QUIRK_LOCAL_HAS_REPOSITORY);
 }
 
 static gboolean
@@ -2775,7 +2890,7 @@ gs_plugin_rpm_ostree_file_to_app_sync (GsPlugin *plugin,
 	tmp_list = gs_app_list_new ();
 	gs_app_list_add (tmp_list, app);
 
-	if (gs_rpm_ostree_refine_apps (plugin, tmp_list, 0, cancellable, error)) {
+	if (gs_rpm_ostree_refine_apps (plugin, tmp_list, GS_PLUGIN_REFINE_FLAGS_NONE, GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE, cancellable, error)) {
 		if (gs_app_get_state (app) == GS_APP_STATE_UNKNOWN)
 			gs_app_set_state (app, GS_APP_STATE_AVAILABLE_LOCAL);
 
@@ -2789,18 +2904,22 @@ out:
 	return ret;
 }
 
+/* Run in @worker. */
 static void
-gs_plugin_rpm_ostree_file_to_app_thread (GTask *task,
-					 gpointer source_object,
-					 gpointer task_data,
-					 GCancellable *cancellable)
+file_to_app_thread_cb (GTask        *task,
+                       gpointer      source_object,
+                       gpointer      task_data,
+                       GCancellable *cancellable)
+
 {
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (source_object);
 	g_autoptr(GsAppList) list = gs_app_list_new ();
 	g_autoptr(GError) local_error = NULL;
-	GsPlugin *plugin = GS_PLUGIN (source_object);
 	GsPluginFileToAppData *data = task_data;
 
-	if (gs_plugin_rpm_ostree_file_to_app_sync (plugin, data->file, list, cancellable, &local_error))
+	assert_in_worker (self);
+
+	if (gs_plugin_rpm_ostree_file_to_app_sync (GS_PLUGIN (self), data->file, list, cancellable, &local_error))
 		g_task_return_pointer (task, g_steal_pointer (&list), g_object_unref);
 	else if (local_error != NULL)
 		g_task_return_error (task, g_steal_pointer (&local_error));
@@ -2812,15 +2931,22 @@ static void
 gs_plugin_rpm_ostree_file_to_app_async (GsPlugin *plugin,
 					GFile *file,
 					GsPluginFileToAppFlags flags,
+					GsPluginEventCallback event_callback,
+					void *event_user_data,
 					GCancellable *cancellable,
 					GAsyncReadyCallback callback,
 					gpointer user_data)
 {
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
 	g_autoptr(GTask) task = NULL;
+	gboolean interactive = (flags & GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE);
 
-	task = gs_plugin_file_to_app_data_new_task (plugin, file, flags, cancellable, callback, user_data);
+	task = gs_plugin_file_to_app_data_new_task (plugin, file, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_file_to_app_async);
-	g_task_run_in_thread (task, gs_plugin_rpm_ostree_file_to_app_thread);
+
+	/* Queue a job to get the app. */
+	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
+				file_to_app_thread_cb, g_steal_pointer (&task));
 }
 
 static GsAppList *
@@ -3127,7 +3253,8 @@ list_apps_for_update_sync (GsPluginRpmOstree *self,
 	return g_steal_pointer (&list);
 }
 
-static void sanitize_update_history_text (gchar *text);
+static void sanitize_update_history_text (gchar *text,
+					  guint64 *out_latest_date);
 
 static GsAppList * /* (transfer full) */
 list_apps_historical_updates_sync (GsPluginRpmOstree *self,
@@ -3157,15 +3284,19 @@ list_apps_historical_updates_sync (GsPluginRpmOstree *self,
 		GsPlugin *plugin = GS_PLUGIN (self);
 		g_autoptr(GsApp) app = NULL;
 		g_autoptr(GIcon) ic = NULL;
+		guint64 latest_date = 0;
 
 		list = gs_app_list_new ();
 
-		sanitize_update_history_text (stdout_data);
+		sanitize_update_history_text (stdout_data, &latest_date);
 
 		/* create new */
 		app = gs_app_new ("org.gnome.Software.RpmostreeUpdate");
 		gs_app_set_management_plugin (app, plugin);
+		gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
 		gs_app_set_state (app, GS_APP_STATE_INSTALLED);
+		if (latest_date != 0)
+			gs_app_set_install_date (app, latest_date);
 		gs_app_set_name (app,
 				 GS_APP_QUALITY_NORMAL,
 				 /* TRANSLATORS: this is a group of updates that are not
@@ -3293,6 +3424,8 @@ static void
 gs_plugin_rpm_ostree_list_apps_async (GsPlugin              *plugin,
                                       GsAppQuery            *query,
                                       GsPluginListAppsFlags  flags,
+                                      GsPluginEventCallback  event_callback,
+                                      void                  *event_user_data,
                                       GCancellable          *cancellable,
                                       GAsyncReadyCallback    callback,
                                       gpointer               user_data)
@@ -3302,6 +3435,7 @@ gs_plugin_rpm_ostree_list_apps_async (GsPlugin              *plugin,
 	gboolean interactive = (flags & GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
 
 	task = gs_plugin_list_apps_data_new_task (plugin, query, flags,
+						  event_callback, event_user_data,
 						  cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_list_apps_async);
 
@@ -3324,7 +3458,7 @@ list_apps_thread_cb (GTask        *task,
 	GsAppQueryProvidesType provides_type = GS_APP_QUERY_PROVIDES_UNKNOWN;
 	GsAppQueryTristate is_for_update = GS_APP_QUERY_TRISTATE_UNSET;
 	GsAppQueryTristate is_historical_update = GS_APP_QUERY_TRISTATE_UNSET;
-	GsAppQueryTristate is_source = GS_APP_QUERY_TRISTATE_UNSET;
+	const AsComponentKind *component_kinds = NULL;
 	g_autoptr(GError) local_error = NULL;
 	g_autoptr(GsRPMOSTreeSysroot) sysroot_proxy = NULL;
 	g_autoptr(GsRPMOSTreeOS) os_proxy = NULL;
@@ -3336,17 +3470,17 @@ list_apps_thread_cb (GTask        *task,
 		provides_type = gs_app_query_get_provides (data->query, &provides_tag);
 		is_for_update = gs_app_query_get_is_for_update (data->query);
 		is_historical_update = gs_app_query_get_is_historical_update (data->query);
-		is_source = gs_app_query_get_is_source (data->query);
+		component_kinds = gs_app_query_get_component_kinds (data->query);
 	}
 
 	/* Currently only support a subset of query properties, and only one set at once. */
 	if ((provides_tag == NULL &&
 	     is_for_update == GS_APP_QUERY_TRISTATE_UNSET &&
 	     is_historical_update == GS_APP_QUERY_TRISTATE_UNSET &&
-	     is_source == GS_APP_QUERY_TRISTATE_UNSET) ||
+	     component_kinds == NULL) ||
 	    is_for_update == GS_APP_QUERY_TRISTATE_FALSE ||
 	    is_historical_update == GS_APP_QUERY_TRISTATE_FALSE ||
-	    is_source == GS_APP_QUERY_TRISTATE_FALSE ||
+	    (component_kinds != NULL && !gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) ||
 	    gs_app_query_get_n_properties_set (data->query) != 1) {
 		g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
 					 "Unsupported query");
@@ -3365,7 +3499,7 @@ list_apps_thread_cb (GTask        *task,
 		list = list_apps_for_update_sync (self, interactive, os_proxy, sysroot_proxy, cancellable, &local_error);
 	} else if (is_historical_update == GS_APP_QUERY_TRISTATE_TRUE) {
 		list = list_apps_historical_updates_sync (self, interactive, os_proxy, sysroot_proxy, cancellable, &local_error);
-	} else if (is_source == GS_APP_QUERY_TRISTATE_TRUE) {
+	} else if (gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) {
 		list = list_apps_sources_sync (self, interactive, os_proxy, sysroot_proxy, cancellable, &local_error);
 	}
 
@@ -3392,6 +3526,8 @@ static void
 gs_plugin_rpm_ostree_enable_repository_async (GsPlugin                     *plugin,
 					      GsApp			   *repository,
                                               GsPluginManageRepositoryFlags flags,
+                                              GsPluginEventCallback         event_callback,
+                                              void                         *event_user_data,
                                               GCancellable	 	   *cancellable,
                                               GAsyncReadyCallback	    callback,
                                               gpointer			    user_data)
@@ -3400,7 +3536,7 @@ gs_plugin_rpm_ostree_enable_repository_async (GsPlugin                     *plug
 	g_autoptr(GTask) task = NULL;
 	gboolean interactive = (flags & GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE);
 
-	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, cancellable, callback, user_data);
+	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_enable_repository_async);
 
 	/* only process this app if it was created by this plugin */
@@ -3471,6 +3607,8 @@ static void
 gs_plugin_rpm_ostree_disable_repository_async (GsPlugin                     *plugin,
 					       GsApp			    *repository,
                                                GsPluginManageRepositoryFlags flags,
+                                               GsPluginEventCallback         event_callback,
+                                               void                         *event_user_data,
                                                GCancellable	 	    *cancellable,
                                                GAsyncReadyCallback	     callback,
                                                gpointer			     user_data)
@@ -3479,7 +3617,7 @@ gs_plugin_rpm_ostree_disable_repository_async (GsPlugin                     *plu
 	g_autoptr(GTask) task = NULL;
 	gboolean interactive = (flags & GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE);
 
-	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, cancellable, callback, user_data);
+	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_disable_repository_async);
 
 	/* only process this app if it was created by this plugin */
@@ -3531,18 +3669,31 @@ gs_plugin_rpm_ostree_disable_repository_finish (GsPlugin      *plugin,
 
 static const gchar *
 find_char_on_line (const gchar *txt,
-		   gchar chr)
+		   gchar chr,
+		   guint nth)
 {
-	while (*txt != '\n' && *txt != '\0' && *txt != chr)
+	g_assert (nth >= 1);
+	while (*txt != '\n' && *txt != '\0') {
+		if (*txt == chr) {
+			nth--;
+			if (nth == 0)
+				break;
+		}
 		txt++;
-	return *txt == chr ? txt : NULL;
+	}
+	return (*txt == chr && nth == 0) ? txt : NULL;
 }
 
 static void
-sanitize_update_history_text (gchar *text)
+sanitize_update_history_text (gchar *text,
+			      guint64 *out_latest_date)
 {
+	GDate latest_date, date;
 	gchar *read_pos = text, *write_pos = text;
 	gsize text_len = strlen (text);
+
+	g_date_clear (&latest_date, 1);
+	g_date_clear (&date, 1);
 
 	#define skip_after(_chr) G_STMT_START { \
 		while (*read_pos != '\0' && *read_pos != '\n' && *read_pos != (_chr)) { \
@@ -3577,13 +3728,29 @@ sanitize_update_history_text (gchar *text)
 	while (*read_pos != '\0') {
 		skip_whitespace ();
 
-		/* Hide email addresses */
 		if (*read_pos == '*') {
 			const gchar *start, *end;
 
-			start = find_char_on_line (read_pos, '<');
+			/* Extract date, from "* Thu Aug 14 2025 ...." */
+			start = find_char_on_line (read_pos, ' ', 2);
 			if (start != NULL) {
-				end = find_char_on_line (start, '>');
+				start++;
+				end = find_char_on_line (start, ' ', 3);
+				if (end != NULL) {
+					g_autofree gchar *str = g_strndup (start, end - start);
+					g_date_set_parse (&date, str);
+					if (g_date_valid (&date)) {
+						if (!g_date_valid (&latest_date) || g_date_compare (&latest_date, &date) < 0) {
+							latest_date = date;
+						}
+					}
+				}
+			}
+
+			/* Hide email addresses */
+			start = find_char_on_line (read_pos, '<', 1);
+			if (start != NULL) {
+				end = find_char_on_line (start, '>', 1);
 				if (end != NULL) {
 					while (read_pos < start) {
 						if (read_pos != write_pos)
@@ -3619,6 +3786,14 @@ sanitize_update_history_text (gchar *text)
 		if (write_pos - text + strlen ("…") < text_len - 1)
 			strcat (write_pos, "…");
 	}
+
+	if (g_date_valid (&latest_date)) {
+		g_autoptr(GDateTime) date_time = g_date_time_new_utc (g_date_get_year (&latest_date),
+									g_date_get_month (&latest_date),
+									g_date_get_day (&latest_date),
+									0, 0, 0.0);
+		*out_latest_date = g_date_time_to_unix (date_time);
+	}
 }
 
 static void
@@ -3630,6 +3805,7 @@ gs_plugin_rpm_ostree_class_init (GsPluginRpmOstreeClass *klass)
 	object_class->dispose = gs_plugin_rpm_ostree_dispose;
 	object_class->finalize = gs_plugin_rpm_ostree_finalize;
 
+	plugin_class->adopt_app = gs_plugin_rpm_ostree_adopt_app;
 	plugin_class->setup_async = gs_plugin_rpm_ostree_setup_async;
 	plugin_class->setup_finish = gs_plugin_rpm_ostree_setup_finish;
 	plugin_class->shutdown_async = gs_plugin_rpm_ostree_shutdown_async;

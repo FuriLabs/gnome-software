@@ -4,8 +4,12 @@
  * Copyright (C) 2016 Joaquim Rocha <jrocha@endlessm.com>
  * Copyright (C) 2016-2018 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2016-2019 Kalev Lember <klember@redhat.com>
+ * Copyright (C) 2025 GNOME Foundation, Inc.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Additional authors:
+ *  - Philip Withnall <pwithnall@gnome.org>
  */
 
 /* Notes:
@@ -181,7 +185,7 @@ gs_flatpak_set_app_origin (GsFlatpak *self,
 	    g_strcmp0 (gs_app_get_branch (app), "devel") == 0 ||
 	    g_strcmp0 (gs_app_get_branch (app), "master") == 0 ||
 	    (gs_app_get_branch (app) && g_str_has_suffix (gs_app_get_branch (app), "beta")))
-		gs_app_add_quirk (app, GS_APP_QUIRK_DEVELOPMENT_SOURCE);
+		gs_app_add_quirk (app, GS_APP_QUIRK_FROM_DEVELOPMENT_REPOSITORY);
 
 	gs_app_set_origin (app, origin);
 	gs_app_set_origin_ui (app, title);
@@ -270,9 +274,12 @@ static GsAppPermissions *
 perms_from_metadata (GKeyFile *keyfile)
 {
 	char **strv;
-	char *str;
 	GsAppPermissions *permissions = gs_app_permissions_new ();
 	GsAppPermissionsFlags flags = GS_APP_PERMISSIONS_FLAGS_NONE;
+	g_autofree char *app_id = g_key_file_get_value (keyfile, "Application", "name", NULL);
+	g_autofree char *mpris_id = NULL;
+	g_autofree char *app_id_non_devel = NULL;
+	g_autofree char *mpris_id_non_devel = NULL;
 
 	strv = g_key_file_get_string_list (keyfile, "Context", "sockets", NULL, NULL);
 	if (strv != NULL && g_strv_contains ((const gchar * const*)strv, "system-bus"))
@@ -442,34 +449,104 @@ perms_from_metadata (GKeyFile *keyfile)
 	}
 	g_strfreev (strv);
 
-	str = g_key_file_get_string (keyfile, "Session Bus Policy", "ca.desrt.dconf", NULL);
-	if (bus_policy_permission_from_string (str) >= GS_BUS_POLICY_PERMISSION_TALK)
-		flags |= GS_APP_PERMISSIONS_FLAGS_SETTINGS;
-	g_free (str);
-
-	{
-		/* There are various services on the session bus which are known to give sandbox escapes. */
-		const char *known_session_bus_sandbox_escape_names[] = {
-			"org.freedesktop.Flatpak",
-			"org.freedesktop.impl.portal.PermissionStore",
+	/* Iterate over all the D-Bus permissions, working out the consequences of each permission
+	 * and either adding to the GsAppPermissions’ flags, or adding more detailed
+	 * service information to it. */
+	if (!(flags & (GS_APP_PERMISSIONS_FLAGS_SYSTEM_BUS | GS_APP_PERMISSIONS_FLAGS_SESSION_BUS))) {
+		const struct {
+			GBusType bus_type;
+			const char *keyfile_group;
+			GsAppPermissionsFlags unfiltered_flag;
+		} bus_policy_types[] = {
+			{ G_BUS_TYPE_SESSION, "Session Bus Policy", GS_APP_PERMISSIONS_FLAGS_SESSION_BUS },
+			{ G_BUS_TYPE_SYSTEM, "System Bus Policy", GS_APP_PERMISSIONS_FLAGS_SYSTEM_BUS },
 		};
 
-		for (size_t i = 0; !(flags & GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX) && i < G_N_ELEMENTS (known_session_bus_sandbox_escape_names); i++) {
-			g_autofree char *bus_policy = g_key_file_get_string (keyfile, "Session Bus Policy", known_session_bus_sandbox_escape_names[i], NULL);
-			if (bus_policy_permission_from_string (bus_policy) >= GS_BUS_POLICY_PERMISSION_TALK)
-				flags |= GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX;
+		/* Build various IDs for the default bus policies.
+		 * MPRIS (https://specifications.freedesktop.org/mpris-spec/latest/)
+		 * is a spec for remotely controlling media players, and requires
+		 * apps to be able to own a sub-name in the MRPIS namespace on
+		 * the bus. */
+		if (app_id != NULL) {
+			mpris_id = g_strconcat ("org.mpris.MediaPlayer2.", app_id, NULL);
+			app_id_non_devel = g_str_has_suffix (app_id, ".Devel") ? g_strndup (app_id, strlen (app_id) - strlen (".Devel")) : NULL;
+			mpris_id_non_devel = (app_id_non_devel != NULL) ? g_strconcat ("org.mpris.MediaPlayer2.", app_id_non_devel, NULL) : NULL;
 		}
 
-		/* org.gtk.vfs.* is known to allow file system access */
-		{
-			g_auto(GStrv) session_bus_policies = NULL;
+		for (size_t h = 0; h < G_N_ELEMENTS (bus_policy_types); h++) {
+			g_auto(GStrv) bus_policies = NULL;
 
-			session_bus_policies = g_key_file_get_keys (keyfile, "Session Bus Policy", NULL, NULL);
-			for (size_t i = 0; session_bus_policies != NULL && session_bus_policies[i] != NULL; i++) {
-				if (g_str_has_prefix (session_bus_policies[i], "org.gtk.vfs.")) {
-					g_autofree char *bus_policy = g_key_file_get_string (keyfile, "Session Bus Policy", session_bus_policies[i], NULL);
-					if (bus_policy_permission_from_string (bus_policy) >= GS_BUS_POLICY_PERMISSION_TALK)
-						flags |= GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL;
+			/* If the app already has unfiltered access to this bus, skip it. */
+			if (flags & bus_policy_types[h].unfiltered_flag)
+				continue;
+
+			bus_policies = g_key_file_get_keys (keyfile, bus_policy_types[h].keyfile_group, NULL, NULL);
+
+			for (size_t i = 0; bus_policies != NULL && bus_policies[i] != NULL; i++) {
+				const struct {
+					GBusType bus_type;
+					const char *bus_name;
+					gboolean is_prefix;
+					GsBusPolicyPermission permission_is_at_least;
+					GsAppPermissionsFlags flags;
+				} bus_policy_permissions[] = {
+					/* Being able to talk to dconf means the app can read and write all settings: */
+					{ G_BUS_TYPE_SESSION, "ca.desrt.dconf", FALSE, GS_BUS_POLICY_PERMISSION_TALK, GS_APP_PERMISSIONS_FLAGS_SETTINGS },
+
+					/* There are various services on the session bus which are known to give sandbox escapes: */
+					{ G_BUS_TYPE_SESSION, "org.freedesktop.Flatpak", FALSE, GS_BUS_POLICY_PERMISSION_TALK, GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX },
+					{ G_BUS_TYPE_SESSION, "org.freedesktop.impl.portal.PermissionStore", FALSE, GS_BUS_POLICY_PERMISSION_TALK, GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX },
+
+					/* org.gtk.vfs.* is known to allow file system access: */
+					{ G_BUS_TYPE_SESSION, "org.gtk.vfs.", TRUE, GS_BUS_POLICY_PERMISSION_TALK, GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL },
+				};
+				const char *bus_name_pattern = bus_policies[i];
+				g_autofree char *bus_policy_str = g_key_file_get_string (keyfile, bus_policy_types[h].keyfile_group, bus_name_pattern, NULL);
+				GsBusPolicyPermission bus_policy;
+				size_t j;
+
+				/* This can’t fail because we’re iterating over the keys */
+				g_assert (bus_policy_str != NULL);
+				bus_policy = bus_policy_permission_from_string (bus_policy_str);
+
+				/* Ignore the default policies (see man:flatpak-metadata(5))*/
+				if (app_id != NULL &&
+				    bus_policy_types[h].bus_type == G_BUS_TYPE_SESSION &&
+				    (g_str_equal (bus_name_pattern, app_id) ||
+				     (g_str_has_prefix (bus_name_pattern, app_id) && bus_name_pattern[strlen (app_id)] == '.') ||
+				     g_str_equal (bus_name_pattern, mpris_id) ||
+				     g_str_equal (bus_name_pattern, "org.freedesktop.DBus") ||
+				     g_str_has_prefix (bus_name_pattern, "org.freedesktop.portal.")))
+					continue;
+
+				/* Allow .Devel apps to own their non-devel names on the session bus. */
+				if (app_id_non_devel != NULL &&
+				    bus_policy_types[h].bus_type == G_BUS_TYPE_SESSION &&
+				    (g_str_equal (bus_name_pattern, app_id_non_devel) ||
+				     (g_str_has_prefix (bus_name_pattern, app_id_non_devel) && bus_name_pattern[strlen (app_id_non_devel)] == '.') ||
+				     g_str_equal (bus_name_pattern, mpris_id_non_devel)))
+					continue;
+
+				/* Search for flags to apply to the GsAppPermissions in response to the app’s policies */
+				for (j = 0; j < G_N_ELEMENTS (bus_policy_permissions); j++) {
+					if (bus_policy_permissions[j].bus_type == bus_policy_types[h].bus_type &&
+					    ((!bus_policy_permissions[j].is_prefix && g_str_equal (bus_name_pattern, bus_policy_permissions[j].bus_name)) ||
+					     (bus_policy_permissions[j].is_prefix && g_str_has_prefix (bus_name_pattern, bus_policy_permissions[j].bus_name))) &&
+					    bus_policy >= bus_policy_permissions[j].permission_is_at_least) {
+						flags |= bus_policy_permissions[j].flags;
+						break;
+					}
+				}
+
+				/* This entry in the keyfile hasn’t matched any of the specific
+				 * `bus_policy_permissions` we know about, so list it generally
+				 * for the user. */
+				if (j == G_N_ELEMENTS (bus_policy_permissions)) {
+					flags |= GS_APP_PERMISSIONS_FLAGS_BUS_POLICY_OTHER;
+					gs_app_permissions_add_bus_policy (permissions,
+									   bus_policy_types[h].bus_type,
+									   bus_name_pattern,
+									   bus_policy);
 				}
 			}
 		}
@@ -707,6 +784,8 @@ gs_flatpak_claim_changed_idle_cb (gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
+/* This is called whenever a flatpak in this `FlatpakInstallation` is installed,
+ * updated or uninstalled. */
 static void
 gs_plugin_flatpak_changed_cb (GFileMonitor *monitor,
 			      GFile *child,
@@ -1265,6 +1344,8 @@ gs_flatpak_ref_silo (GsFlatpak *self,
 static gboolean
 gs_flatpak_rescan_app_data (GsFlatpak *self,
 			    gboolean interactive,
+			    GsPluginEventCallback event_callback,
+			    void *event_user_data,
 			    XbSilo **out_silo,
 			    gchar **out_silo_filename,
 			    GHashTable **out_silo_installed_by_desktopid,
@@ -1274,7 +1355,7 @@ gs_flatpak_rescan_app_data (GsFlatpak *self,
 	g_autoptr(XbSilo) silo = NULL;
 
 	if (self->requires_full_rescan) {
-		gboolean res = gs_flatpak_refresh (self, 60, interactive, cancellable, error);
+		gboolean res = gs_flatpak_refresh (self, 60, interactive, event_callback, event_user_data, cancellable, error);
 		if (res) {
 			self->requires_full_rescan = FALSE;
 		} else {
@@ -1348,26 +1429,13 @@ gs_flatpak_progress_cb (const gchar *status,
 			gpointer user_data)
 {
 	GsFlatpakProgressHelper *phelper = (GsFlatpakProgressHelper *) user_data;
-	GsPluginStatus plugin_status = GS_PLUGIN_STATUS_DOWNLOADING;
 
 	if (phelper->app != NULL) {
 		if (estimating)
 			gs_app_set_progress (phelper->app, GS_APP_PROGRESS_UNKNOWN);
 		else
 			gs_app_set_progress (phelper->app, progress);
-
-		switch (gs_app_get_state (phelper->app)) {
-		case GS_APP_STATE_INSTALLING:
-			plugin_status = GS_PLUGIN_STATUS_INSTALLING;
-			break;
-		case GS_APP_STATE_REMOVING:
-			plugin_status = GS_PLUGIN_STATUS_REMOVING;
-			break;
-		default:
-			break;
-		}
 	}
-	gs_plugin_status_update (phelper->plugin, phelper->app, plugin_status);
 }
 
 static gboolean
@@ -1383,10 +1451,14 @@ gs_flatpak_refresh_appstream_remote (GsFlatpak *self,
 	FlatpakInstallation *installation = gs_flatpak_get_installation (self, interactive);
 	g_autoptr(GError) error_local = NULL;
 
+	if ((self->flags & GS_FLATPAK_FLAG_DISABLE_UPDATE) != 0 && !interactive) {
+		g_debug ("Not updating remote '%s', because disabled", remote_name);
+		return TRUE;
+	}
+
 	/* TRANSLATORS: status text when downloading new metadata */
 	str = g_strdup_printf (_("Getting flatpak metadata for %s…"), remote_name);
 	gs_app_set_summary_missing (app_dl, str);
-	gs_plugin_status_update (self->plugin, app_dl, GS_PLUGIN_STATUS_DOWNLOADING);
 
 	if (!flatpak_installation_update_remote_sync (installation,
 						      remote_name,
@@ -1417,11 +1489,13 @@ gs_flatpak_refresh_appstream_remote (GsFlatpak *self,
 }
 
 static gboolean
-gs_flatpak_refresh_appstream (GsFlatpak     *self,
-                              guint64        cache_age_secs,
-                              gboolean       interactive,
-                              GCancellable  *cancellable,
-                              GError       **error)
+gs_flatpak_refresh_appstream (GsFlatpak              *self,
+                              guint64                 cache_age_secs,
+                              gboolean                interactive,
+                              GsPluginEventCallback   event_callback,
+                              void                   *event_user_data,
+                              GCancellable           *cancellable,
+                              GError                **error)
 {
 	gboolean ret;
 	g_autoptr(GPtrArray) xremotes = NULL;
@@ -1500,8 +1574,11 @@ gs_flatpak_refresh_appstream (GsFlatpak     *self,
 			gs_flatpak_error_convert (&error_local);
 			event = gs_plugin_event_new ("error", error_local,
 						     NULL);
+			if (interactive)
+				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-			gs_plugin_report_event (self->plugin, event);
+			if (event_callback != NULL)
+				event_callback (self->plugin, event, event_user_data);
 			continue;
 		}
 
@@ -1650,18 +1727,20 @@ gs_flatpak_add_installed (GsFlatpak *self,
 }
 
 gboolean
-gs_flatpak_add_sources (GsFlatpak *self,
-			GsAppList *list,
-			gboolean interactive,
-			GCancellable *cancellable,
-			GError **error)
+gs_flatpak_add_repositories (GsFlatpak              *self,
+                             GsAppList              *list,
+                             gboolean                interactive,
+                             GsPluginEventCallback   event_callback,
+                             void                   *event_user_data,
+                             GCancellable           *cancellable,
+                             GError                **error)
 {
 	g_autoptr(GPtrArray) xrefs = NULL;
 	g_autoptr(GPtrArray) xremotes = NULL;
 	FlatpakInstallation *installation = gs_flatpak_get_installation (self, interactive);
 
 	/* refresh */
-	if (!gs_flatpak_rescan_app_data (self, interactive, NULL, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, NULL, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	/* get installed apps and runtimes */
@@ -1713,11 +1792,11 @@ gs_flatpak_add_sources (GsFlatpak *self,
 }
 
 GsApp *
-gs_flatpak_find_source_by_url (GsFlatpak *self,
-			       const gchar *url,
-			       gboolean interactive,
-			       GCancellable *cancellable,
-			       GError **error)
+gs_flatpak_find_repository_by_url (GsFlatpak     *self,
+                                   const gchar   *url,
+                                   gboolean       interactive,
+                                   GCancellable  *cancellable,
+                                   GError       **error)
 {
 	g_autoptr(GPtrArray) xremotes = NULL;
 
@@ -1949,7 +2028,7 @@ gs_flatpak_remote_by_name (GsFlatpak *self,
  * enabled. If it’s being enabled, no properties apart from enabled/disabled
  * should be modified. */
 gboolean
-gs_flatpak_app_install_source (GsFlatpak *self,
+gs_flatpak_add_repository_app (GsFlatpak *self,
 			       GsApp *app,
 			       gboolean is_install,
 			       gboolean interactive,
@@ -2088,6 +2167,8 @@ gboolean
 gs_flatpak_add_updates (GsFlatpak *self,
 			GsAppList *list,
 			gboolean interactive,
+			GsPluginEventCallback event_callback,
+			void *event_user_data,
 			GCancellable *cancellable,
 			GError **error)
 {
@@ -2095,7 +2176,7 @@ gs_flatpak_add_updates (GsFlatpak *self,
 	FlatpakInstallation *installation = gs_flatpak_get_installation (self, interactive);
 
 	/* ensure valid */
-	if (!gs_flatpak_rescan_app_data (self, interactive, NULL, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, NULL, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	/* get all the updatable apps and runtimes */
@@ -2187,6 +2268,8 @@ gboolean
 gs_flatpak_refresh (GsFlatpak *self,
 		    guint64 cache_age_secs,
 		    gboolean interactive,
+		    GsPluginEventCallback event_callback,
+		    void *event_user_data,
 		    GCancellable *cancellable,
 		    GError **error)
 {
@@ -2221,7 +2304,7 @@ gs_flatpak_refresh (GsFlatpak *self,
 	gs_flatpak_invalidate_silo (self);
 
 	/* update AppStream metadata */
-	if (!gs_flatpak_refresh_appstream (self, cache_age_secs, interactive, cancellable, error))
+	if (!gs_flatpak_refresh_appstream (self, cache_age_secs, interactive, event_callback, event_user_data, cancellable, error))
 		return FALSE;
 
 	/* success */
@@ -2293,7 +2376,7 @@ gs_refine_item_metadata (GsFlatpak  *self,
 
 	/* AppStream sets the source to appname/arch/branch, if this isn't set
 	 * we can't break out the fields */
-	if (gs_app_get_source_default (app) == NULL) {
+	if (gs_app_get_default_source (app) == NULL) {
 		g_autofree gchar *tmp = gs_app_to_string (app);
 		g_warning ("no source set by appstream for %s: %s",
 			   gs_plugin_get_name (self->plugin), tmp);
@@ -2301,11 +2384,11 @@ gs_refine_item_metadata (GsFlatpak  *self,
 	}
 
 	/* parse the ref */
-	xref = flatpak_ref_parse (gs_app_get_source_default (app), error);
+	xref = flatpak_ref_parse (gs_app_get_default_source (app), error);
 	if (xref == NULL) {
 		gs_flatpak_error_convert (error);
 		g_prefix_error (error, "failed to parse '%s': ",
-				gs_app_get_source_default (app));
+				gs_app_get_default_source (app));
 		return FALSE;
 	}
 	gs_flatpak_set_metadata (self, app, xref);
@@ -2514,11 +2597,13 @@ gs_flatpak_refine_app_state (GsFlatpak *self,
                              GsApp *app,
                              gboolean interactive,
 			     gboolean force_state_update,
+			     GsPluginEventCallback event_callback,
+			     void *event_user_data,
                              GCancellable *cancellable,
                              GError **error)
 {
 	/* ensure valid */
-	if (!gs_flatpak_rescan_app_data (self, interactive, NULL, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, NULL, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	return gs_flatpak_refine_app_state_internal (self, app, interactive, force_state_update, cancellable, error);
@@ -2579,7 +2664,7 @@ gs_flatpak_create_runtime (GsFlatpak   *self,
 		/* since the cached runtime can have been created somewhere else
 		 * (we're using a global cache), we need to make sure that a
 		 * source is set */
-		if (gs_app_get_source_default (app_cache) == NULL) {
+		if (gs_app_get_default_source (app_cache) == NULL) {
 			gs_app_add_source (app_cache, source);
 			gs_app_set_metadata (app_cache, "GnomeSoftware::packagename-value",  source);
 		}
@@ -3107,7 +3192,7 @@ gs_flatpak_refine_appstream_from_bytes (GsFlatpak *self,
 					const char *origin, /* (nullable) */
 					FlatpakInstalledRef *installed_ref, /* (nullable) */
 					GBytes *appstream_gz,
-					GsPluginRefineFlags flags,
+					GsPluginRefineRequireFlags require_flags,
 					gboolean interactive,
 					const gchar *silo_filename,
 					GHashTable *silo_installed_by_desktopid,
@@ -3244,7 +3329,7 @@ gs_flatpak_refine_appstream_from_bytes (GsFlatpak *self,
 	}
 
 	/* copy details from AppStream to app */
-	if (!gs_appstream_refine_app (self->plugin, app, silo, component_node, flags, silo_installed_by_desktopid,
+	if (!gs_appstream_refine_app (self->plugin, app, silo, component_node, require_flags, silo_installed_by_desktopid,
 				      silo_filename ? silo_filename : "", self->scope, error))
 		return FALSE;
 
@@ -3341,14 +3426,14 @@ gs_flatpak_refine_appstream (GsFlatpak *self,
 			     XbSilo *silo,
 			     const gchar *silo_filename,
 			     GHashTable *silo_installed_by_desktopid,
-			     GsPluginRefineFlags flags,
+			     GsPluginRefineRequireFlags require_flags,
 			     GHashTable *components_by_bundle,
 			     gboolean interactive,
 			     GCancellable *cancellable,
 			     GError **error)
 {
 	const gchar *origin = gs_app_get_origin (app);
-	const gchar *source = gs_app_get_source_default (app);
+	const gchar *source = gs_app_get_default_source (app);
 	g_autoptr(GError) error_local = NULL;
 	g_autoptr(XbNode) component = NULL;
 
@@ -3425,13 +3510,13 @@ gs_flatpak_refine_appstream (GsFlatpak *self,
 							       flatpak_installed_ref_get_origin (installed_ref),
 							       installed_ref,
 							       appstream_gz,
-							       flags,
+							       require_flags,
 							       interactive,
 							       silo_filename, silo_installed_by_desktopid,
 							       cancellable, error);
 	}
 
-	if (!gs_appstream_refine_app (self->plugin, app, silo, component, flags, silo_installed_by_desktopid,
+	if (!gs_appstream_refine_app (self->plugin, app, silo, component, require_flags, silo_installed_by_desktopid,
 				      silo_filename ? silo_filename : "", self->scope, error))
 		return FALSE;
 
@@ -3443,7 +3528,7 @@ gs_flatpak_refine_appstream (GsFlatpak *self,
 static gboolean
 gs_flatpak_refine_app_internal (GsFlatpak *self,
                                 GsApp *app,
-                                GsPluginRefineFlags flags,
+                                GsPluginRefineRequireFlags require_flags,
                                 gboolean interactive,
 				gboolean force_state_update,
 				GHashTable *components_by_bundle,
@@ -3462,7 +3547,7 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 
 	/* always do AppStream properties */
 	if (!gs_flatpak_refine_appstream (self, app, silo, silo_filename, silo_installed_by_desktopid,
-					  flags, components_by_bundle, interactive, cancellable, error))
+					  require_flags, components_by_bundle, interactive, cancellable, error))
 		return FALSE;
 
 	/* AppStream sets the source to appname/arch/branch */
@@ -3490,12 +3575,12 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 	/* if the state was changed, perhaps set the version from the release */
 	if (old_state != gs_app_get_state (app)) {
 		if (!gs_flatpak_refine_appstream (self, app, silo, silo_filename, silo_installed_by_desktopid,
-						  flags, components_by_bundle, interactive, cancellable, error))
+						  require_flags, components_by_bundle, interactive, cancellable, error))
 			return FALSE;
 	}
 
 	/* version fallback */
-	if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION) {
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION) {
 		if (gs_app_get_version (app) == NULL) {
 			const gchar *branch;
 			branch = gs_app_get_branch (app);
@@ -3504,7 +3589,7 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 	}
 
 	/* size */
-	if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE) {
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE) {
 		g_autoptr(GError) error_local = NULL;
 		if (!gs_plugin_refine_item_size (self, app, interactive,
 						 cancellable, &error_local)) {
@@ -3522,7 +3607,7 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 		}
 	}
 
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE_DATA) != 0 &&
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE_DATA) != 0 &&
 	    gs_app_is_installed (app) &&
 	    gs_app_get_kind (app) != AS_COMPONENT_KIND_RUNTIME) {
 		if (gs_app_get_size_cache_data (app, NULL) != GS_SIZE_TYPE_VALID)
@@ -3540,7 +3625,7 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 	}
 
 	/* origin-hostname */
-	if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME) {
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME) {
 		if (!gs_plugin_refine_item_origin_hostname (self, app, interactive,
 							    cancellable,
 							    error)) {
@@ -3550,8 +3635,8 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 	}
 
 	/* permissions */
-	if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_RUNTIME ||
-	    flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_PERMISSIONS) {
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_RUNTIME ||
+	    require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS) {
 		g_autoptr(GError) error_local = NULL;
 		if (!gs_plugin_refine_item_metadata (self, app, interactive,
 						     cancellable, &error_local)) {
@@ -3579,9 +3664,11 @@ gs_flatpak_refine_app_internal (GsFlatpak *self,
 void
 gs_flatpak_refine_addons (GsFlatpak *self,
 			  GsApp *parent_app,
-			  GsPluginRefineFlags flags,
+			  GsPluginRefineRequireFlags require_flags,
 			  GsAppState state,
 			  gboolean interactive,
+			  GsPluginEventCallback event_callback,
+			  void *event_user_data,
 			  GCancellable *cancellable)
 {
 	g_autoptr(XbSilo) silo = NULL;
@@ -3591,7 +3678,7 @@ gs_flatpak_refine_addons (GsFlatpak *self,
 	g_autoptr(GString) errors = NULL;
 	guint ii, sz;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, &silo_filename, &silo_installed_by_desktopid, cancellable, NULL))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, &silo_filename, &silo_installed_by_desktopid, cancellable, NULL))
 		return;
 
 	addons = gs_app_dup_addons (parent_app);
@@ -3604,7 +3691,7 @@ gs_flatpak_refine_addons (GsFlatpak *self,
 		if (state != gs_app_get_state (addon))
 			continue;
 
-		if (!gs_flatpak_refine_app_internal (self, addon, flags, interactive, TRUE, NULL, silo, silo_filename,
+		if (!gs_flatpak_refine_app_internal (self, addon, require_flags, interactive, TRUE, NULL, silo, silo_filename,
 						     silo_installed_by_desktopid, cancellable, &local_error)) {
 			if (errors)
 				g_string_append_c (errors, '\n');
@@ -3623,17 +3710,22 @@ gs_flatpak_refine_addons (GsFlatpak *self,
 		event = gs_plugin_event_new ("error", error_local,
 					     "app", parent_app,
 					     NULL);
+		if (interactive)
+			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (self->plugin, event);
+		if (event_callback != NULL)
+			event_callback (self->plugin, event, event_user_data);
 	}
 }
 
 gboolean
 gs_flatpak_refine_app (GsFlatpak *self,
 		       GsApp *app,
-		       GsPluginRefineFlags flags,
+		       GsPluginRefineRequireFlags require_flags,
 		       gboolean interactive,
 		       gboolean force_state_update,
+		       GsPluginEventCallback event_callback,
+		       void *event_user_data,
 		       GCancellable *cancellable,
 		       GError **error)
 {
@@ -3642,16 +3734,16 @@ gs_flatpak_refine_app (GsFlatpak *self,
 	g_autofree gchar *silo_filename = NULL;
 
 	/* ensure valid */
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, &silo_filename, &silo_installed_by_desktopid, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, &silo_filename, &silo_installed_by_desktopid, cancellable, error))
 		return FALSE;
 
-	return gs_flatpak_refine_app_internal (self, app, flags, interactive, force_state_update, NULL,
+	return gs_flatpak_refine_app_internal (self, app, require_flags, interactive, force_state_update, NULL,
 					       silo, silo_filename, silo_installed_by_desktopid, cancellable, error);
 }
 
 gboolean
 gs_flatpak_refine_wildcard (GsFlatpak *self, GsApp *app,
-			    GsAppList *list, GsPluginRefineFlags refine_flags,
+			    GsAppList *list, GsPluginRefineRequireFlags require_flags,
 			    gboolean interactive,
 			    GHashTable **inout_components_by_id,
 			    GHashTable **inout_components_by_bundle,
@@ -3790,7 +3882,7 @@ gs_flatpak_refine_wildcard (GsFlatpak *self, GsApp *app,
 			g_debug ("Failed to get ref info for '%s' from wildcard '%s', skipping it...", gs_app_get_id (new), id);
 		} else {
 			GS_PROFILER_BEGIN_SCOPED (FlatpakRefineWildcardRefineNewApp, "Flatpak (refine new app)", NULL);
-			if (!gs_flatpak_refine_app_internal (self, new, refine_flags, interactive, FALSE, *inout_components_by_bundle,
+			if (!gs_flatpak_refine_app_internal (self, new, require_flags, interactive, FALSE, *inout_components_by_bundle,
 							     silo, silo_filename, silo_installed_by_desktopid, cancellable, error))
 				return FALSE;
 			GS_PROFILER_END_SCOPED (FlatpakRefineWildcardRefineNewApp);
@@ -3832,12 +3924,12 @@ gs_flatpak_launch (GsFlatpak *self,
 }
 
 gboolean
-gs_flatpak_app_remove_source (GsFlatpak *self,
-			      GsApp *app,
-			      gboolean is_remove,
-			      gboolean interactive,
-			      GCancellable *cancellable,
-			      GError **error)
+gs_flatpak_remove_repository_app (GsFlatpak     *self,
+                                  GsApp         *app,
+                                  gboolean       is_remove,
+                                  gboolean       interactive,
+                                  GCancellable  *cancellable,
+                                  GError       **error)
 {
 	g_autoptr(FlatpakRemote) xremote = NULL;
 	gboolean success;
@@ -3933,7 +4025,7 @@ gs_flatpak_file_to_app_bundle (GsFlatpak *self,
 			return NULL;
 		if (!gs_flatpak_refine_appstream_from_bytes (self, app, NULL, NULL,
 							     appstream_gz,
-							     GS_PLUGIN_REFINE_FLAGS_REQUIRE_ID,
+							     GS_PLUGIN_REFINE_REQUIRE_FLAGS_ID,
 							     interactive,
 							     silo_filename, silo_installed_by_desktopid,
 							     cancellable, error))
@@ -3973,7 +4065,7 @@ gs_flatpak_file_to_app_bundle (GsFlatpak *self,
 
 	/* not quite true: this just means we can update this specific app */
 	if (flatpak_bundle_ref_get_origin (xref_bundle))
-		gs_app_add_quirk (app, GS_APP_QUIRK_HAS_SOURCE);
+		gs_app_add_quirk (app, GS_APP_QUIRK_LOCAL_HAS_REPOSITORY);
 
 	/* success */
 	return g_steal_pointer (&app);
@@ -4011,6 +4103,8 @@ gs_flatpak_file_to_app_ref (GsFlatpak *self,
 			    GFile *file,
 			    gboolean unrefined,
 			    gboolean interactive,
+			    GsPluginEventCallback event_callback,
+			    void *event_user_data,
 			    GCancellable *cancellable,
 			    GError **error)
 {
@@ -4202,7 +4296,7 @@ gs_flatpak_file_to_app_ref (GsFlatpak *self,
 	gs_app_set_size_installed (app, (app_installed_size != 0) ? GS_SIZE_TYPE_VALID : GS_SIZE_TYPE_UNKNOWN, app_installed_size);
 #endif
 
-	gs_app_add_quirk (app, GS_APP_QUIRK_HAS_SOURCE);
+	gs_app_add_quirk (app, GS_APP_QUIRK_LOCAL_HAS_REPOSITORY);
 	gs_flatpak_app_set_file_kind (app, GS_FLATPAK_APP_FILE_KIND_REF);
 	gs_app_set_state (app, GS_APP_STATE_AVAILABLE);
 
@@ -4286,8 +4380,11 @@ gs_flatpak_file_to_app_ref (GsFlatpak *self,
 		event = gs_plugin_event_new ("app", app,
 					     "error", error_local,
 					     NULL);
+		if (interactive)
+			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (self->plugin, event);
+		if (event_callback != NULL)
+			event_callback (self->plugin, event, event_user_data);
 		g_clear_error (&error_local);
 	}
 
@@ -4323,7 +4420,7 @@ gs_flatpak_file_to_app_ref (GsFlatpak *self,
 
 	/* get extra AppStream data if available */
 	if (!gs_flatpak_refine_appstream (self, app, silo, silo_filename, silo_installed_by_desktopid,
-					  GS_PLUGIN_REFINE_FLAGS_MASK,
+					  GS_PLUGIN_REFINE_REQUIRE_FLAGS_MASK,
 					  NULL,
 					  interactive,
 					  cancellable,
@@ -4339,6 +4436,8 @@ gs_flatpak_search (GsFlatpak *self,
 		   const gchar * const *values,
 		   GsAppList *list,
 		   gboolean interactive,
+		   GsPluginEventCallback event_callback,
+		   void *event_user_data,
 		   GCancellable *cancellable,
 		   GError **error)
 {
@@ -4349,7 +4448,7 @@ gs_flatpak_search (GsFlatpak *self,
 	GHashTableIter iter;
 	gpointer key, value;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_search (self->plugin, silo, values, list_tmp, cancellable, error))
@@ -4411,6 +4510,8 @@ gs_flatpak_search_developer_apps (GsFlatpak *self,
 				  const gchar * const *values,
 				  GsAppList *list,
 				  gboolean interactive,
+				  GsPluginEventCallback event_callback,
+				  void *event_user_data,
 				  GCancellable *cancellable,
 				  GError **error)
 {
@@ -4421,7 +4522,7 @@ gs_flatpak_search_developer_apps (GsFlatpak *self,
 	GHashTableIter iter;
 	gpointer key, value;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_search_developer_apps (self->plugin, silo, values, list_tmp, cancellable, error))
@@ -4483,27 +4584,31 @@ gs_flatpak_add_category_apps (GsFlatpak *self,
 			      GsCategory *category,
 			      GsAppList *list,
 			      gboolean interactive,
+			      GsPluginEventCallback event_callback,
+			      void *event_user_data,
 			      GCancellable *cancellable,
 			      GError **error)
 {
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	return gs_appstream_add_category_apps (self->plugin, silo, category, list, cancellable, error);
 }
 
 gboolean
-gs_flatpak_refine_category_sizes (GsFlatpak     *self,
-                                  GPtrArray     *list,
-                                  gboolean       interactive,
-                                  GCancellable  *cancellable,
-                                  GError       **error)
+gs_flatpak_refine_category_sizes (GsFlatpak              *self,
+                                  GPtrArray              *list,
+                                  gboolean                interactive,
+                                  GsPluginEventCallback   event_callback,
+                                  void                   *event_user_data,
+                                  GCancellable           *cancellable,
+                                  GError                **error)
 {
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	return gs_appstream_refine_category_sizes (silo, list, cancellable, error);
@@ -4513,13 +4618,15 @@ gboolean
 gs_flatpak_add_popular (GsFlatpak *self,
 			GsAppList *list,
 			gboolean interactive,
+			GsPluginEventCallback event_callback,
+			void *event_user_data,
 			GCancellable *cancellable,
 			GError **error)
 {
 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_add_popular (silo, list_tmp, cancellable, error))
@@ -4534,13 +4641,15 @@ gboolean
 gs_flatpak_add_featured (GsFlatpak *self,
 			 GsAppList *list,
 			 gboolean interactive,
+			 GsPluginEventCallback event_callback,
+			 void *event_user_data,
 			 GCancellable *cancellable,
 			 GError **error)
 {
 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_add_featured (silo, list_tmp, cancellable, error))
@@ -4555,13 +4664,15 @@ gboolean
 gs_flatpak_add_deployment_featured (GsFlatpak *self,
 				    GsAppList *list,
 				    gboolean interactive,
+				    GsPluginEventCallback event_callback,
+				    void *event_user_data,
 				    const gchar *const *deployments,
 				    GCancellable *cancellable,
 				    GError **error)
 {
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	return gs_appstream_add_deployment_featured (silo, deployments, list, cancellable, error);
@@ -4572,13 +4683,15 @@ gs_flatpak_add_alternates (GsFlatpak *self,
 			   GsApp *app,
 			   GsAppList *list,
 			   gboolean interactive,
+			   GsPluginEventCallback event_callback,
+			   void *event_user_data,
 			   GCancellable *cancellable,
 			   GError **error)
 {
 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_add_alternates (silo, app, list_tmp, cancellable, error))
@@ -4594,13 +4707,15 @@ gs_flatpak_add_recent (GsFlatpak *self,
 		       GsAppList *list,
 		       guint64 age,
 		       gboolean interactive,
+		       GsPluginEventCallback event_callback,
+		       void *event_user_data,
 		       GCancellable *cancellable,
 		       GError **error)
 {
 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_add_recent (self->plugin, silo, list_tmp, age, cancellable, error))
@@ -4617,13 +4732,15 @@ gs_flatpak_url_to_app (GsFlatpak *self,
 		       GsAppList *list,
 		       const gchar *url,
 		       gboolean interactive,
+		       GsPluginEventCallback event_callback,
+		       void *event_user_data,
 		       GCancellable *cancellable,
 		       GError **error)
 {
 	g_autoptr(GsAppList) list_tmp = gs_app_list_new ();
 	g_autoptr(XbSilo) silo = NULL;
 
-	if (!gs_flatpak_rescan_app_data (self, interactive, &silo, NULL, NULL, cancellable, error))
+	if (!gs_flatpak_rescan_app_data (self, interactive, event_callback, event_user_data, &silo, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	if (!gs_appstream_url_to_app (self->plugin, silo, list_tmp, url, cancellable, error))

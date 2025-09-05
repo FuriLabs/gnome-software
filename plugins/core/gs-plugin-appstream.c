@@ -26,6 +26,16 @@
  * This plugin calls UpdatesChanged() if any of the AppStream stores are
  * changed in any way.
  *
+ * The plugin builds and uses an `XbSilo` to contain the merged AppStream
+ * catalog data. Querying the silo is fast, but can be CPU intensive, so it’s
+ * done in a worker thread. Relevant fields in `GsPluginAppstream` must be
+ * accessed under a lock as a result.
+ *
+ * Rebuilding the silo is very CPU and memory intensive (it requires lots of XML
+ * parsing) so that also happens in a worker thread. The silo is only rebuilt if
+ * any of the input AppStream catalog files change. This typically happens when
+ * repository metadata is updated or an app is installed or removed.
+ *
  * Methods:     | AddCategory
  * Refines:     | [source]->[name,summary,pixbuf,id,kind]
  */
@@ -954,6 +964,8 @@ static void
 gs_plugin_appstream_url_to_app_async (GsPlugin              *plugin,
                                       const gchar           *url,
                                       GsPluginUrlToAppFlags  flags,
+                                      GsPluginEventCallback  event_callback,
+                                      void                  *event_user_data,
                                       GCancellable          *cancellable,
                                       GAsyncReadyCallback    callback,
                                       gpointer               user_data)
@@ -962,7 +974,7 @@ gs_plugin_appstream_url_to_app_async (GsPlugin              *plugin,
 	g_autoptr(GTask) task = NULL;
 	gboolean interactive = (flags & GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE) != 0;
 
-	task = gs_plugin_url_to_app_data_new_task (plugin, url, flags, cancellable, callback, user_data);
+	task = gs_plugin_url_to_app_data_new_task (plugin, url, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_appstream_url_to_app_async);
 
 	/* Queue a job for the refine. */
@@ -1039,17 +1051,17 @@ gs_plugin_appstream_refine_state (GsPluginAppstream  *self,
 }
 
 static gboolean
-gs_plugin_refine_from_id (GsPluginAppstream    *self,
-                          GsApp                *app,
-                          GsPluginRefineFlags   flags,
-			  GHashTable           *apps_by_id,
-			  GHashTable           *apps_by_origin_and_id,
-                          XbSilo               *silo,
-                          const gchar          *silo_filename,
-                          GHashTable           *silo_installed_by_desktopid,
-                          GHashTable           *silo_installed_by_id,
-                          gboolean             *found,
-                          GError              **error)
+gs_plugin_refine_from_id (GsPluginAppstream           *self,
+                          GsApp                       *app,
+                          GsPluginRefineRequireFlags   require_flags,
+                          GHashTable                  *apps_by_id,
+                          GHashTable                  *apps_by_origin_and_id,
+                          XbSilo                      *silo,
+                          const gchar                 *silo_filename,
+                          GHashTable                  *silo_installed_by_desktopid,
+                          GHashTable                  *silo_installed_by_id,
+                          gboolean                    *found,
+                          GError                     **error)
 {
 	const gchar *id, *origin;
 	GPtrArray *components;
@@ -1074,7 +1086,7 @@ gs_plugin_refine_from_id (GsPluginAppstream    *self,
 
 	for (guint i = 0; i < components->len; i++) {
 		XbNode *component = g_ptr_array_index (components, i);
-		if (!gs_appstream_refine_app (GS_PLUGIN (self), app, silo, component, flags, silo_installed_by_desktopid,
+		if (!gs_appstream_refine_app (GS_PLUGIN (self), app, silo, component, require_flags, silo_installed_by_desktopid,
 					      silo_filename ? silo_filename : "", self->default_scope, error))
 			return FALSE;
 		gs_plugin_appstream_set_compulsory_quirk (app, component);
@@ -1092,14 +1104,14 @@ gs_plugin_refine_from_id (GsPluginAppstream    *self,
 }
 
 static gboolean
-gs_plugin_refine_from_pkgname (GsPluginAppstream    *self,
-                               GsApp                *app,
-                               GsPluginRefineFlags   flags,
-                               XbSilo               *silo,
-                               const gchar          *silo_filename,
-                               GHashTable           *silo_installed_by_desktopid,
-                               GHashTable           *silo_installed_by_id,
-                               GError              **error)
+gs_plugin_refine_from_pkgname (GsPluginAppstream           *self,
+                               GsApp                       *app,
+                               GsPluginRefineRequireFlags   require_flags,
+                               XbSilo                      *silo,
+                               const gchar                 *silo_filename,
+                               GHashTable                  *silo_installed_by_desktopid,
+                               GHashTable                  *silo_installed_by_id,
+                               GError                     **error)
 {
 	GPtrArray *sources = gs_app_get_sources (app);
 	g_autoptr(GError) error_local = NULL;
@@ -1126,7 +1138,7 @@ gs_plugin_refine_from_pkgname (GsPluginAppstream    *self,
 			g_propagate_error (error, g_steal_pointer (&error_local));
 			return FALSE;
 		}
-		if (!gs_appstream_refine_app (GS_PLUGIN (self), app, silo, component, flags, silo_installed_by_desktopid,
+		if (!gs_appstream_refine_app (GS_PLUGIN (self), app, silo, component, require_flags, silo_installed_by_desktopid,
 					      silo_filename ? silo_filename : "", self->default_scope, error))
 			return FALSE;
 		gs_plugin_appstream_set_compulsory_quirk (app, component);
@@ -1148,18 +1160,21 @@ static void refine_thread_cb (GTask        *task,
                               GCancellable *cancellable);
 
 static void
-gs_plugin_appstream_refine_async (GsPlugin            *plugin,
-                                  GsAppList           *list,
-                                  GsPluginRefineFlags  flags,
-                                  GCancellable        *cancellable,
-                                  GAsyncReadyCallback  callback,
-                                  gpointer             user_data)
+gs_plugin_appstream_refine_async (GsPlugin                   *plugin,
+                                  GsAppList                  *list,
+                                  GsPluginRefineFlags         job_flags,
+                                  GsPluginRefineRequireFlags  require_flags,
+                                  GsPluginEventCallback       event_callback,
+                                  void                       *event_user_data,
+                                  GCancellable               *cancellable,
+                                  GAsyncReadyCallback         callback,
+                                  gpointer                    user_data)
 {
 	GsPluginAppstream *self = GS_PLUGIN_APPSTREAM (plugin);
 	g_autoptr(GTask) task = NULL;
-	gboolean interactive = gs_plugin_has_flags (GS_PLUGIN (self), GS_PLUGIN_FLAGS_INTERACTIVE);
+	gboolean interactive = (job_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0;
 
-	task = gs_plugin_refine_data_new_task (plugin, list, flags, cancellable, callback, user_data);
+	task = gs_plugin_refine_data_new_task (plugin, list, job_flags, require_flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_appstream_refine_async);
 
 	/* Queue a job for the refine. */
@@ -1167,17 +1182,17 @@ gs_plugin_appstream_refine_async (GsPlugin            *plugin,
 				refine_thread_cb, g_steal_pointer (&task));
 }
 
-static gboolean refine_wildcard (GsPluginAppstream    *self,
-                                 GsApp                *app,
-                                 GsAppList            *list,
-                                 GsPluginRefineFlags   refine_flags,
-				 GHashTable           *apps_by_id,
-                                 XbSilo               *silo,
-                                 const gchar          *silo_filename,
-                                 GHashTable           *silo_installed_by_desktopid,
-                                 GHashTable           *silo_installed_by_id,
-                                 GCancellable         *cancellable,
-                                 GError              **error);
+static gboolean refine_wildcard (GsPluginAppstream           *self,
+                                 GsApp                       *app,
+                                 GsAppList                   *list,
+                                 GsPluginRefineRequireFlags   require_flags,
+                                 GHashTable                  *apps_by_id,
+                                 XbSilo                      *silo,
+                                 const gchar                 *silo_filename,
+                                 GHashTable                  *silo_installed_by_desktopid,
+                                 GHashTable                  *silo_installed_by_id,
+                                 GCancellable                *cancellable,
+                                 GError                     **error);
 
 /* Run in @worker. */
 static void
@@ -1189,7 +1204,7 @@ refine_thread_cb (GTask        *task,
 	GsPluginAppstream *self = GS_PLUGIN_APPSTREAM (source_object);
 	GsPluginRefineData *data = task_data;
 	GsAppList *list = data->list;
-	GsPluginRefineFlags flags = data->flags;
+	GsPluginRefineRequireFlags require_flags = data->require_flags;
 	g_autoptr(GsAppList) app_list = NULL;
 	g_autoptr(GHashTable) apps_by_id = NULL;
 	g_autoptr(GHashTable) apps_by_origin_and_id = NULL;
@@ -1287,13 +1302,13 @@ refine_thread_cb (GTask        *task,
 			continue;
 
 		/* find by ID then fall back to package name */
-		if (!gs_plugin_refine_from_id (self, app, flags, apps_by_id, apps_by_origin_and_id, silo, silo_filename,
+		if (!gs_plugin_refine_from_id (self, app, require_flags, apps_by_id, apps_by_origin_and_id, silo, silo_filename,
 					       silo_installed_by_desktopid, silo_installed_by_id, &found, &local_error)) {
 			g_task_return_error (task, g_steal_pointer (&local_error));
 			return;
 		}
 		if (!found) {
-			if (!gs_plugin_refine_from_pkgname (self, app, flags, silo, silo_filename,
+			if (!gs_plugin_refine_from_pkgname (self, app, require_flags, silo, silo_filename,
 							    silo_installed_by_desktopid, silo_installed_by_id, &local_error)) {
 				g_task_return_error (task, g_steal_pointer (&local_error));
 				return;
@@ -1313,7 +1328,7 @@ refine_thread_cb (GTask        *task,
 		GsApp *app = gs_app_list_index (app_list, j);
 
 		if (gs_app_has_quirk (app, GS_APP_QUIRK_IS_WILDCARD) &&
-		    !refine_wildcard (self, app, list, flags, apps_by_id, silo, silo_filename,
+		    !refine_wildcard (self, app, list, require_flags, apps_by_id, silo, silo_filename,
 				      silo_installed_by_desktopid, silo_installed_by_id,cancellable, &local_error)) {
 			g_task_return_error (task, g_steal_pointer (&local_error));
 			return;
@@ -1334,17 +1349,17 @@ gs_plugin_appstream_refine_finish (GsPlugin      *plugin,
 
 /* Run in @worker. Silo must be valid */
 static gboolean
-refine_wildcard (GsPluginAppstream    *self,
-                 GsApp                *app,
-                 GsAppList            *list,
-                 GsPluginRefineFlags   refine_flags,
-		 GHashTable           *apps_by_id,
-                 XbSilo               *silo,
-                 const gchar          *silo_filename,
-                 GHashTable           *silo_installed_by_desktopid,
-                 GHashTable           *silo_installed_by_id,
-                 GCancellable         *cancellable,
-                 GError              **error)
+refine_wildcard (GsPluginAppstream           *self,
+                 GsApp                       *app,
+                 GsAppList                   *list,
+                 GsPluginRefineRequireFlags   require_flags,
+                 GHashTable                  *apps_by_id,
+                 XbSilo                      *silo,
+                 const gchar                 *silo_filename,
+                 GHashTable                  *silo_installed_by_desktopid,
+                 GHashTable                  *silo_installed_by_id,
+                 GCancellable                *cancellable,
+                 GError                     **error)
 {
 	const gchar *id;
 	GPtrArray *components;
@@ -1368,7 +1383,7 @@ refine_wildcard (GsPluginAppstream    *self,
 			return FALSE;
 		gs_app_set_scope (new, AS_COMPONENT_SCOPE_SYSTEM);
 		gs_app_subsume_metadata (new, app);
-		if (!gs_appstream_refine_app (GS_PLUGIN (self), new, silo, component, refine_flags, silo_installed_by_desktopid,
+		if (!gs_appstream_refine_app (GS_PLUGIN (self), new, silo, component, require_flags, silo_installed_by_desktopid,
 					      silo_filename ? silo_filename : "", self->default_scope, error))
 			return FALSE;
 		gs_plugin_appstream_set_compulsory_quirk (new, component);
@@ -1395,6 +1410,8 @@ static void
 gs_plugin_appstream_refine_categories_async (GsPlugin                      *plugin,
                                              GPtrArray                     *list,
                                              GsPluginRefineCategoriesFlags  flags,
+                                             GsPluginEventCallback          event_callback,
+                                             void                          *event_user_data,
                                              GCancellable                  *cancellable,
                                              GAsyncReadyCallback            callback,
                                              gpointer                       user_data)
@@ -1404,6 +1421,7 @@ gs_plugin_appstream_refine_categories_async (GsPlugin                      *plug
 	gboolean interactive = (flags & GS_PLUGIN_REFINE_CATEGORIES_FLAGS_INTERACTIVE);
 
 	task = gs_plugin_refine_categories_data_new_task (plugin, list, flags,
+							  event_callback, event_user_data,
 							  cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_appstream_refine_categories_async);
 
@@ -1465,6 +1483,8 @@ static void
 gs_plugin_appstream_list_apps_async (GsPlugin              *plugin,
                                      GsAppQuery            *query,
                                      GsPluginListAppsFlags  flags,
+                                     GsPluginEventCallback  event_callback,
+                                     void                  *event_user_data,
                                      GCancellable          *cancellable,
                                      GAsyncReadyCallback    callback,
                                      gpointer               user_data)
@@ -1474,6 +1494,7 @@ gs_plugin_appstream_list_apps_async (GsPlugin              *plugin,
 	gboolean interactive = (flags & GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
 
 	task = gs_plugin_list_apps_data_new_task (plugin, query, flags,
+						  event_callback, event_user_data,
 						  cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_appstream_list_apps_async);
 
@@ -1626,6 +1647,8 @@ static void
 gs_plugin_appstream_refresh_metadata_async (GsPlugin                     *plugin,
                                             guint64                       cache_age_secs,
                                             GsPluginRefreshMetadataFlags  flags,
+                                            GsPluginEventCallback         event_callback,
+                                            void                         *event_user_data,
                                             GCancellable                 *cancellable,
                                             GAsyncReadyCallback           callback,
                                             gpointer                      user_data)

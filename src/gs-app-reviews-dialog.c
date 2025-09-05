@@ -73,6 +73,12 @@ display_error_toast (GsAppReviewsDialog *dialog,
 static gint
 sort_reviews (AsReview **a, AsReview **b)
 {
+	/* User's review of the app should be displayed first */
+	if (as_review_get_flags (*a) & AS_REVIEW_FLAG_SELF)
+		return -1;
+	if (as_review_get_flags (*b) & AS_REVIEW_FLAG_SELF)
+		return 1;
+
 	return -g_date_time_compare (as_review_get_date (*a), as_review_get_date (*b));
 }
 
@@ -333,7 +339,7 @@ gs_app_reviews_dialog_app_refine_cb (GObject      *source,
 	GsAppReviewsDialog *self = user_data;
 	g_autoptr(GError) error = NULL;
 
-	if (!gs_plugin_loader_job_action_finish (plugin_loader, res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED) &&
 		    !g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED)) {
 			g_warning ("failed to refine %s: %s",
@@ -365,10 +371,11 @@ gs_app_reviews_dialog_app_refine (GsAppReviewsDialog *self)
 	 * it's of no huge importance if we don't get the required data.
 	 */
 	plugin_job = gs_plugin_job_refine_new_for_app (self->app,
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEW_RATINGS |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEWS |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE);
+						       GS_PLUGIN_REFINE_FLAGS_INTERACTIVE,
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING |
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS |
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEWS |
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->refine_cancellable,
 					    gs_app_reviews_dialog_app_refine_cb,

@@ -29,7 +29,7 @@ gs_plugins_core_search_repo_name_func (GsPluginLoader *plugin_loader)
 	GsApp *app;
 	g_autoptr(GError) error = NULL;
 	g_autoptr(GsApp) app_tmp = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	GsAppList *list;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 	g_autoptr(GsAppQuery) query = NULL;
 	const gchar *keywords[2] = { NULL, };
@@ -47,13 +47,14 @@ gs_plugins_core_search_repo_name_func (GsPluginLoader *plugin_loader)
 	/* get search result based on addon keyword */
 	keywords[0] = "yellow";
 	query = gs_app_query_new ("keywords", keywords,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
-				  "dedupe-flags", GS_PLUGIN_JOB_DEDUPE_FLAGS_DEFAULT,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON,
+				  "dedupe-flags", GS_APP_QUERY_DEDUPE_FLAGS_DEFAULT,
 				  "sort-func", gs_utils_app_sort_match_value,
 				  NULL);
 	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 
-	list = gs_plugin_loader_job_process (plugin_loader, plugin_job, NULL, &error);
+	gs_plugin_loader_job_process (plugin_loader, plugin_job, NULL, &error);
+	list = gs_plugin_job_list_apps_get_result_list (GS_PLUGIN_JOB_LIST_APPS (plugin_job));
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
 	g_assert_nonnull (list);
@@ -83,9 +84,10 @@ gs_plugins_core_os_release_func (GsPluginLoader *plugin_loader)
 	g_assert_no_error (error);
 	g_assert_nonnull (app);
 	plugin_job = gs_plugin_job_refine_new_for_app (app,
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_URL |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION);
-	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job, NULL, &error);
+						       GS_PLUGIN_REFINE_FLAGS_NONE,
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_URL |
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION);
+	ret = gs_plugin_loader_job_process (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
 	g_assert_true (ret);
@@ -150,8 +152,8 @@ gs_plugins_core_generic_updates_func (GsPluginLoader *plugin_loader)
 	gs_app_list_add (list, app2);
 
 	/* refine to make the generic-updates plugin merge them into a single OsUpdate item */
-	plugin_job = gs_plugin_job_refine_new (list, GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS);
-	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job, NULL, &error);
+	plugin_job = gs_plugin_job_refine_new (list, GS_PLUGIN_REFINE_FLAGS_NONE, GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS);
+	ret = gs_plugin_loader_job_process (plugin_loader, plugin_job, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
 	g_assert_true (ret);
@@ -177,8 +179,8 @@ gs_plugins_core_generic_updates_func (GsPluginLoader *plugin_loader)
 	gs_app_add_quirk (app_wildcard, GS_APP_QUIRK_IS_WILDCARD);
 	gs_app_set_kind (app_wildcard, AS_COMPONENT_KIND_GENERIC);
 	gs_app_list_add (list_wildcard, app_wildcard);
-	plugin_job2 = gs_plugin_job_refine_new (list_wildcard, GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS);
-	ret = gs_plugin_loader_job_action (plugin_loader, plugin_job2, NULL, &error);
+	plugin_job2 = gs_plugin_job_refine_new (list_wildcard, GS_PLUGIN_REFINE_FLAGS_NONE, GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS);
+	ret = gs_plugin_loader_job_process (plugin_loader, plugin_job2, NULL, &error);
 	gs_test_flush_main_context ();
 	g_assert_no_error (error);
 	g_assert_true (ret);

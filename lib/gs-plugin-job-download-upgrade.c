@@ -115,6 +115,16 @@ gs_plugin_job_download_upgrade_set_property (GObject *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_download_upgrade_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobDownloadUpgrade *self = GS_PLUGIN_JOB_DOWNLOAD_UPGRADE (job);
+	return (self->flags & GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE) != 0;
+}
+
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 static void plugin_app_func_cb (GObject      *source_object,
 				GAsyncResult *result,
 				gpointer      user_data);
@@ -161,13 +171,28 @@ gs_plugin_job_download_upgrade_run_async (GsPluginJob         *job,
 
 		/* run the plugin */
 		self->n_pending_ops++;
-		plugin_class->download_upgrade_async (plugin, self->app, self->flags, cancellable, plugin_app_func_cb, g_object_ref (task));
+		plugin_class->download_upgrade_async (plugin, self->app, self->flags, plugin_event_cb, task, cancellable, plugin_app_func_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle app operation");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle downloading an upgrade");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
+}
+
+static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
 }
 
 static void
@@ -182,7 +207,6 @@ plugin_app_func_cb (GObject      *source_object,
 	g_autoptr(GError) local_error = NULL;
 
 	success = plugin_class->download_upgrade_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	g_assert (success || local_error != NULL);
 
@@ -238,6 +262,7 @@ gs_plugin_job_download_upgrade_class_init (GsPluginJobDownloadUpgradeClass *klas
 	object_class->get_property = gs_plugin_job_download_upgrade_get_property;
 	object_class->set_property = gs_plugin_job_download_upgrade_set_property;
 
+	job_class->get_interactive = gs_plugin_job_download_upgrade_get_interactive;
 	job_class->run_async = gs_plugin_job_download_upgrade_run_async;
 	job_class->run_finish = gs_plugin_job_download_upgrade_run_finish;
 
@@ -297,6 +322,24 @@ gs_plugin_job_download_upgrade_new (GsApp *app,
 	return g_object_new (GS_TYPE_PLUGIN_JOB_DOWNLOAD_UPGRADE,
 			     "app", app,
 			     "flags", flags,
-			     "interactive", (flags & GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE) != 0,
 			     NULL);
+}
+
+/**
+ * gs_plugin_job_download_upgrade_get_app:
+ * @self: a #GsPluginJobDownloadUpgrade
+ *
+ * Get the app being downloaded by this #GsPluginJobDownloadUpgrade.
+ *
+ * Typically this is a #GsApp representing the whole system.
+ *
+ * Returns: (transfer none) (not nullable): app being downloaded
+ * Since: 49
+ */
+GsApp *
+gs_plugin_job_download_upgrade_get_app (GsPluginJobDownloadUpgrade *self)
+{
+	g_return_val_if_fail (GS_IS_PLUGIN_JOB_DOWNLOAD_UPGRADE (self), NULL);
+
+	return self->app;
 }

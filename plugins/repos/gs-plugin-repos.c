@@ -21,10 +21,13 @@
  * This plugin is only useful on distributions which use `/etc/yum.repos.d`.
  *
  * It enumerates `/etc/yum.repos.d` in a worker thread and updates its internal
- * hash tables and state from that worker thread (while holding a lock).
+ * hash tables and state from that worker thread (while holding a lock). The
+ * internal thread pool of #GTask is used, rather than #GsWorkerThread, because
+ * enumerations and updates are expected to be rare, so not worth keeping a
+ * dedicated #GsWorkerThread around all the time for.
  *
- * Other tasks on the plugin access the data synchronously, not using a worker
- * thread. Data accesses should be fast.
+ * Other tasks on the plugin access the data synchronously (under a mutex), not
+ * using a worker thread. Data accesses should be fast.
  */
 
 struct _GsPluginRepos {
@@ -282,15 +285,15 @@ gs_plugin_repos_shutdown_finish (GsPlugin      *plugin,
 }
 
 static void
-refine_app (GsApp               *app,
-            GsPluginRefineFlags  flags,
-            GHashTable          *filenames,
-            GHashTable          *urls)
+refine_app (GsApp                      *app,
+            GsPluginRefineRequireFlags  require_flags,
+            GHashTable                 *filenames,
+            GHashTable                 *urls)
 {
 	const gchar *tmp;
 
 	/* not required */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME) == 0)
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME) == 0)
 		return;
 	if (gs_app_get_origin_hostname (app) != NULL)
 		return;
@@ -354,12 +357,15 @@ refine_app (GsApp               *app,
 }
 
 static void
-gs_plugin_repos_refine_async (GsPlugin            *plugin,
-                              GsAppList           *list,
-                              GsPluginRefineFlags  flags,
-                              GCancellable        *cancellable,
-                              GAsyncReadyCallback  callback,
-                              gpointer             user_data)
+gs_plugin_repos_refine_async (GsPlugin                   *plugin,
+                              GsAppList                  *list,
+                              GsPluginRefineFlags         job_flags,
+                              GsPluginRefineRequireFlags  require_flags,
+                              GsPluginEventCallback       event_callback,
+                              void                       *event_user_data,
+                              GCancellable               *cancellable,
+                              GAsyncReadyCallback         callback,
+                              gpointer                    user_data)
 {
 	GsPluginRepos *self = GS_PLUGIN_REPOS (plugin);
 	g_autoptr(GHashTable) filenames = NULL;  /* (element-type utf8 filename) mapping origin to filename */
@@ -371,7 +377,7 @@ gs_plugin_repos_refine_async (GsPlugin            *plugin,
 	g_task_set_source_tag (task, gs_plugin_repos_refine_async);
 
 	/* nothing to do here */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME) == 0) {
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME) == 0) {
 		g_task_return_boolean (task, TRUE);
 		return;
 	}
@@ -387,7 +393,7 @@ gs_plugin_repos_refine_async (GsPlugin            *plugin,
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
 		GsApp *app = gs_app_list_index (list, i);
 
-		refine_app (app, flags, filenames, urls);
+		refine_app (app, require_flags, filenames, urls);
 	}
 
 	g_task_return_boolean (task, TRUE);

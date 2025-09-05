@@ -32,9 +32,9 @@
  *
  * Since fwupd is a daemon accessible over D-Bus, this plugin basically
  * translates every job into one or more D-Bus calls, and all the real work is
- * done in the fwupd daemon. FIXME: This means the plugin can therefore execute
- * entirely in the main thread, making asynchronous D-Bus calls, once all the
- * vfuncs have been ported.
+ * done in the fwupd daemon. This means the plugin can therefore execute
+ * entirely in the main thread, making asynchronous D-Bus calls, with no
+ * locking.
  */
 
 struct _GsPluginFwupd {
@@ -44,7 +44,6 @@ struct _GsPluginFwupd {
 	GsApp			*app_current;
 	GsApp			*cached_origin;
 	GHashTable		*cached_sources; /* (nullable) (owned) (element-type utf8 GsApp); sources by id, each value is weak reffed */
-	GMutex			 cached_sources_mutex;
 };
 
 G_DEFINE_TYPE (GsPluginFwupd, gs_plugin_fwupd, GS_TYPE_PLUGIN)
@@ -56,9 +55,6 @@ cached_sources_weak_ref_cb (gpointer user_data,
 	GsPluginFwupd *self = user_data;
 	GHashTableIter iter;
 	gpointer key, value;
-	g_autoptr(GMutexLocker) locker = NULL;
-
-	locker = g_mutex_locker_new (&self->cached_sources_mutex);
 
 	g_assert (self->cached_sources != NULL);
 
@@ -131,10 +127,6 @@ static void
 gs_plugin_fwupd_init (GsPluginFwupd *self)
 {
 	self->client = fwupd_client_new ();
-	g_mutex_init (&self->cached_sources_mutex);
-
-	/* set name of MetaInfo file */
-	gs_plugin_set_appstream_id (GS_PLUGIN (self), "org.gnome.Software.Plugin.Fwupd");
 }
 
 static void
@@ -162,17 +154,8 @@ gs_plugin_fwupd_dispose (GObject *object)
 }
 
 static void
-gs_plugin_fwupd_finalize (GObject *object)
-{
-	GsPluginFwupd *self = GS_PLUGIN_FWUPD (object);
-
-	g_mutex_clear (&self->cached_sources_mutex);
-
-	G_OBJECT_CLASS (gs_plugin_fwupd_parent_class)->finalize (object);
-}
-
-void
-gs_plugin_adopt_app (GsPlugin *plugin, GsApp *app)
+gs_plugin_fwupd_adopt_app (GsPlugin *plugin,
+			   GsApp *app)
 {
 	if (gs_app_get_kind (app) == AS_COMPONENT_KIND_FIRMWARE)
 		gs_app_set_management_plugin (app, plugin);
@@ -865,7 +848,6 @@ gs_plugin_fwupd_list_sources_got_remotes_cb (GObject *source_object,
 	g_autoptr(GTask) task = g_steal_pointer (&user_data);
 	g_autoptr(GPtrArray) remotes = NULL;
 	g_autoptr(GsAppList) list = NULL;
-	g_autoptr(GMutexLocker) locker = NULL;
 	g_autoptr(GError) local_error = NULL;
 	GsPluginFwupd *self = GS_PLUGIN_FWUPD (g_task_get_source_object (task));
 	GsPlugin *plugin = GS_PLUGIN (self);
@@ -877,7 +859,7 @@ gs_plugin_fwupd_list_sources_got_remotes_cb (GObject *source_object,
 		g_task_return_error (task, g_steal_pointer (&local_error));
 		return;
 	}
-	locker = g_mutex_locker_new (&self->cached_sources_mutex);
+
 	list = gs_app_list_new ();
 	if (self->cached_sources == NULL)
 		self->cached_sources = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
@@ -937,6 +919,8 @@ static void
 gs_plugin_fwupd_list_apps_async (GsPlugin *plugin,
 				 GsAppQuery *query,
 				 GsPluginListAppsFlags flags,
+				 GsPluginEventCallback event_callback,
+				 void *event_user_data,
 				 GCancellable *cancellable,
 				 GAsyncReadyCallback callback,
 				 gpointer user_data)
@@ -944,7 +928,7 @@ gs_plugin_fwupd_list_apps_async (GsPlugin *plugin,
 	GsPluginFwupd *self = GS_PLUGIN_FWUPD (plugin);
 	GsAppQueryTristate is_for_update = GS_APP_QUERY_TRISTATE_UNSET;
 	GsAppQueryTristate is_historical_update = GS_APP_QUERY_TRISTATE_UNSET;
-	GsAppQueryTristate is_source = GS_APP_QUERY_TRISTATE_UNSET;
+	const AsComponentKind *component_kinds = NULL;
 	g_autoptr(GTask) task = NULL;
 
 	task = g_task_new (plugin, cancellable, callback, user_data);
@@ -953,16 +937,16 @@ gs_plugin_fwupd_list_apps_async (GsPlugin *plugin,
 	if (query != NULL) {
 		is_for_update = gs_app_query_get_is_for_update (query);
 		is_historical_update = gs_app_query_get_is_historical_update (query);
-		is_source = gs_app_query_get_is_source (query);
+		component_kinds = gs_app_query_get_component_kinds (query);
 	}
 
 	/* Currently only support a subset of query properties, and only one set at once. */
 	if ((is_for_update == GS_APP_QUERY_TRISTATE_UNSET &&
 	     is_historical_update == GS_APP_QUERY_TRISTATE_UNSET &&
-	     is_source == GS_APP_QUERY_TRISTATE_UNSET) ||
+	     component_kinds == NULL) ||
 	    is_for_update == GS_APP_QUERY_TRISTATE_FALSE ||
 	    is_historical_update == GS_APP_QUERY_TRISTATE_FALSE ||
-	    is_source == GS_APP_QUERY_TRISTATE_FALSE ||
+	    (component_kinds != NULL && !gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) ||
 	    gs_app_query_get_n_properties_set (query) != 1) {
 		g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
 					 "Unsupported query");
@@ -978,7 +962,7 @@ gs_plugin_fwupd_list_apps_async (GsPlugin *plugin,
 		g_task_set_task_data (task, g_steal_pointer (&data), (GDestroyNotify) list_updates_data_free);
 		fwupd_client_get_devices_async (self->client, cancellable,
 						gs_plugin_fwupd_list_updates_got_devices_cb, g_steal_pointer (&task));
-	} else if (is_source == GS_APP_QUERY_TRISTATE_TRUE) {
+	} else if (gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) {
 		fwupd_client_get_remotes_async (self->client, cancellable,
 						gs_plugin_fwupd_list_sources_got_remotes_cb, g_steal_pointer (&task));
 	} else {
@@ -1040,6 +1024,8 @@ static void
 gs_plugin_fwupd_refresh_metadata_async (GsPlugin                     *plugin,
                                         guint64                       cache_age_secs,
                                         GsPluginRefreshMetadataFlags  flags,
+                                        GsPluginEventCallback         event_callback,
+                                        void                         *event_user_data,
                                         GCancellable                 *cancellable,
                                         GAsyncReadyCallback           callback,
                                         gpointer                      user_data)
@@ -1349,6 +1335,8 @@ gs_plugin_fwupd_download_finish (GsPluginFwupd  *self,
 }
 
 typedef struct {
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 	GsPluginAppNeedsUserActionCallback app_needs_user_action_callback;
 	gpointer app_needs_user_action_data;
 	GsApp *app;  /* (owned) (not nullable) */
@@ -1385,6 +1373,8 @@ static void
 gs_plugin_fwupd_install_async (GsPluginFwupd                      *self,
                                GsApp                              *app,
                                gboolean                            interactive,
+                               GsPluginEventCallback               event_callback,
+                               void                               *event_user_data,
                                GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                gpointer                            app_needs_user_action_data,
                                GCancellable                       *cancellable,
@@ -1412,6 +1402,8 @@ gs_plugin_fwupd_install_async (GsPluginFwupd                      *self,
 	}
 
 	data = data_owned = g_new0 (InstallData, 1);
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	data->app_needs_user_action_callback = app_needs_user_action_callback;
 	data->app_needs_user_action_data = app_needs_user_action_data;
 	data->app = g_object_ref (app);
@@ -1512,7 +1504,8 @@ install_install_cb (GObject      *source_object,
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
 		if (data->interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 
 		gs_app_set_state_recover (data->app);
 
@@ -1674,6 +1667,8 @@ typedef struct {
 	GsPluginUpdateAppsFlags update_flags;  /* mutually exclusive with @install_flags */
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 	GsPluginAppNeedsUserActionCallback app_needs_user_action_callback;
 	gpointer app_needs_user_action_data;
 
@@ -1749,6 +1744,8 @@ install_or_update_apps_impl (GsPluginFwupd                      *self,
                              GsPluginUpdateAppsFlags             update_flags,
                              GsPluginProgressCallback            progress_callback,
                              gpointer                            progress_user_data,
+                             GsPluginEventCallback               event_callback,
+                             void                               *event_user_data,
                              GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                              gpointer                            app_needs_user_action_data,
                              GCancellable                       *cancellable,
@@ -1774,6 +1771,8 @@ install_or_update_apps_impl (GsPluginFwupd                      *self,
 	data->update_flags = update_flags;
 	data->progress_callback = progress_callback;
 	data->progress_user_data = progress_user_data;
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	data->app_needs_user_action_callback = app_needs_user_action_callback;
 	data->app_needs_user_action_data = app_needs_user_action_data;
 	data->n_apps = gs_app_list_length (apps);
@@ -1887,6 +1886,8 @@ install_or_update_app_unlock_cb (GObject      *source_object,
 	 * scratch, or apply an update to existing firmware. */
 	gs_plugin_fwupd_install_async (self, app,
 				       interactive,
+				       data->event_callback,
+				       data->event_user_data,
 				       data->app_needs_user_action_callback,
 				       data->app_needs_user_action_data,
 				       cancellable,
@@ -1951,7 +1952,8 @@ finish_install_or_update_apps_op (GTask  *task,
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 	}
 
 	if (error_owned != NULL && data->saved_error == NULL)
@@ -1978,6 +1980,8 @@ gs_plugin_fwupd_update_apps_async (GsPlugin                           *plugin,
                                    GsPluginUpdateAppsFlags             flags,
                                    GsPluginProgressCallback            progress_callback,
                                    gpointer                            progress_user_data,
+                                   GsPluginEventCallback               event_callback,
+                                   void                               *event_user_data,
                                    GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                    gpointer                            app_needs_user_action_data,
                                    GCancellable                       *cancellable,
@@ -1988,6 +1992,7 @@ gs_plugin_fwupd_update_apps_async (GsPlugin                           *plugin,
 
 	install_or_update_apps_impl (self, apps, -1, flags,
 				     progress_callback, progress_user_data,
+				     event_callback, event_user_data,
 				     app_needs_user_action_callback, app_needs_user_action_data,
 				     cancellable, callback, user_data);
 }
@@ -2006,6 +2011,8 @@ gs_plugin_fwupd_install_apps_async (GsPlugin                           *plugin,
                                     GsPluginInstallAppsFlags            flags,
                                     GsPluginProgressCallback            progress_callback,
                                     gpointer                            progress_user_data,
+                                    GsPluginEventCallback               event_callback,
+                                    void                               *event_user_data,
                                     GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                     gpointer                            app_needs_user_action_data,
                                     GCancellable                       *cancellable,
@@ -2016,6 +2023,7 @@ gs_plugin_fwupd_install_apps_async (GsPlugin                           *plugin,
 
 	install_or_update_apps_impl (self, apps, flags, -1,
 				     progress_callback, progress_user_data,
+				     event_callback, event_user_data,
 				     app_needs_user_action_callback, app_needs_user_action_data,
 				     cancellable, callback, user_data);
 }
@@ -2036,13 +2044,15 @@ static void
 gs_plugin_fwupd_file_to_app_async (GsPlugin *plugin,
 				   GFile *file,
 				   GsPluginFileToAppFlags flags,
+				   GsPluginEventCallback event_callback,
+				   void *event_user_data,
 				   GCancellable *cancellable,
 				   GAsyncReadyCallback callback,
 				   gpointer user_data)
 {
 	g_autoptr(GTask) task = NULL;
 
-	task = gs_plugin_file_to_app_data_new_task (plugin, file, flags, cancellable, callback, user_data);
+	task = gs_plugin_file_to_app_data_new_task (plugin, file, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_fwupd_file_to_app_async);
 
 	gs_utils_get_content_type_async (file, cancellable,
@@ -2215,6 +2225,8 @@ static void
 gs_plugin_fwupd_enable_repository_async (GsPlugin                     *plugin,
 					 GsApp			      *repository,
                                          GsPluginManageRepositoryFlags flags,
+                                         GsPluginEventCallback         event_callback,
+                                         void                         *event_user_data,
                                          GCancellable		      *cancellable,
                                          GAsyncReadyCallback	       callback,
                                          gpointer		       user_data)
@@ -2248,6 +2260,8 @@ static void
 gs_plugin_fwupd_disable_repository_async (GsPlugin                     *plugin,
 					  GsApp			      *repository,
                                           GsPluginManageRepositoryFlags flags,
+                                          GsPluginEventCallback        event_callback,
+                                          void                        *event_user_data,
                                           GCancellable		      *cancellable,
                                           GAsyncReadyCallback	       callback,
                                           gpointer		       user_data)
@@ -2283,8 +2297,8 @@ gs_plugin_fwupd_class_init (GsPluginFwupdClass *klass)
 	GsPluginClass *plugin_class = GS_PLUGIN_CLASS (klass);
 
 	object_class->dispose = gs_plugin_fwupd_dispose;
-	object_class->finalize = gs_plugin_fwupd_finalize;
 
+	plugin_class->adopt_app = gs_plugin_fwupd_adopt_app;
 	plugin_class->setup_async = gs_plugin_fwupd_setup_async;
 	plugin_class->setup_finish = gs_plugin_fwupd_setup_finish;
 	plugin_class->refresh_metadata_async = gs_plugin_fwupd_refresh_metadata_async;

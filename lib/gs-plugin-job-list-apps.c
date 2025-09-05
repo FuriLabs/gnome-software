@@ -143,6 +143,13 @@ gs_plugin_job_list_apps_set_property (GObject      *object,
 }
 
 static gboolean
+gs_plugin_job_list_apps_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobListApps *self = GS_PLUGIN_JOB_LIST_APPS (job);
+	return (self->flags & GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE) != 0;
+}
+
+static gboolean
 filter_valid_apps (GsApp    *app,
                    gpointer  user_data)
 {
@@ -235,6 +242,9 @@ app_filter_qt_for_gtk_and_compatible (GsApp    *app,
 	return gs_plugin_loader_app_is_compatible (plugin_loader, app);
 }
 
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 static void plugin_list_apps_cb (GObject      *source_object,
                                  GAsyncResult *result,
                                  gpointer      user_data);
@@ -291,13 +301,28 @@ gs_plugin_job_list_apps_run_async (GsPluginJob         *job,
 
 		/* run the plugin */
 		self->n_pending_ops++;
-		plugin_class->list_apps_async (plugin, self->query, self->flags, cancellable, plugin_list_apps_cb, g_object_ref (task));
+		plugin_class->list_apps_async (plugin, self->query, self->flags, plugin_event_cb, task, cancellable, plugin_list_apps_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle listing apps");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle listing apps");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
+}
+
+static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
 }
 
 static void
@@ -313,7 +338,6 @@ plugin_list_apps_cb (GObject      *source_object,
 	g_autoptr(GError) local_error = NULL;
 
 	plugin_apps = plugin_class->list_apps_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	if (plugin_apps != NULL)
 		gs_app_list_add_list (self->merged_list, plugin_apps);
@@ -348,6 +372,7 @@ finish_op (GTask  *task,
 	GsPluginLoader *plugin_loader = g_task_get_task_data (task);
 	g_autoptr(GsAppList) merged_list = NULL;
 	GsPluginRefineFlags refine_flags = GS_PLUGIN_REFINE_FLAGS_NONE;
+	GsPluginRefineRequireFlags require_flags = GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE;
 	GsAppQueryLicenseType license_type = GS_APP_QUERY_LICENSE_ANY;
 	g_autoptr(GError) error_owned = g_steal_pointer (&error);
 
@@ -374,23 +399,24 @@ finish_op (GTask  *task,
 	/* run refine() on each one if required */
 	if (self->query != NULL) {
 		refine_flags = gs_app_query_get_refine_flags (self->query);
+		require_flags = gs_app_query_get_refine_require_flags (self->query);
 		license_type = gs_app_query_get_license_type (self->query);
 	}
 
-	if (!(refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE) &&
+	if (!(require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE) &&
 	    license_type != GS_APP_QUERY_LICENSE_ANY) {
 		/* Needs the license information when filtering with it */
-		refine_flags |= GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE;
+		require_flags |= GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE;
 	}
 
 	if (merged_list != NULL &&
 	    gs_app_list_length (merged_list) > 0 &&
-	    refine_flags != GS_PLUGIN_REFINE_FLAGS_NONE) {
+	    require_flags != GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE) {
 		g_autoptr(GsPluginJob) refine_job = NULL;
 
 		refine_job = gs_plugin_job_refine_new (merged_list,
-						       refine_flags |
-						       GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING);
+						       refine_flags | GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+						       require_flags);
 		gs_plugin_loader_job_process_async (plugin_loader, refine_job,
 						    cancellable,
 						    refine_cb,
@@ -409,18 +435,17 @@ refine_cb (GObject      *source_object,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GTask) task = G_TASK (user_data);
 	GsPluginJobListApps *self = g_task_get_source_object (task);
-	g_autoptr(GsAppList) new_list = NULL;
+	g_autoptr(GsPluginJobRefine) refine_job = NULL;
 	g_autoptr(GError) local_error = NULL;
 
-	new_list = gs_plugin_loader_job_process_finish (plugin_loader, result, &local_error);
-	if (new_list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, result, (GsPluginJob **) &refine_job, &local_error)) {
 		gs_utils_error_convert_gio (&local_error);
 		g_task_return_error (task, g_steal_pointer (&local_error));
 		g_signal_emit_by_name (G_OBJECT (self), "completed");
 		return;
 	}
 
-	finish_task (task, new_list);
+	finish_task (task, gs_plugin_job_refine_get_result_list (refine_job));
 }
 
 static void
@@ -435,7 +460,7 @@ finish_task (GTask     *task,
 	GsAppQueryLicenseType license_type = GS_APP_QUERY_LICENSE_ANY;
 	GsAppQueryDeveloperVerifiedType developer_verified_type = GS_APP_QUERY_DEVELOPER_VERIFIED_ANY;
 	GsAppQueryTristate is_for_update = GS_APP_QUERY_TRISTATE_UNSET;
-	GsAppQueryTristate is_source = GS_APP_QUERY_TRISTATE_UNSET;
+	const AsComponentKind *component_kinds = NULL;
 	GsAppListFilterFunc filter_func = NULL;
 	gpointer filter_func_data = NULL;
 	guint max_results = 0;
@@ -445,11 +470,13 @@ finish_task (GTask     *task,
 		license_type = gs_app_query_get_license_type (self->query);
 		developer_verified_type = gs_app_query_get_developer_verified_type (self->query);
 		is_for_update = gs_app_query_get_is_for_update (self->query);
-		is_source = gs_app_query_get_is_source (self->query);
+		component_kinds = gs_app_query_get_component_kinds (self->query);
 	}
 
-	if (is_source == GS_APP_QUERY_TRISTATE_UNSET ||
-	    is_source == GS_APP_QUERY_TRISTATE_FALSE) {
+	if (gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) {
+		/* Filtering for sources/repositories. */
+		gs_app_list_filter (merged_list, filter_sources, self);
+	} else {
 		/* Standard filtering for apps.
 		 *
 		 * FIXME: It feels like this filter should be done in a different layer. */
@@ -464,9 +491,6 @@ finish_task (GTask     *task,
 			gs_app_list_filter (merged_list, filter_updatable_apps, self);
 		else if (is_for_update == GS_APP_QUERY_TRISTATE_FALSE)
 			gs_app_list_filter (merged_list, filter_nonupdatable_apps, self);
-	} else if (is_source == GS_APP_QUERY_TRISTATE_TRUE) {
-		/* Filtering for sources/repositories. */
-		gs_app_list_filter (merged_list, filter_sources, self);
 	}
 
 	/* Caller-specified filtering. */
@@ -546,6 +570,7 @@ gs_plugin_job_list_apps_class_init (GsPluginJobListAppsClass *klass)
 	object_class->get_property = gs_plugin_job_list_apps_get_property;
 	object_class->set_property = gs_plugin_job_list_apps_set_property;
 
+	job_class->get_interactive = gs_plugin_job_list_apps_get_interactive;
 	job_class->run_async = gs_plugin_job_list_apps_run_async;
 	job_class->run_finish = gs_plugin_job_list_apps_run_finish;
 

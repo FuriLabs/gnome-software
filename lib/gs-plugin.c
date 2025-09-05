@@ -49,16 +49,12 @@ typedef struct
 	GHashTable		*cache;
 	GMutex			 cache_mutex;
 	GModule			*module;
-	GsPluginFlags		 flags;
 	GPtrArray		*rules[GS_PLUGIN_RULE_LAST];
 	GHashTable		*vfuncs;		/* string:pointer */
 	GMutex			 vfuncs_mutex;
 	gboolean		 enabled;
-	guint			 interactive_cnt;
-	GMutex			 interactive_mutex;
 	gchar			*language;		/* allow-none */
 	gchar			*name;
-	gchar			*appstream_id;
 	guint			 scale;
 	guint			 order;
 	guint			 priority;
@@ -75,7 +71,7 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GsPlugin, gs_plugin, G_TYPE_OBJECT)
 G_DEFINE_QUARK (gs-plugin-error-quark, gs_plugin_error)
 
 typedef enum {
-	PROP_FLAGS = 1,
+	PROP_NAME = 1,
 	PROP_SCALE,
 	PROP_SESSION_BUS_CONNECTION,
 	PROP_SYSTEM_BUS_CONNECTION,
@@ -85,7 +81,6 @@ static GParamSpec *obj_props[PROP_SYSTEM_BUS_CONNECTION + 1] = { NULL, };
 
 enum {
 	SIGNAL_UPDATES_CHANGED,
-	SIGNAL_STATUS_CHANGED,
 	SIGNAL_RELOAD,
 	SIGNAL_REPORT_EVENT,
 	SIGNAL_ALLOW_UPDATES,
@@ -96,59 +91,6 @@ enum {
 };
 
 static guint signals [SIGNAL_LAST] = { 0 };
-
-typedef const gchar	**(*GsPluginGetDepsFunc)	(GsPlugin	*plugin);
-
-/**
- * gs_plugin_status_to_string:
- * @status: a #GsPluginStatus, e.g. %GS_PLUGIN_STATUS_DOWNLOADING
- *
- * Converts the #GsPluginStatus enum to a string.
- *
- * Returns: the string representation, or "unknown"
- *
- * Since: 3.22
- **/
-const gchar *
-gs_plugin_status_to_string (GsPluginStatus status)
-{
-	if (status == GS_PLUGIN_STATUS_WAITING)
-		return "waiting";
-	if (status == GS_PLUGIN_STATUS_FINISHED)
-		return "finished";
-	if (status == GS_PLUGIN_STATUS_SETUP)
-		return "setup";
-	if (status == GS_PLUGIN_STATUS_DOWNLOADING)
-		return "downloading";
-	if (status == GS_PLUGIN_STATUS_QUERYING)
-		return "querying";
-	if (status == GS_PLUGIN_STATUS_INSTALLING)
-		return "installing";
-	if (status == GS_PLUGIN_STATUS_REMOVING)
-		return "removing";
-	return "unknown";
-}
-
-/**
- * gs_plugin_set_name:
- * @plugin: a #GsPlugin
- * @name: a plugin name
- *
- * Sets the name of the plugin.
- *
- * Plugins are not required to set the plugin name as it is automatically set
- * from the `.so` filename.
- *
- * Since: 3.26
- **/
-void
-gs_plugin_set_name (GsPlugin *plugin, const gchar *name)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	if (priv->name != NULL)
-		g_free (priv->name);
-	priv->name = g_strdup (name);
-}
 
 /**
  * gs_plugin_create:
@@ -177,10 +119,11 @@ gs_plugin_create (const gchar      *filename,
 	GModule *module = NULL;
 	GType (*query_type_function) (void) = NULL;
 	GType plugin_type;
+	const char *library_prefix = "libgs_plugin_";
 
 	/* get the plugin name from the basename */
 	basename = g_path_get_basename (filename);
-	if (!g_str_has_prefix (basename, "libgs_plugin_")) {
+	if (!g_str_has_prefix (basename, library_prefix)) {
 		g_set_error (error,
 			     GS_PLUGIN_ERROR,
 			     GS_PLUGIN_ERROR_FAILED,
@@ -216,11 +159,11 @@ gs_plugin_create (const gchar      *filename,
 	plugin = g_object_new (plugin_type,
 			       "session-bus-connection", session_bus_connection,
 			       "system-bus-connection", system_bus_connection,
+			       "name", basename + strlen (library_prefix),
 			       NULL);
 	priv = gs_plugin_get_instance_private (plugin);
 	priv->module = g_steal_pointer (&module);
 
-	gs_plugin_set_name (plugin, basename + 13);
 	return plugin;
 }
 
@@ -249,56 +192,18 @@ gs_plugin_finalize (GObject *object)
 	if (priv->timer_id > 0)
 		g_source_remove (priv->timer_id);
 	g_free (priv->name);
-	g_free (priv->appstream_id);
 	g_free (priv->language);
 	if (priv->network_monitor != NULL)
 		g_object_unref (priv->network_monitor);
 	g_hash_table_unref (priv->cache);
 	g_hash_table_unref (priv->vfuncs);
 	g_mutex_clear (&priv->cache_mutex);
-	g_mutex_clear (&priv->interactive_mutex);
 	g_mutex_clear (&priv->timer_mutex);
 	g_mutex_clear (&priv->vfuncs_mutex);
 	if (priv->module != NULL)
 		g_module_close (priv->module);
 
 	G_OBJECT_CLASS (gs_plugin_parent_class)->finalize (object);
-}
-
-/**
- * gs_plugin_get_symbol: (skip)
- * @plugin: a #GsPlugin
- * @function_name: a symbol name
- *
- * Gets the symbol from the module that backs the plugin. If the plugin is not
- * enabled then no symbol is returned.
- *
- * Returns: the pointer to the symbol, or %NULL
- *
- * Since: 3.22
- **/
-gpointer
-gs_plugin_get_symbol (GsPlugin *plugin, const gchar *function_name)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	gpointer func = NULL;
-	g_autoptr(GMutexLocker) locker = g_mutex_locker_new (&priv->vfuncs_mutex);
-
-	g_return_val_if_fail (function_name != NULL, NULL);
-
-	/* disabled plugins shouldn't be checked */
-	if (!priv->enabled)
-		return NULL;
-
-	/* look up the symbol from the cache */
-	if (g_hash_table_lookup_extended (priv->vfuncs, function_name, NULL, &func))
-		return func;
-
-	/* look up the symbol using the elf headers */
-	g_module_symbol (priv->module, function_name, &func);
-	g_hash_table_insert (priv->vfuncs, g_strdup (function_name), func);
-
-	return func;
 }
 
 /**
@@ -335,26 +240,6 @@ gs_plugin_set_enabled (GsPlugin *plugin, gboolean enabled)
 	priv->enabled = enabled;
 }
 
-void
-gs_plugin_interactive_inc (GsPlugin *plugin)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	g_autoptr(GMutexLocker) locker = g_mutex_locker_new (&priv->interactive_mutex);
-	priv->interactive_cnt++;
-	gs_plugin_add_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
-}
-
-void
-gs_plugin_interactive_dec (GsPlugin *plugin)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	g_autoptr(GMutexLocker) locker = g_mutex_locker_new (&priv->interactive_mutex);
-	if (priv->interactive_cnt > 0)
-		priv->interactive_cnt--;
-	if (priv->interactive_cnt == 0)
-		gs_plugin_remove_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
-}
-
 /**
  * gs_plugin_get_name:
  * @plugin: a #GsPlugin
@@ -370,40 +255,6 @@ gs_plugin_get_name (GsPlugin *plugin)
 {
 	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
 	return priv->name;
-}
-
-/**
- * gs_plugin_get_appstream_id:
- * @plugin: a #GsPlugin
- *
- * Gets the plugin AppStream ID.
- *
- * Returns: a string, e.g. `org.gnome.Software.Plugin.Epiphany`
- *
- * Since: 3.24
- **/
-const gchar *
-gs_plugin_get_appstream_id (GsPlugin *plugin)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	return priv->appstream_id;
-}
-
-/**
- * gs_plugin_set_appstream_id:
- * @plugin: a #GsPlugin
- * @appstream_id: an appstream ID, e.g. `org.gnome.Software.Plugin.Epiphany`
- *
- * Sets the plugin AppStream ID.
- *
- * Since: 3.24
- **/
-void
-gs_plugin_set_appstream_id (GsPlugin *plugin, const gchar *appstream_id)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	g_free (priv->appstream_id);
-	priv->appstream_id = g_strdup (appstream_id);
 }
 
 /**
@@ -588,58 +439,6 @@ gs_plugin_get_network_available (GsPlugin *plugin)
 }
 
 /**
- * gs_plugin_has_flags:
- * @plugin: a #GsPlugin
- * @flags: a #GsPluginFlags, e.g. %GS_PLUGIN_FLAGS_INTERACTIVE
- *
- * Finds out if a plugin has a specific flag set.
- *
- * Returns: TRUE if the flag is set
- *
- * Since: 3.22
- **/
-gboolean
-gs_plugin_has_flags (GsPlugin *plugin, GsPluginFlags flags)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	return (priv->flags & flags) > 0;
-}
-
-/**
- * gs_plugin_add_flags:
- * @plugin: a #GsPlugin
- * @flags: a #GsPluginFlags, e.g. %GS_PLUGIN_FLAGS_INTERACTIVE
- *
- * Adds specific flags to the plugin.
- *
- * Since: 3.22
- **/
-void
-gs_plugin_add_flags (GsPlugin *plugin, GsPluginFlags flags)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	priv->flags |= flags;
-	g_object_notify_by_pspec (G_OBJECT (plugin), obj_props[PROP_FLAGS]);
-}
-
-/**
- * gs_plugin_remove_flags:
- * @plugin: a #GsPlugin
- * @flags: a #GsPluginFlags, e.g. %GS_PLUGIN_FLAGS_INTERACTIVE
- *
- * Removes specific flags from the plugin.
- *
- * Since: 3.22
- **/
-void
-gs_plugin_remove_flags (GsPlugin *plugin, GsPluginFlags flags)
-{
-	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
-	priv->flags &= ~flags;
-	g_object_notify_by_pspec (G_OBJECT (plugin), obj_props[PROP_FLAGS]);
-}
-
-/**
  * gs_plugin_add_rule:
  * @plugin: a #GsPlugin
  * @rule: a #GsPluginRule, e.g. %GS_PLUGIN_RULE_CONFLICTS
@@ -680,6 +479,38 @@ gs_plugin_get_rules (GsPlugin *plugin, GsPluginRule rule)
 }
 
 /**
+ * gs_plugin_adopt_app:
+ * @plugin: a #GsPlugin
+ * @app: a #GsApp
+ *
+ * Called when the @app has not been claimed (i.e. a management plugin has not
+ * been set), using GsPluginClass.adopt_app() if set. This does nothing if
+ * the @plugin does not implement the function.
+ *
+ * A claimed app means other plugins will not try to perform actions
+ * such as install, remove or update. Most apps are claimed when they
+ * are created.
+ *
+ * If a plugin can adopt this app then it should call
+ * gs_app_set_management_plugin() on @app.
+ *
+ * Since: 49
+ */
+void
+gs_plugin_adopt_app (GsPlugin *plugin,
+		     GsApp *app)
+{
+	GsPluginClass *plugin_class;
+
+	g_return_if_fail (GS_IS_PLUGIN (plugin));
+	g_return_if_fail (GS_IS_APP (app));
+
+	plugin_class = GS_PLUGIN_GET_CLASS (plugin);
+	if (plugin_class->adopt_app != NULL)
+		plugin_class->adopt_app (plugin, app);
+}
+
+/**
  * gs_plugin_check_distro_id:
  * @plugin: a #GsPlugin
  * @distro_id: a distro ID, e.g. "fedora"
@@ -713,68 +544,6 @@ gs_plugin_check_distro_id (GsPlugin *plugin, const gchar *distro_id)
 	if (g_strcmp0 (id, distro_id) != 0)
 		return FALSE;
 	return TRUE;
-}
-
-typedef struct {
-	GWeakRef	 plugin_weak;  /* (element-type GsPlugin) */
-	GsApp		*app;  /* (owned) */
-	GsPluginStatus	 status;
-	guint		 percentage;
-} GsPluginStatusHelper;
-
-static void
-gs_plugin_status_helper_free (GsPluginStatusHelper *helper)
-{
-	g_weak_ref_clear (&helper->plugin_weak);
-	g_clear_object (&helper->app);
-	g_slice_free (GsPluginStatusHelper, helper);
-}
-
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginStatusHelper, gs_plugin_status_helper_free)
-
-static gboolean
-gs_plugin_status_update_cb (gpointer user_data)
-{
-	GsPluginStatusHelper *helper = (GsPluginStatusHelper *) user_data;
-	g_autoptr(GsPlugin) plugin = NULL;
-
-	/* Does the plugin still exist? */
-	plugin = g_weak_ref_get (&helper->plugin_weak);
-
-	if (plugin != NULL)
-		g_signal_emit (plugin,
-			       signals[SIGNAL_STATUS_CHANGED], 0,
-			       helper->app,
-			       helper->status);
-
-	return G_SOURCE_REMOVE;
-}
-
-/**
- * gs_plugin_status_update:
- * @plugin: a #GsPlugin
- * @app: a #GsApp, or %NULL
- * @status: a #GsPluginStatus, e.g. %GS_PLUGIN_STATUS_DOWNLOADING
- *
- * Update the state of the plugin so any UI can be updated.
- *
- * Since: 3.22
- **/
-void
-gs_plugin_status_update (GsPlugin *plugin, GsApp *app, GsPluginStatus status)
-{
-	g_autoptr(GsPluginStatusHelper) helper = NULL;
-	g_autoptr(GSource) idle_source = NULL;
-
-	helper = g_slice_new0 (GsPluginStatusHelper);
-	g_weak_ref_init (&helper->plugin_weak, plugin);
-	helper->status = status;
-	if (app != NULL)
-		helper->app = g_object_ref (app);
-
-	idle_source = g_idle_source_new ();
-	g_source_set_callback (idle_source, gs_plugin_status_update_cb, g_steal_pointer (&helper), (GDestroyNotify) gs_plugin_status_helper_free);
-	g_source_attach (idle_source, NULL);
 }
 
 typedef struct {
@@ -1537,161 +1306,99 @@ gs_plugin_error_to_string (GsPluginError error)
 }
 
 /**
- * gs_plugin_action_to_function_name: (skip)
- * @action: a #GsPluginAction
- *
- * Converts the enumerated action to the vfunc name.
- *
- * Returns: a string, or %NULL for invalid
- **/
-const gchar *
-gs_plugin_action_to_function_name (GsPluginAction action)
-{
-	if (action == GS_PLUGIN_ACTION_GET_LANGPACKS)
-		return "gs_plugin_add_langpacks";
-	return NULL;
-}
-
-/**
- * gs_plugin_action_to_string:
- * @action: a #GsPluginAction
- *
- * Converts the enumerated action to a string.
- *
- * Returns: a string, or %NULL for invalid
- **/
-const gchar *
-gs_plugin_action_to_string (GsPluginAction action)
-{
-	if (action == GS_PLUGIN_ACTION_UNKNOWN)
-		return "unknown";
-	if (action == GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD)
-		return "upgrade-download";
-	if (action == GS_PLUGIN_ACTION_LAUNCH)
-		return "launch";
-	if (action == GS_PLUGIN_ACTION_FILE_TO_APP)
-		return "file-to-app";
-	if (action == GS_PLUGIN_ACTION_URL_TO_APP)
-		return "url-to-app";
-	if (action == GS_PLUGIN_ACTION_GET_LANGPACKS)
-		return "get-langpacks";
-	if (action == GS_PLUGIN_ACTION_INSTALL_REPO)
-		return "repo-install";
-	if (action == GS_PLUGIN_ACTION_REMOVE_REPO)
-		return "repo-remove";
-	if (action == GS_PLUGIN_ACTION_ENABLE_REPO)
-		return "repo-enable";
-	if (action == GS_PLUGIN_ACTION_DISABLE_REPO)
-		return "repo-disable";
-	return NULL;
-}
-
-/**
- * gs_plugin_action_from_string:
- * @action: a #GsPluginAction, e.g. "install"
- *
- * Converts the string to an enumerated action.
- *
- * Returns: a #GsPluginAction.
- *
- * Since: 3.26
- **/
-GsPluginAction
-gs_plugin_action_from_string (const gchar *action)
-{
-	if (g_strcmp0 (action, "upgrade-download") == 0)
-		return GS_PLUGIN_ACTION_UPGRADE_DOWNLOAD;
-	if (g_strcmp0 (action, "launch") == 0)
-		return GS_PLUGIN_ACTION_LAUNCH;
-	if (g_strcmp0 (action, "file-to-app") == 0)
-		return GS_PLUGIN_ACTION_FILE_TO_APP;
-	if (g_strcmp0 (action, "url-to-app") == 0)
-		return GS_PLUGIN_ACTION_URL_TO_APP;
-	if (g_strcmp0 (action, "get-langpacks") == 0)
-		return GS_PLUGIN_ACTION_GET_LANGPACKS;
-	if (g_strcmp0 (action, "repo-install") == 0)
-		return GS_PLUGIN_ACTION_INSTALL_REPO;
-	if (g_strcmp0 (action, "repo-remove") == 0)
-		return GS_PLUGIN_ACTION_REMOVE_REPO;
-	if (g_strcmp0 (action, "repo-enable") == 0)
-		return GS_PLUGIN_ACTION_ENABLE_REPO;
-	if (g_strcmp0 (action, "repo-disable") == 0)
-		return GS_PLUGIN_ACTION_DISABLE_REPO;
-	return GS_PLUGIN_ACTION_UNKNOWN;
-}
-
-/**
  * gs_plugin_refine_flags_to_string:
- * @refine_flags: some #GsPluginRefineFlags, e.g. %GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE
+ * @refine_flags: some #GsPluginRefineFlags, e.g. %GS_PLUGIN_REFINE_FLAGS_INTERACTIVE
  *
- * Converts the flags to a string.
+ * Converts the refine flags to a string.
  *
  * Returns: a string
- **/
+ * Since: 49
+ */
 gchar *
 gs_plugin_refine_flags_to_string (GsPluginRefineFlags refine_flags)
 {
 	g_autoptr(GPtrArray) cstrs = g_ptr_array_new ();
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ID)
+	if ((refine_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0)
+		g_ptr_array_add (cstrs, (gpointer) "interactive");
+	if ((refine_flags & GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES) != 0)
+		g_ptr_array_add (cstrs, (gpointer) "allow-packages");
+	if ((refine_flags & GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING) != 0)
+		g_ptr_array_add (cstrs, (gpointer) "disable-filtering");
+	if (cstrs->len == 0)
+		return g_strdup ("none");
+	g_ptr_array_add (cstrs, NULL);
+	return g_strjoinv (",", (gchar**) cstrs->pdata);
+}
+
+/**
+ * gs_plugin_refine_require_flags_to_string:
+ * @require_flags: some #GsPluginRefineRequireFlags, e.g. %GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE
+ *
+ * Converts the flags to a string.
+ *
+ * Returns: a string
+ * Since: 49
+ **/
+gchar *
+gs_plugin_refine_require_flags_to_string (GsPluginRefineRequireFlags require_flags)
+{
+	g_autoptr(GPtrArray) cstrs = g_ptr_array_new ();
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ID)
 		g_ptr_array_add (cstrs, (gpointer) "require-id");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE)
 		g_ptr_array_add (cstrs, (gpointer) "require-license");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_URL)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_URL)
 		g_ptr_array_add (cstrs, (gpointer) "require-url");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION)
 		g_ptr_array_add (cstrs, (gpointer) "require-description");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE)
 		g_ptr_array_add (cstrs, (gpointer) "require-size");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING)
 		g_ptr_array_add (cstrs, (gpointer) "require-rating");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION)
 		g_ptr_array_add (cstrs, (gpointer) "require-version");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_HISTORY)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY)
 		g_ptr_array_add (cstrs, (gpointer) "require-history");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION)
 		g_ptr_array_add (cstrs, (gpointer) "require-setup-action");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS)
 		g_ptr_array_add (cstrs, (gpointer) "require-update-details");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN)
 		g_ptr_array_add (cstrs, (gpointer) "require-origin");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_RELATED)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_RELATED)
 		g_ptr_array_add (cstrs, (gpointer) "require-related");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ADDONS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ADDONS)
 		g_ptr_array_add (cstrs, (gpointer) "require-addons");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES)
-		g_ptr_array_add (cstrs, (gpointer) "require-allow-packages");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_SEVERITY)
 		g_ptr_array_add (cstrs, (gpointer) "require-update-severity");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPGRADE_REMOVED)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPGRADE_REMOVED)
 		g_ptr_array_add (cstrs, (gpointer) "require-upgrade-removed");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE)
 		g_ptr_array_add (cstrs, (gpointer) "require-provenance");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEWS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEWS)
 		g_ptr_array_add (cstrs, (gpointer) "require-reviews");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEW_RATINGS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS)
 		g_ptr_array_add (cstrs, (gpointer) "require-review-ratings");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON)
 		g_ptr_array_add (cstrs, (gpointer) "require-icon");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_PERMISSIONS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS)
 		g_ptr_array_add (cstrs, (gpointer) "require-permissions");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME)
 		g_ptr_array_add (cstrs, (gpointer) "require-origin-hostname");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_UI)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_UI)
 		g_ptr_array_add (cstrs, (gpointer) "require-origin-ui");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_RUNTIME)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_RUNTIME)
 		g_ptr_array_add (cstrs, (gpointer) "require-runtime");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SCREENSHOTS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SCREENSHOTS)
 		g_ptr_array_add (cstrs, (gpointer) "require-screenshots");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_CATEGORIES)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_CATEGORIES)
 		g_ptr_array_add (cstrs, (gpointer) "require-categories");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROJECT_GROUP)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROJECT_GROUP)
 		g_ptr_array_add (cstrs, (gpointer) "require-project-group");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_DEVELOPER_NAME)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_DEVELOPER_NAME)
 		g_ptr_array_add (cstrs, (gpointer) "require-developer-name");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_KUDOS)
+	if (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_KUDOS)
 		g_ptr_array_add (cstrs, (gpointer) "require-kudos");
-	if (refine_flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_CONTENT_RATING)
-		g_ptr_array_add (cstrs, (gpointer) "content-rating");
 	if (cstrs->len == 0)
 		return g_strdup ("none");
 	g_ptr_array_add (cstrs, NULL);
@@ -1718,9 +1425,10 @@ gs_plugin_set_property (GObject *object, guint prop_id, const GValue *value, GPa
 	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
 
 	switch ((GsPluginProperty) prop_id) {
-	case PROP_FLAGS:
-		priv->flags = g_value_get_flags (value);
-		g_object_notify_by_pspec (G_OBJECT (plugin), obj_props[PROP_FLAGS]);
+	case PROP_NAME:
+		/* Construct only */
+		g_assert (priv->name == NULL);
+		priv->name = g_value_dup_string (value);
 		break;
 	case PROP_SCALE:
 		gs_plugin_set_scale (plugin, g_value_get_uint (value));
@@ -1748,8 +1456,8 @@ gs_plugin_get_property (GObject *object, guint prop_id, GValue *value, GParamSpe
 	GsPluginPrivate *priv = gs_plugin_get_instance_private (plugin);
 
 	switch ((GsPluginProperty) prop_id) {
-	case PROP_FLAGS:
-		g_value_set_flags (value, priv->flags);
+	case PROP_NAME:
+		g_value_set_string (value, priv->name);
 		break;
 	case PROP_SCALE:
 		g_value_set_uint (value, gs_plugin_get_scale (plugin));
@@ -1778,16 +1486,22 @@ gs_plugin_class_init (GsPluginClass *klass)
 	object_class->finalize = gs_plugin_finalize;
 
 	/**
-	 * GsPlugin:flags:
+	 * GsPlugin:name: (not nullable)
 	 *
-	 * Flags which indicate various boolean properties of the plugin.
+	 * Name of the plugin.
 	 *
-	 * These may change during the plugin’s lifetime.
+	 * This can be used to identify the plugin in log messages, for example.
+	 *
+	 * This must be set at construction time and will not be %NULL
+	 * afterwards. It is automatically set from the `.so` filename by
+	 * gs_plugin_create().
+	 *
+	 * Since: 49
 	 */
-	obj_props[PROP_FLAGS] =
-		g_param_spec_flags ("flags", NULL, NULL,
-				    GS_TYPE_PLUGIN_FLAGS, GS_PLUGIN_FLAGS_NONE,
-				    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+	obj_props[PROP_NAME] =
+		g_param_spec_string ("name", NULL, NULL,
+				     NULL,
+				     G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
 	/**
 	 * GsPlugin:scale:
@@ -1841,13 +1555,6 @@ gs_plugin_class_init (GsPluginClass *klass)
 			      G_STRUCT_OFFSET (GsPluginClass, updates_changed),
 			      NULL, NULL, g_cclosure_marshal_VOID__VOID,
 			      G_TYPE_NONE, 0);
-
-	signals [SIGNAL_STATUS_CHANGED] =
-		g_signal_new ("status-changed",
-			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (GsPluginClass, status_changed),
-			      NULL, NULL, g_cclosure_marshal_generic,
-			      G_TYPE_NONE, 2, GS_TYPE_APP, G_TYPE_UINT);
 
 	signals [SIGNAL_RELOAD] =
 		g_signal_new ("reload",
@@ -1910,35 +1617,8 @@ gs_plugin_init (GsPlugin *plugin)
 	priv->vfuncs = g_hash_table_new_full (g_str_hash, g_str_equal,
 					      g_free, NULL);
 	g_mutex_init (&priv->cache_mutex);
-	g_mutex_init (&priv->interactive_mutex);
 	g_mutex_init (&priv->timer_mutex);
 	g_mutex_init (&priv->vfuncs_mutex);
-}
-
-/**
- * gs_plugin_new:
- * @session_bus_connection: (not nullable) (transfer none): a session bus
- *   connection to use
- * @system_bus_connection: (not nullable) (transfer none): a system bus
- *   connection to use
- *
- * Creates a new plugin.
- *
- * Returns: a #GsPlugin
- *
- * Since: 43
- **/
-GsPlugin *
-gs_plugin_new (GDBusConnection *session_bus_connection,
-               GDBusConnection *system_bus_connection)
-{
-	g_return_val_if_fail (G_IS_DBUS_CONNECTION (session_bus_connection), NULL);
-	g_return_val_if_fail (G_IS_DBUS_CONNECTION (system_bus_connection), NULL);
-
-	return g_object_new (GS_TYPE_PLUGIN,
-			     "session-bus-connection", session_bus_connection,
-			     "system-bus-connection", system_bus_connection,
-			     NULL);
 }
 
 typedef struct {

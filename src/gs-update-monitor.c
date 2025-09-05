@@ -44,12 +44,17 @@ struct _GsUpdateMonitor {
 	GCancellable	*refresh_cancellable;  /* (owned) (not nullable) */
 
 	GSettings	*settings;
+	gulong		 settings_changed_handler;
+
 	GsPluginLoader	*plugin_loader;
+
 	GDBusProxy	*proxy_upower;
+	gulong		 upower_changed_handler;
+
 	GError		*last_offline_error;
 
 	GNetworkMonitor *network_monitor;
-	guint		 network_changed_handler;
+	gulong		 network_changed_handler;
 
 #if GLIB_CHECK_VERSION(2, 69, 1)
 	GPowerProfileMonitor	*power_profile_monitor;  /* (owned) (nullable) */
@@ -201,6 +206,9 @@ should_notify_about_pending_updates (GsUpdateMonitor *monitor,
 	gboolean has_important = FALSE, all_downloaded = FALSE, any_downloaded = FALSE;
 	gboolean should_download, res = FALSE;
 	gint64 notification_timestamp_days;
+	
+	if (!gs_plugin_loader_get_allow_updates (monitor->plugin_loader))
+		return FALSE;
 
 	if (!get_timestamp_difference_days (monitor, "update-notification-timestamp", &notification_timestamp_days)) {
 		/* Large-enough number to succeed for the initial test */
@@ -223,7 +231,6 @@ should_notify_about_pending_updates (GsUpdateMonitor *monitor,
 
 	if (apps == NULL || !gs_app_list_length (apps)) {
 		if (!should_download &&
-		    gs_plugin_loader_get_allow_updates (monitor->plugin_loader) &&
 		    notification_timestamp_days >= 1 &&
 		    check_if_timestamp_more_than_days_ago (monitor, "check-timestamp", 7)) {
 			*out_title = _("Updates Are Out of Date");
@@ -273,8 +280,10 @@ reset_update_notification_timestamp (GsUpdateMonitor *monitor)
 	g_autoptr(GDateTime) now = NULL;
 
 	now = g_date_time_new_now_local ();
+	g_signal_handler_block (monitor->settings, monitor->settings_changed_handler);
 	g_settings_set (monitor->settings, "update-notification-timestamp", "x",
 	                g_date_time_to_unix (now));
+	g_signal_handler_unblock (monitor->settings, monitor->settings_changed_handler);
 }
 
 static void
@@ -461,14 +470,13 @@ update_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 	GsUpdateMonitor *monitor = data->monitor;
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (object);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobUpdateApps) update_apps_job = NULL;
 
 	/* get result */
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &update_apps_job, &error)) {
 		gs_plugin_loader_claim_job_error (plugin_loader,
-						  NULL,
 						  data->job,
+						  NULL,
 						  error);
 		return;
 	}
@@ -477,7 +485,7 @@ update_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 	if (g_settings_get_boolean (monitor->settings, "download-updates-notify")) {
 		g_autoptr(GNotification) n = NULL;
 		gs_application_withdraw_notification (monitor->application, "updates-installed");
-		n = _build_autoupdated_notification (monitor, list);
+		n = _build_autoupdated_notification (monitor, gs_plugin_job_update_apps_get_apps (update_apps_job));
 		if (n != NULL)
 			gs_application_send_notification (monitor->application, "updates-installed", n, MINUTES_IN_A_DAY);
 	}
@@ -502,17 +510,15 @@ download_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 	GsUpdateMonitor *monitor = data->monitor;
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (object);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
 	g_autoptr(GsAppList) update_online = NULL;
 	g_autoptr(GsAppList) update_offline = NULL;
 	GsAppList *job_apps;
 
 	/* the returned list is always empty, the existence indicates success */
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		gs_plugin_loader_claim_job_error (plugin_loader,
-						  NULL,
 						  data->job,
+						  NULL,
 						  error);
 		return;
 	}
@@ -536,7 +542,6 @@ download_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 
 		plugin_job = gs_plugin_job_update_apps_new (update_online,
 							    GS_PLUGIN_UPDATE_APPS_FLAGS_NONE);
-		gs_plugin_job_set_propagate_error (plugin_job, TRUE);
 		gs_plugin_loader_job_process_async (monitor->plugin_loader,
 						    plugin_job,
 						    monitor->update_cancellable,
@@ -556,13 +561,13 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 	GsUpdateMonitor *monitor = download_updates_data->monitor;
 	guint64 security_timestamp = 0;
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) apps = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *apps;
 	gboolean install_timestamp_outdated;
 	gboolean should_download;
 
 	/* get result */
-	apps = gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, &error);
-	if (apps == NULL) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_warning ("failed to get updates: %s", error->message);
@@ -571,9 +576,14 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		return;
 	}
 
+	apps = gs_plugin_job_list_apps_get_result_list (list_apps_job);
+
 	/* Update the check-timestamp, when this call is part of the auto-update */
-	if (download_updates_data->check_timestamp > 0)
+	if (download_updates_data->check_timestamp > 0) {
+		g_signal_handler_block (monitor->settings, monitor->settings_changed_handler);
 		g_settings_set (monitor->settings, "check-timestamp", "x", download_updates_data->check_timestamp);
+		g_signal_handler_unblock (monitor->settings, monitor->settings_changed_handler);
+	}
 
 	/* no updates */
 	if (gs_app_list_length (apps) == 0) {
@@ -596,8 +606,10 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		}
 	}
 	if (security_timestamp > 0) {
+		g_signal_handler_block (monitor->settings, monitor->settings_changed_handler);
 		g_settings_set (monitor->settings,
 				"security-timestamp", "x", security_timestamp);
+		g_signal_handler_unblock (monitor->settings, monitor->settings_changed_handler);
 	}
 
 	g_debug ("got %u updates", gs_app_list_length (apps));
@@ -615,7 +627,6 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		 * preferences */
 		plugin_job = gs_plugin_job_update_apps_new (apps,
 							    GS_PLUGIN_UPDATE_APPS_FLAGS_NO_APPLY);
-		gs_plugin_job_set_propagate_error (plugin_job, TRUE);
 
 		data = g_new0 (UpdateAppsData, 1);
 		data->monitor = g_object_ref (monitor);
@@ -660,7 +671,6 @@ get_updates_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 
 			plugin_job = gs_plugin_job_update_apps_new (update_online,
 								    GS_PLUGIN_UPDATE_APPS_FLAGS_NO_APPLY);
-			gs_plugin_job_set_propagate_error (plugin_job, TRUE);
 
 			data = g_new0 (UpdateAppsData, 1);
 			data->monitor = g_object_ref (monitor);
@@ -737,11 +747,11 @@ get_upgrades_finished_cb (GObject *object,
 	g_autoptr(GDateTime) now = NULL;
 	g_autoptr(GError) error = NULL;
 	g_autoptr(GNotification) n = NULL;
-	g_autoptr(GsAppList) apps = NULL;
+	g_autoptr(GsPluginJobListDistroUpgrades) list_distro_upgrades_job = NULL;
+	GsAppList *apps;
 
 	/* get result */
-	apps = gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, &error);
-	if (apps == NULL) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, (GsPluginJob **) &list_distro_upgrades_job, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_warning ("failed to get upgrades: %s",
@@ -749,6 +759,8 @@ get_upgrades_finished_cb (GObject *object,
 		}
 		return;
 	}
+
+	apps = gs_plugin_job_list_distro_upgrades_get_result_list (list_distro_upgrades_job);
 
 	/* no results */
 	if (gs_app_list_length (apps) == 0) {
@@ -767,8 +779,10 @@ get_upgrades_finished_cb (GObject *object,
 
 	g_debug ("showing distro upgrade notification");
 	now = g_date_time_new_now_local ();
+	g_signal_handler_block (monitor->settings, monitor->settings_changed_handler);
 	g_settings_set (monitor->settings, "upgrade-notification-timestamp", "x",
 	                g_date_time_to_unix (now));
+	g_signal_handler_unblock (monitor->settings, monitor->settings_changed_handler);
 
 	/* rely on the app list already being sorted with the
 	 * chronologically newest release last */
@@ -807,7 +821,7 @@ get_updates (GsUpdateMonitor *monitor,
 	/* NOTE: this doesn't actually do any network access */
 	g_debug ("Getting updates");
 	query = gs_app_query_new ("is-for-update", GS_APP_QUERY_TRISTATE_TRUE,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_SEVERITY,
 				  NULL);
 	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (monitor->plugin_loader,
@@ -876,7 +890,7 @@ get_upgrades (GsUpdateMonitor *monitor)
 	 * package being up-to-date, or the metadata being auto-downloaded */
 	g_debug ("Getting upgrades");
 	plugin_job = gs_plugin_job_list_distro_upgrades_new (GS_PLUGIN_LIST_DISTRO_UPGRADES_FLAGS_NONE,
-							     GS_PLUGIN_REFINE_FLAGS_NONE);
+							     GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (monitor->plugin_loader,
 					    plugin_job,
 					    monitor->update_cancellable,
@@ -901,7 +915,7 @@ refresh_cache_finished_cb (GObject *object,
 	g_autoptr(GDateTime) now = NULL;
 	g_autoptr(GError) error = NULL;
 
-	if (!gs_plugin_loader_job_action_finish (GS_PLUGIN_LOADER (object), res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, NULL, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_warning ("failed to refresh the cache: %s", error->message);
@@ -919,7 +933,7 @@ install_language_pack_cb (GObject *object, GAsyncResult *res, gpointer data)
 	g_autoptr(GError) error = NULL;
 	g_autoptr(WithAppData) with_app_data = data;
 
-	if (!gs_plugin_loader_job_action_finish (GS_PLUGIN_LOADER (object), res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, NULL, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_debug ("failed to install language pack: %s", error->message);
@@ -936,24 +950,28 @@ get_language_pack_cb (GObject *object, GAsyncResult *res, gpointer data)
 	GsUpdateMonitor *monitor = GS_UPDATE_MONITOR (data);
 	GsApp *app;
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) app_list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *app_list;
 
-	app_list = gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, &error);
-	if (app_list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_debug ("failed to find language pack: %s", error->message);
 		return;
 	}
 
+	app_list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
+
 	/* none found */
 	if (gs_app_list_length (app_list) == 0) {
 		g_debug ("no language pack found");
 		return;
+	} else if (gs_app_list_length (app_list) > 1) {
+		g_debug ("More than one language pack found. GsUpdateMonitor currently only supports installing one.");
 	}
 
 	/* there should be one langpack for a given locale */
-	app = g_object_ref (gs_app_list_index (app_list, 0));
+	app = gs_app_list_index (app_list, 0);
 	if (!gs_app_is_installed (app)) {
 		WithAppData *with_app_data;
 		g_autoptr(GsPluginJob) plugin_job = NULL;
@@ -978,13 +996,16 @@ static void
 check_language_pack (GsUpdateMonitor *monitor) {
 
 	const gchar *locale;
+	g_autoptr(GsAppQuery) query = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	locale = setlocale (LC_MESSAGES, NULL);
-	plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_LANGPACKS,
-					 "search", locale,
-					 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
-					 NULL);
+
+	query = gs_app_query_new ("is-langpack-for-locale", locale,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON,
+				  NULL);
+	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
+
 	gs_plugin_loader_job_process_async (monitor->plugin_loader,
 					    plugin_job,
 					    monitor->update_cancellable,
@@ -1233,6 +1254,28 @@ check_updates_on_startup_cb (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+static const char * const check_updates_trigger_settings[] = {
+	"check-timestamp",
+	"refresh-when-metered",
+	NULL
+};
+
+static void
+check_updates_settings_changed_cb (GSettings  *settings,
+                                   const char *key,
+                                   gpointer    user_data)
+{
+	GsUpdateMonitor *self = GS_UPDATE_MONITOR (user_data);
+
+	/* Only these keys affect the behaviour of check_updates(). The
+	 * other settings timestamps affect later stages of getting an update. */
+	if (!g_strv_contains (check_updates_trigger_settings, key))
+		return;
+
+	g_debug ("GSettings (%s) changed updates check", key);
+	check_updates (self);
+}
+
 static void
 check_updates_upower_changed_cb (GDBusProxy *proxy,
 				 GParamSpec *pspec,
@@ -1259,12 +1302,12 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 	guint64 time_last_notified;
 	gboolean did_clamp = FALSE;
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) apps = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *apps;
 	g_autoptr(GNotification) notification = NULL;
 
 	/* get result */
-	apps = gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, &error);
-	if (apps == NULL) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (object), res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("Failed to get historical updates: %s", error->message);
@@ -1286,6 +1329,8 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 		gs_application_send_notification (monitor->application, "offline-updates", notification, MINUTES_IN_A_DAY);
 		return;
 	}
+
+	apps = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* no results */
 	if (gs_app_list_length (apps) == 0) {
@@ -1316,8 +1361,10 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 	}
 	if (time_last_notified >= latest_install_date) {
 		if (did_clamp) {
+			g_signal_handler_block (monitor->settings, monitor->settings_changed_handler);
 			g_settings_set (monitor->settings,
 					"install-timestamp", "x", latest_install_date);
+			g_signal_handler_unblock (monitor->settings, monitor->settings_changed_handler);
 		}
 		return;
 	}
@@ -1361,8 +1408,10 @@ get_updates_historical_cb (GObject *object, GAsyncResult *res, gpointer data)
 	gs_application_send_notification (monitor->application, "offline-updates", notification, MINUTES_IN_A_DAY);
 
 	/* update the timestamp so we don't show again */
+	g_signal_handler_block (monitor->settings, monitor->settings_changed_handler);
 	g_settings_set (monitor->settings,
 			"install-timestamp", "x", latest_install_date);
+	g_signal_handler_unblock (monitor->settings, monitor->settings_changed_handler);
 
 	reset_update_notification_timestamp (monitor);
 }
@@ -1378,11 +1427,10 @@ cleanup_notifications_cb (gpointer user_data)
 	 * after startup, so don’t cancel it with refreshes/updates */
 	g_debug ("getting historical updates for fresh session");
 	query = gs_app_query_new ("is-historical-update", GS_APP_QUERY_TRISTATE_TRUE,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
-						  GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION,
 				  NULL);
 	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
-	gs_plugin_job_set_propagate_error (plugin_job, TRUE);
 	gs_plugin_loader_job_process_async (monitor->plugin_loader,
 					    plugin_job,
 					    monitor->shutdown_cancellable,
@@ -1510,7 +1558,19 @@ gs_update_monitor_init (GsUpdateMonitor *monitor)
 {
 	GNetworkMonitor *network_monitor;
 	g_autoptr(GError) error = NULL;
+
 	monitor->settings = g_settings_new ("org.gnome.software");
+	monitor->settings_changed_handler = g_signal_connect (monitor->settings, "changed",
+							      G_CALLBACK (check_updates_settings_changed_cb),
+							      monitor);
+
+	/* Explicitly query the GSettings keys which can trigger an updates
+	 * change, so that the ::changed signal above is primed. */
+	for (size_t i = 0; check_updates_trigger_settings[i] != NULL; i++) {
+		g_autoptr(GVariant) value = NULL;
+		value = g_settings_get_value (monitor->settings, check_updates_trigger_settings[i]);
+		(void) value; /* silence compiler warnings about not using the value */
+	}
 
 	/* cleanup at startup */
 	monitor->cleanup_notifications_id =
@@ -1542,9 +1602,9 @@ gs_update_monitor_init (GsUpdateMonitor *monitor)
 					NULL,
 					&error);
 	if (monitor->proxy_upower != NULL) {
-		g_signal_connect (monitor->proxy_upower, "notify",
-				  G_CALLBACK (check_updates_upower_changed_cb),
-				  monitor);
+		monitor->upower_changed_handler = g_signal_connect (monitor->proxy_upower, "notify",
+								    G_CALLBACK (check_updates_upower_changed_cb),
+								    monitor);
 	} else {
 		g_warning ("failed to connect to upower: %s", error->message);
 	}
@@ -1573,11 +1633,8 @@ gs_update_monitor_dispose (GObject *object)
 {
 	GsUpdateMonitor *monitor = GS_UPDATE_MONITOR (object);
 
-	if (monitor->network_changed_handler != 0) {
-		g_signal_handler_disconnect (monitor->network_monitor,
-					     monitor->network_changed_handler);
-		monitor->network_changed_handler = 0;
-	}
+	g_clear_signal_handler (&monitor->network_changed_handler, monitor->network_monitor);
+	g_clear_object (&monitor->network_monitor);
 
 #if GLIB_CHECK_VERSION(2, 69, 1)
 	g_clear_signal_handler (&monitor->power_profile_changed_handler, monitor->power_profile_monitor);
@@ -1608,7 +1665,11 @@ gs_update_monitor_dispose (GObject *object)
 						      monitor);
 		g_clear_object (&monitor->plugin_loader);
 	}
+
+	g_clear_signal_handler (&monitor->settings_changed_handler, monitor->settings);
 	g_clear_object (&monitor->settings);
+
+	g_clear_signal_handler (&monitor->upower_changed_handler, monitor->proxy_upower);
 	g_clear_object (&monitor->proxy_upower);
 
 	G_OBJECT_CLASS (gs_update_monitor_parent_class)->dispose (object);

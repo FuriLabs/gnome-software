@@ -33,33 +33,22 @@ struct _GsPluginJobClass
 	gboolean (*run_finish) (GsPluginJob   *self,
 	                        GAsyncResult  *result,
 	                        GError       **error);
+	gboolean (*get_interactive) (GsPluginJob *self);
 };
 
-void		 gs_plugin_job_set_refine_flags		(GsPluginJob	*self,
-							 GsPluginRefineFlags refine_flags);
-void		 gs_plugin_job_set_dedupe_flags		(GsPluginJob	*self,
-							 GsAppListFilterFlags dedupe_flags);
-void		 gs_plugin_job_set_interactive		(GsPluginJob	*self,
-							 gboolean	 interactive);
-void		 gs_plugin_job_set_propagate_error	(GsPluginJob	*self,
-							 gboolean	 propagate_error);
-void		 gs_plugin_job_set_max_results		(GsPluginJob	*self,
-							 guint		 max_results);
-void		 gs_plugin_job_set_search		(GsPluginJob	*self,
-							 const gchar	*search);
-void		 gs_plugin_job_set_app			(GsPluginJob	*self,
-							 GsApp		*app);
-void		 gs_plugin_job_set_list			(GsPluginJob	*self,
-							 GsAppList	*list);
-void		 gs_plugin_job_set_file			(GsPluginJob	*self,
-							 GFile		*file);
-void		 gs_plugin_job_set_plugin		(GsPluginJob	*self,
-							 GsPlugin	*plugin);
+void		gs_plugin_job_run_async			(GsPluginJob		*self,
+							 GsPluginLoader		*plugin_loader,
+							 GCancellable		*cancellable,
+							 GAsyncReadyCallback	 callback,
+							 gpointer		 user_data);
+gboolean	gs_plugin_job_run_finish		(GsPluginJob		*self,
+							 GAsyncResult		*result,
+							 GError			**error);
 
-#define		 gs_plugin_job_newv(a,...)		GS_PLUGIN_JOB(g_object_new(GS_TYPE_PLUGIN_JOB, "action", a, __VA_ARGS__))
+gboolean	 gs_plugin_job_get_interactive		(GsPluginJob	*self);
 
-#define		 GS_PLUGIN_JOB_DEDUPE_FLAGS_DEFAULT	(GS_APP_LIST_FILTER_FLAG_KEY_ID | \
-							 GS_APP_LIST_FILTER_FLAG_KEY_SOURCE | \
-							 GS_APP_LIST_FILTER_FLAG_KEY_VERSION)
+void		 gs_plugin_job_emit_event		(GsPluginJob	*self,
+							 GsPlugin	*plugin,
+							 GsPluginEvent	*event);
 
 G_END_DECLS

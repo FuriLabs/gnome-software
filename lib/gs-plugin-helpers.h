@@ -20,40 +20,59 @@ G_BEGIN_DECLS
 
 typedef struct {
 	GsAppList *list;  /* (owned) (not nullable) */
-	GsPluginRefineFlags flags;
+	GsPluginRefineFlags job_flags;
+	GsPluginRefineRequireFlags require_flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginRefineData;
 
-GsPluginRefineData *gs_plugin_refine_data_new (GsAppList           *list,
-                                               GsPluginRefineFlags  flags);
-GTask *gs_plugin_refine_data_new_task (gpointer             source_object,
-                                       GsAppList           *list,
-                                       GsPluginRefineFlags  flags,
-                                       GCancellable        *cancellable,
-                                       GAsyncReadyCallback  callback,
-                                       gpointer             user_data);
+GsPluginRefineData *gs_plugin_refine_data_new (GsAppList                  *list,
+                                               GsPluginRefineFlags         job_flags,
+                                               GsPluginRefineRequireFlags  require_flags,
+                                               GsPluginEventCallback       event_callback,
+                                               void                       *event_user_data);
+GTask *gs_plugin_refine_data_new_task (gpointer                    source_object,
+                                       GsAppList                  *list,
+                                       GsPluginRefineFlags         job_flags,
+                                       GsPluginRefineRequireFlags  refine_flags,
+                                       GsPluginEventCallback       event_callback,
+                                       void                       *event_user_data,
+                                       GCancellable               *cancellable,
+                                       GAsyncReadyCallback         callback,
+                                       gpointer                    user_data);
 void gs_plugin_refine_data_free (GsPluginRefineData *data);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginRefineData, gs_plugin_refine_data_free)
 
 typedef struct {
 	guint64 cache_age_secs;
 	GsPluginRefreshMetadataFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginRefreshMetadataData;
 
-GsPluginRefreshMetadataData *gs_plugin_refresh_metadata_data_new (guint64                      cache_age_secs,
-                                                                  GsPluginRefreshMetadataFlags flags);
+GsPluginRefreshMetadataData *gs_plugin_refresh_metadata_data_new (guint64                       cache_age_secs,
+                                                                  GsPluginRefreshMetadataFlags  flags,
+                                                                  GsPluginEventCallback         event_callback,
+                                                                  void                         *event_user_data);
 void gs_plugin_refresh_metadata_data_free (GsPluginRefreshMetadataData *data);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginRefreshMetadataData, gs_plugin_refresh_metadata_data_free)
 
 typedef struct {
 	GsAppQuery *query;  /* (owned) (nullable) */
 	GsPluginListAppsFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginListAppsData;
 
 GsPluginListAppsData *gs_plugin_list_apps_data_new (GsAppQuery            *query,
-                                                    GsPluginListAppsFlags  flags);
+                                                    GsPluginListAppsFlags  flags,
+                                                    GsPluginEventCallback  event_callback,
+                                                    void                  *event_user_data);
 GTask *gs_plugin_list_apps_data_new_task (gpointer               source_object,
                                           GsAppQuery            *query,
                                           GsPluginListAppsFlags  flags,
+                                          GsPluginEventCallback  event_callback,
+                                          void                  *event_user_data,
                                           GCancellable          *cancellable,
                                           GAsyncReadyCallback    callback,
                                           gpointer               user_data);
@@ -63,14 +82,20 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginListAppsData, gs_plugin_list_apps_data_fr
 typedef struct {
 	GsApp *repository;  /* (owned) (nullable) */
 	GsPluginManageRepositoryFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginManageRepositoryData;
 
 GsPluginManageRepositoryData *
 		gs_plugin_manage_repository_data_new		(GsApp				*repository,
-								 GsPluginManageRepositoryFlags   flags);
+								 GsPluginManageRepositoryFlags   flags,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data);
 GTask *		gs_plugin_manage_repository_data_new_task	(gpointer			 source_object,
 								 GsApp				*repository,
 								 GsPluginManageRepositoryFlags	 flags,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GCancellable			*cancellable,
 								 GAsyncReadyCallback		 callback,
 								 gpointer			 user_data);
@@ -80,13 +105,19 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginManageRepositoryData, gs_plugin_manage_re
 typedef struct {
 	GPtrArray *list;  /* (element-type GsCategory) (owned) (not nullable) */
 	GsPluginRefineCategoriesFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginRefineCategoriesData;
 
 GsPluginRefineCategoriesData *gs_plugin_refine_categories_data_new (GPtrArray                     *list,
-                                                                    GsPluginRefineCategoriesFlags  flags);
+                                                                    GsPluginRefineCategoriesFlags  flags,
+                                                                    GsPluginEventCallback          event_callback,
+                                                                    void                          *event_user_data);
 GTask *gs_plugin_refine_categories_data_new_task (gpointer                       source_object,
                                                   GPtrArray                     *list,
                                                   GsPluginRefineCategoriesFlags  flags,
+                                                  GsPluginEventCallback          event_callback,
+                                                  void                          *event_user_data,
                                                   GCancellable                  *cancellable,
                                                   GAsyncReadyCallback            callback,
                                                   gpointer                       user_data);
@@ -98,6 +129,8 @@ typedef struct {
 	GsPluginInstallAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 	GsPluginAppNeedsUserActionCallback app_needs_user_action_callback;
 	gpointer app_needs_user_action_data;
 } GsPluginInstallAppsData;
@@ -106,6 +139,8 @@ GsPluginInstallAppsData *gs_plugin_install_apps_data_new (GsAppList             
                                                           GsPluginInstallAppsFlags            flags,
                                                           GsPluginProgressCallback            progress_callback,
                                                           gpointer                            progress_user_data,
+                                                          GsPluginEventCallback               event_callback,
+                                                          void                               *event_user_data,
                                                           GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                                           gpointer                            app_needs_user_action_data);
 GTask *gs_plugin_install_apps_data_new_task (gpointer                            source_object,
@@ -113,6 +148,8 @@ GTask *gs_plugin_install_apps_data_new_task (gpointer                           
                                              GsPluginInstallAppsFlags            flags,
                                              GsPluginProgressCallback            progress_callback,
                                              gpointer                            progress_user_data,
+                                             GsPluginEventCallback               event_callback,
+                                             void                               *event_user_data,
                                              GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                              gpointer                            app_needs_user_action_data,
                                              GCancellable                       *cancellable,
@@ -126,6 +163,8 @@ typedef struct {
 	GsPluginUninstallAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	gpointer event_user_data;
 	GsPluginAppNeedsUserActionCallback app_needs_user_action_callback;
 	gpointer app_needs_user_action_data;
 } GsPluginUninstallAppsData;
@@ -134,6 +173,8 @@ GsPluginUninstallAppsData *gs_plugin_uninstall_apps_data_new (GsAppList         
                                                               GsPluginUninstallAppsFlags          flags,
                                                               GsPluginProgressCallback            progress_callback,
                                                               gpointer                            progress_user_data,
+                                                              GsPluginEventCallback               event_callback,
+                                                              gpointer                            event_user_data,
                                                               GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                                               gpointer                            app_needs_user_action_data);
 GTask *gs_plugin_uninstall_apps_data_new_task (gpointer                            source_object,
@@ -141,6 +182,8 @@ GTask *gs_plugin_uninstall_apps_data_new_task (gpointer                         
                                                GsPluginUninstallAppsFlags          flags,
                                                GsPluginProgressCallback            progress_callback,
                                                gpointer                            progress_user_data,
+                                               GsPluginEventCallback               event_callback,
+                                               gpointer                            event_user_data,
                                                GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                                gpointer                            app_needs_user_action_data,
                                                GCancellable                       *cancellable,
@@ -154,6 +197,8 @@ typedef struct {
 	GsPluginUpdateAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 	GsPluginAppNeedsUserActionCallback app_needs_user_action_callback;
 	gpointer app_needs_user_action_data;
 } GsPluginUpdateAppsData;
@@ -162,6 +207,8 @@ GsPluginUpdateAppsData *gs_plugin_update_apps_data_new (GsAppList               
                                                         GsPluginUpdateAppsFlags             flags,
                                                         GsPluginProgressCallback            progress_callback,
                                                         gpointer                            progress_user_data,
+                                                        GsPluginEventCallback               event_callback,
+                                                        void                               *event_user_data,
                                                         GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                                         gpointer                            app_needs_user_action_data);
 GTask *gs_plugin_update_apps_data_new_task (gpointer                            source_object,
@@ -169,6 +216,8 @@ GTask *gs_plugin_update_apps_data_new_task (gpointer                            
                                             GsPluginUpdateAppsFlags             flags,
                                             GsPluginProgressCallback            progress_callback,
                                             gpointer                            progress_user_data,
+                                            GsPluginEventCallback               event_callback,
+                                            void                               *event_user_data,
                                             GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                             gpointer                            app_needs_user_action_data,
                                             GCancellable                       *cancellable,
@@ -194,14 +243,20 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginCancelOfflineUpdateData, gs_plugin_cancel
 typedef struct {
 	GsApp *app;  /* (owned) (not nullable) */
 	GsPluginDownloadUpgradeFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginDownloadUpgradeData;
 
 GsPluginDownloadUpgradeData *
 		gs_plugin_download_upgrade_data_new	(GsApp			     *app,
-							 GsPluginDownloadUpgradeFlags flags);
+							 GsPluginDownloadUpgradeFlags flags,
+							 GsPluginEventCallback	      event_callback,
+							 void			     *event_user_data);
 GTask *		gs_plugin_download_upgrade_data_new_task(gpointer		      source_object,
 							 GsApp			     *app,
 							 GsPluginDownloadUpgradeFlags flags,
+							 GsPluginEventCallback	      event_callback,
+							 void			     *event_user_data,
 							 GCancellable		     *cancellable,
 							 GAsyncReadyCallback	      callback,
 							 gpointer		      user_data);
@@ -245,14 +300,20 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginLaunchData, gs_plugin_launch_data_free)
 typedef struct {
 	GFile *file;  /* (owned) */
 	GsPluginFileToAppFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginFileToAppData;
 
 GsPluginFileToAppData *
 		gs_plugin_file_to_app_data_new		(GFile			    *file,
-							 GsPluginFileToAppFlags	     flags);
+							 GsPluginFileToAppFlags	     flags,
+							 GsPluginEventCallback	     event_callback,
+							 void			    *event_user_data);
 GTask *		gs_plugin_file_to_app_data_new_task	(gpointer		     source_object,
 							 GFile			    *file,
 							 GsPluginFileToAppFlags	     flags,
+							 GsPluginEventCallback	     event_callback,
+							 void			    *event_user_data,
 							 GCancellable		    *cancellable,
 							 GAsyncReadyCallback	     callback,
 							 gpointer		     user_data);
@@ -262,14 +323,20 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (GsPluginFileToAppData, gs_plugin_file_to_app_data
 typedef struct {
 	gchar *url;  /* (owned) */
 	GsPluginUrlToAppFlags flags;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 } GsPluginUrlToAppData;
 
 GsPluginUrlToAppData *
 		gs_plugin_url_to_app_data_new		(const gchar		    *url,
-							 GsPluginUrlToAppFlags	     flags);
+							 GsPluginUrlToAppFlags	     flags,
+							 GsPluginEventCallback	     event_callback,
+							 void			    *event_user_data);
 GTask *		gs_plugin_url_to_app_data_new_task	(gpointer		     source_object,
 							 const gchar		    *url,
 							 GsPluginUrlToAppFlags	     flags,
+							 GsPluginEventCallback	     event_callback,
+							 void			    *event_user_data,
 							 GCancellable		    *cancellable,
 							 GAsyncReadyCallback	     callback,
 							 gpointer		     user_data);

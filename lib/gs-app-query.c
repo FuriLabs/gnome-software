@@ -25,7 +25,7 @@
  * which are set, not _any_ properties which are set.
  *
  * The set of apps returned for the query can be controlled with the
- * #GsAppQuery:refine-flags,
+ * #GsAppQuery:refine-flags, #GsAppQuery:refine-require-flags,
  * #GsAppQuery:max-results and
  * #GsAppQuery:dedupe-flags properties. If `refine-flags` is
  * set, all results must be refined using the given set of refine flags (see
@@ -54,11 +54,66 @@
 #include "gs-plugin-types.h"
 #include "gs-utils.h"
 
+#define GS_TYPE_COMPONENT_KIND_ARRAY (gs_component_kind_array_get_type ())
+static GType gs_component_kind_array_get_type (void);
+typedef AsComponentKind* GsComponentKindArray;
+
+static AsComponentKind *
+gs_component_kind_array_copy (const AsComponentKind *kinds)
+{
+	size_t length;
+
+	if (kinds == NULL)
+		return NULL;
+
+	/* Work out how long the input array is */
+	for (length = 0; kinds[length] != 0; length++)
+		;
+
+	return g_memdup2 (kinds, (length + 1) * sizeof (*kinds));
+}
+
+G_DEFINE_BOXED_TYPE (GsComponentKindArray, gs_component_kind_array,
+		     (GBoxedCopyFunc) gs_component_kind_array_copy, g_free)
+
+/**
+ * gs_component_kind_array_contains:
+ * @haystack: (nullable) (array zero-terminated=1): array of #AsComponentKind
+ *   values, terminated with a zero (%AS_COMPONENT_KIND_UNKNOWN)
+ * @needle: component kind to search for in the array
+ *
+ * Search for @needle in @haystack.
+ *
+ * If @haystack is %NULL, that is treated as equivalent to it being an empty
+ * array.
+ *
+ * Returns: %TRUE if @needle is in @haystack, %FALSE otherwise
+ * Since: 49
+ */
+gboolean
+gs_component_kind_array_contains (const AsComponentKind *haystack,
+                                  AsComponentKind        needle)
+{
+	g_return_val_if_fail (needle != AS_COMPONENT_KIND_UNKNOWN, FALSE);
+
+	/* NULL array is equivalent to empty array */
+	if (haystack == NULL)
+		return FALSE;
+
+	for (size_t i = 0; haystack[i] != 0; i++) {
+		if (haystack[i] == needle)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
 struct _GsAppQuery
 {
 	GObject parent;
 
 	GsPluginRefineFlags refine_flags;
+	GsPluginRefineRequireFlags refine_require_flags;
 	guint max_results;
 	GsAppListFilterFlags dedupe_flags;
 
@@ -91,13 +146,16 @@ struct _GsAppQuery
 	GsAppQueryDeveloperVerifiedType developer_verified_type;
 	GsAppQueryTristate is_for_update;
 	GsAppQueryTristate is_historical_update;
-	GsAppQueryTristate is_source;
+	/* This is guaranteed to either be %NULL, or a non-empty array */
+	AsComponentKind *component_kinds;  /* (owned) (nullable) (array zero-terminated=1) */
+	gchar *is_langpack_for_locale;  /* (nullable) (owned) */
 };
 
 G_DEFINE_TYPE (GsAppQuery, gs_app_query, G_TYPE_OBJECT)
 
 typedef enum {
 	PROP_REFINE_FLAGS = 1,
+	PROP_REFINE_REQUIRE_FLAGS,
 	PROP_MAX_RESULTS,
 	PROP_DEDUPE_FLAGS,
 	PROP_SORT_FUNC,
@@ -122,10 +180,11 @@ typedef enum {
 	PROP_DEVELOPER_VERIFIED_TYPE,
 	PROP_IS_FOR_UPDATE,
 	PROP_IS_HISTORICAL_UPDATE,
-	PROP_IS_SOURCE,
+	PROP_COMPONENT_KINDS,
+	PROP_IS_LANGPACK_FOR_LOCALE,
 } GsAppQueryProperty;
 
-static GParamSpec *props[PROP_IS_SOURCE + 1] = { NULL, };
+static GParamSpec *props[PROP_IS_LANGPACK_FOR_LOCALE + 1] = { NULL, };
 
 static gchar **
 gs_app_query_sanitize_keywords (const gchar * const *terms)
@@ -184,6 +243,9 @@ gs_app_query_get_property (GObject    *object,
 	switch ((GsAppQueryProperty) prop_id) {
 	case PROP_REFINE_FLAGS:
 		g_value_set_flags (value, self->refine_flags);
+		break;
+	case PROP_REFINE_REQUIRE_FLAGS:
+		g_value_set_flags (value, self->refine_require_flags);
 		break;
 	case PROP_MAX_RESULTS:
 		g_value_set_uint (value, self->max_results);
@@ -257,8 +319,11 @@ gs_app_query_get_property (GObject    *object,
 	case PROP_IS_HISTORICAL_UPDATE:
 		g_value_set_enum (value, self->is_historical_update);
 		break;
-	case PROP_IS_SOURCE:
-		g_value_set_enum (value, self->is_source);
+	case PROP_COMPONENT_KINDS:
+		g_value_set_boxed (value, self->component_kinds);
+		break;
+	case PROP_IS_LANGPACK_FOR_LOCALE:
+		g_value_set_string (value, self->is_langpack_for_locale);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -279,6 +344,11 @@ gs_app_query_set_property (GObject      *object,
 		/* Construct only. */
 		g_assert (self->refine_flags == 0);
 		self->refine_flags = g_value_get_flags (value);
+		break;
+	case PROP_REFINE_REQUIRE_FLAGS:
+		/* Construct only. */
+		g_assert (self->refine_require_flags == 0);
+		self->refine_require_flags = g_value_get_flags (value);
 		break;
 	case PROP_MAX_RESULTS:
 		/* Construct only. */
@@ -415,10 +485,20 @@ gs_app_query_set_property (GObject      *object,
 		g_assert (self->is_historical_update == GS_APP_QUERY_TRISTATE_UNSET);
 		self->is_historical_update = g_value_get_enum (value);
 		break;
-	case PROP_IS_SOURCE:
+	case PROP_COMPONENT_KINDS:
 		/* Construct only. */
-		g_assert (self->is_source == GS_APP_QUERY_TRISTATE_UNSET);
-		self->is_source = g_value_get_enum (value);
+		g_assert (self->component_kinds == NULL);
+		self->component_kinds = g_value_dup_boxed (value);
+
+		/* Squash empty arrays to %NULL. */
+		if (self->component_kinds != NULL && self->component_kinds[0] == AS_COMPONENT_KIND_UNKNOWN)
+			g_clear_pointer (&self->component_kinds, g_free);
+
+		break;
+	case PROP_IS_LANGPACK_FOR_LOCALE:
+		/* Construct only. */
+		g_assert (self->is_langpack_for_locale == NULL);
+		self->is_langpack_for_locale = g_value_dup_string (value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -458,6 +538,7 @@ gs_app_query_finalize (GObject *object)
 	g_clear_pointer (&self->released_since, g_date_time_unref);
 	g_clear_pointer (&self->keywords, g_strfreev);
 	g_clear_pointer (&self->provides_tag, g_free);
+	g_clear_pointer (&self->is_langpack_for_locale, g_free);
 
 	G_OBJECT_CLASS (gs_app_query_parent_class)->finalize (object);
 }
@@ -476,14 +557,28 @@ gs_app_query_class_init (GsAppQueryClass *klass)
 	/**
 	 * GsAppQuery:refine-flags:
 	 *
-	 * Flags to specify how the returned apps must be refined, if at all.
+	 * Flags to specify how the refine job should behave, if at all.
 	 *
-	 * Since: 43
+	 * Since: 49
 	 */
 	props[PROP_REFINE_FLAGS] =
 		g_param_spec_flags ("refine-flags", "Refine Flags",
-				    "Flags to specify how the returned apps must be refined, if at all.",
+				    "Flags to specify how the refine job should behave, if at all.",
 				    GS_TYPE_PLUGIN_REFINE_FLAGS, GS_PLUGIN_REFINE_FLAGS_NONE,
+				    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+				    G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+	/**
+	 * GsAppQuery:refine-require-flags:
+	 *
+	 * Flags to specify what data should be refined on the returned apps, if at all.
+	 *
+	 * Since: 49
+	 */
+	props[PROP_REFINE_REQUIRE_FLAGS] =
+		g_param_spec_flags ("refine-require-flags", "Refine Require Flags",
+				    "Flags to specify what data should be refined on the returned apps, if at all.",
+				    GS_TYPE_PLUGIN_REFINE_REQUIRE_FLAGS, GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE,
 				    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 				    G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
@@ -924,25 +1019,55 @@ gs_app_query_class_init (GsAppQueryClass *klass)
 				   G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
 	/**
-	 * GsAppQuery:is-source:
+	 * GsAppQuery:component-kinds:
 	 *
-	 * Get the list of sources, for example the repos listed in `/etc/yum.repos.d`
-	 * or the remotes configured in flatpak.
+	 * Get the kinds of apps to include in the results.
 	 *
-	 * Plugins are expected to add new apps using gs_app_list_add() of type
-	 * %AS_COMPONENT_KIND_REPOSITORY.
+	 * If set, it’s a zero-terminated array of #AsComponentKinds. To query
+	 * for the list of repositories listed in `/etc/yum.repos.d` or remotes
+	 * configured in flatpak, for example, the array
+	 * `{ AS_COMPONENT_KIND_REPOSITORY, AS_COMPONENT_KIND_UNKNOWN }` would
+	 * be used.
 	 *
-	 * If this is %GS_APP_QUERY_TRISTATE_UNSET, then it doesn't matter.
+	 * If this is %NULL, then it doesn't matter.
 	 *
-	 * Since: 47
+	 * Since: 49
 	 */
-	props[PROP_IS_SOURCE] =
-		g_param_spec_enum ("is-source", "Is Source",
-				   "Whether to include only repos.",
-				   GS_TYPE_APP_QUERY_TRISTATE,
-				   GS_APP_QUERY_TRISTATE_UNSET,
-				   G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
-				   G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+	props[PROP_COMPONENT_KINDS] =
+		g_param_spec_boxed ("component-kinds", "Component Kinds",
+				    "Kinds of component to include.",
+				    GS_TYPE_COMPONENT_KIND_ARRAY,
+				    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+				    G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+	/**
+	 * GsAppQuery:is-langpack-for-locale: (nullable)
+	 *
+	 * A locale to match against.
+	 *
+	 * If this is non-%NULL, only apps which provide a system language pack
+	 * for the given locale are returned.
+	 *
+	 * If this is %NULL, apps are not filtered by being a langpack.
+	 *
+	 * The locale is in the form as documented in
+	 * [`setlocale(3)`](man:setlocale(3)):
+	 *
+	 * ```
+	 * language[_territory][.codeset][@modifier]
+	 * ```
+	 *
+	 * e.g. `ja_JP.UTF-8` or `en_GB.iso88591` or `uz_UZ.utf8@cyrillic` or
+	 * `de_DE@euro`.
+	 *
+	 * Since: 49
+	 */
+	props[PROP_IS_LANGPACK_FOR_LOCALE] =
+		g_param_spec_string ("is-langpack-for-locale", "Is Langpack for Locale",
+				     "A locale to match against",
+				     NULL,
+				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+				     G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
 	g_object_class_install_properties (object_class, G_N_ELEMENTS (props), props);
 }
@@ -955,7 +1080,6 @@ gs_app_query_init (GsAppQuery *self)
 	self->is_installed = GS_APP_QUERY_TRISTATE_UNSET;
 	self->is_for_update = GS_APP_QUERY_TRISTATE_UNSET;
 	self->is_historical_update = GS_APP_QUERY_TRISTATE_UNSET;
-	self->is_source = GS_APP_QUERY_TRISTATE_UNSET;
 	self->provides_type = GS_APP_QUERY_PROVIDES_UNKNOWN;
 	self->license_type = GS_APP_QUERY_LICENSE_ANY;
 	self->developer_verified_type = GS_APP_QUERY_DEVELOPER_VERIFIED_ANY;
@@ -993,7 +1117,7 @@ gs_app_query_new (const gchar *first_property_name,
  * Get the value of #GsAppQuery:refine-flags.
  *
  * Returns: the refine flags for the query
- * Since: 43
+ * Since: 49
  */
 GsPluginRefineFlags
 gs_app_query_get_refine_flags (GsAppQuery *self)
@@ -1001,6 +1125,23 @@ gs_app_query_get_refine_flags (GsAppQuery *self)
 	g_return_val_if_fail (GS_IS_APP_QUERY (self), GS_PLUGIN_REFINE_FLAGS_NONE);
 
 	return self->refine_flags;
+}
+
+/**
+ * gs_app_query_get_refine_require_flags:
+ * @self: a #GsAppQuery
+ *
+ * Get the value of #GsAppQuery:refine-require-flags.
+ *
+ * Returns: the refine require flags for the query
+ * Since: 49
+ */
+GsPluginRefineRequireFlags
+gs_app_query_get_refine_require_flags (GsAppQuery *self)
+{
+	g_return_val_if_fail (GS_IS_APP_QUERY (self), GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE);
+
+	return self->refine_require_flags;
 }
 
 /**
@@ -1092,6 +1233,7 @@ gs_app_query_get_filter_func (GsAppQuery *self,
  *
  * These are the properties which determine the query results, rather than ones
  * which control refining the results (#GsAppQuery:refine-flags,
+ * #GsAppQuery:refine-require-flags,
  * #GsAppQuery:max-results, #GsAppQuery:dedupe-flags, #GsAppQuery:sort-func and
  * its user data, #GsAppQuery:filter-func and its user data,
  * #GsAppQuery:license-type).
@@ -1132,7 +1274,9 @@ gs_app_query_get_n_properties_set (GsAppQuery *self)
 		n++;
 	if (self->is_historical_update != GS_APP_QUERY_TRISTATE_UNSET)
 		n++;
-	if (self->is_source != GS_APP_QUERY_TRISTATE_UNSET)
+	if (self->component_kinds != NULL)
+		n++;
+	if (self->is_langpack_for_locale != NULL)
 		n++;
 
 	return n;
@@ -1432,21 +1576,37 @@ gs_app_query_get_is_historical_update (GsAppQuery *self)
 }
 
 /**
- * gs_app_query_get_is_source:
+ * gs_app_query_get_component_kinds:
  * @self: a #GsAppQuery
  *
- * Get the value of #GsAppQuery:is-source.
+ * Get the value of #GsAppQuery:component-kinds.
  *
- * Returns: %GS_APP_QUERY_TRISTATE_TRUE if query is only for repos
- *   (aka #GsApps with type %AS_COMPONENT_KIND_REPOSITORY),
- *   %GS_APP_QUERY_TRISTATE_FALSE if query is only for non-repos apps, or
- *   %GS_APP_QUERY_TRISTATE_UNSET if it doesn’t matter
- * Since: 47
+ * Returns: a set of component kinds which apps must match one of, or %NULL to
+ *   not filter by it
+ * Since: 49
  */
-GsAppQueryTristate
-gs_app_query_get_is_source (GsAppQuery *self)
+const AsComponentKind *
+gs_app_query_get_component_kinds (GsAppQuery *self)
 {
-	g_return_val_if_fail (GS_IS_APP_QUERY (self), GS_APP_QUERY_TRISTATE_UNSET);
+	g_return_val_if_fail (GS_IS_APP_QUERY (self), NULL);
 
-	return self->is_source;
+	return self->component_kinds;
+}
+
+/**
+ * gs_app_query_get_is_langpack_for_locale:
+ * @self: a #GsAppQuery
+ *
+ * Get the value of #GsAppQuery:is-langpack-for-locale.
+ *
+ * Returns: (nullable): a locale to filter for langpacks with, or %NULL to
+ *   not filter
+ * Since: 49
+ */
+const gchar *
+gs_app_query_get_is_langpack_for_locale (GsAppQuery *self)
+{
+	g_return_val_if_fail (GS_IS_APP_QUERY (self), NULL);
+
+	return self->is_langpack_for_locale;
 }

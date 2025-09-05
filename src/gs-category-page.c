@@ -137,13 +137,11 @@ gs_category_page_get_featured_apps_cb (GObject *source_object,
 	LoadCategoryData *data = user_data;
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) local_error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	g_autoptr(GHashTable) featured_app_ids = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader,
-						    res,
-						    &local_error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &local_error)) {
 		if (!g_error_matches (local_error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_warning ("failed to get featured apps for category apps: %s", local_error->message);
@@ -154,6 +152,7 @@ gs_category_page_get_featured_apps_cb (GObject *source_object,
 		return;
 	}
 
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 	featured_app_ids = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
@@ -175,12 +174,9 @@ gs_category_page_get_apps_cb (GObject *source_object,
 	LoadCategoryData *data = user_data;
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) local_error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader,
-						    res,
-						    &local_error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &local_error)) {
 		if (!g_error_matches (local_error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_warning ("failed to get apps for category apps: %s", local_error->message);
@@ -191,7 +187,7 @@ gs_category_page_get_apps_cb (GObject *source_object,
 		return;
 	}
 
-	data->apps = g_steal_pointer (&list);
+	data->apps = g_object_ref (gs_plugin_job_list_apps_get_result_list (list_apps_job));
 	data->get_main_apps_finished = TRUE;
 	load_category_finish (data);
 }
@@ -709,7 +705,7 @@ gs_category_page_load_category (GsCategoryPage *self)
 		g_autoptr(GsAppQuery) featured_query = NULL;
 
 		featured_query = gs_app_query_new ("category", featured_subcat,
-						   "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_KUDOS,
+						   "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_KUDOS,
 						   "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
 						   "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						   NULL);
@@ -726,9 +722,9 @@ gs_category_page_load_category (GsCategoryPage *self)
 	}
 
 	main_query = gs_app_query_new ("category", self->subcategory,
-				       "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_KUDOS,
+				       "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON |
+							       GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING |
+							       GS_PLUGIN_REFINE_REQUIRE_FLAGS_KUDOS,
 				       "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
 						       GS_APP_LIST_FILTER_FLAG_KEY_ID_PROVIDES,
 				       "license-type", gs_page_get_query_license_type (GS_PAGE (self)),

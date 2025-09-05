@@ -162,6 +162,13 @@ gs_plugin_job_uninstall_apps_set_property (GObject      *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_uninstall_apps_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobUninstallApps *self = GS_PLUGIN_JOB_UNINSTALL_APPS (job);
+	return (self->flags & GS_PLUGIN_UNINSTALL_APPS_FLAGS_INTERACTIVE) != 0;
+}
+
 static void
 app_needs_user_action_cb (GsPlugin     *plugin,
                           GsApp        *app,
@@ -179,6 +186,9 @@ static void plugin_progress_cb (GsPlugin *plugin,
                                 guint     progress,
                                 gpointer  user_data);
 static gboolean progress_cb (gpointer user_data);
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 static void plugin_uninstall_apps_cb (GObject      *source_object,
                                       GAsyncResult *result,
                                       gpointer      user_data);
@@ -250,6 +260,8 @@ gs_plugin_job_uninstall_apps_run_async (GsPluginJob         *job,
 						    self->apps,
 						    self->flags,
 						    plugin_progress_cb,
+						    task,
+						    plugin_event_cb,
 						    task,
 						    app_needs_user_action_cb,
 						    task,
@@ -326,6 +338,17 @@ progress_cb (gpointer user_data)
 }
 
 static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
+}
+
+static void
 plugin_uninstall_apps_cb (GObject      *source_object,
                           GAsyncResult *result,
                           gpointer      user_data)
@@ -340,7 +363,7 @@ plugin_uninstall_apps_cb (GObject      *source_object,
 	 * that other plugins don’t get blocked.
 	 *
 	 * If plugins produce errors which should be reported to the user, they
-	 * should report them directly by calling gs_plugin_report_event().
+	 * should report them directly by calling event_callback().
 	 * #GsPluginJobUninstallApps cannot do this as it doesn’t know which errors
 	 * are interesting to the user and which are useless. */
 	if (!plugin_class->uninstall_apps_finish (plugin, result, &local_error) &&
@@ -350,8 +373,6 @@ plugin_uninstall_apps_cb (GObject      *source_object,
 			 gs_plugin_get_name (plugin), local_error->message);
 		g_clear_error (&local_error);
 	}
-
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	GS_PROFILER_ADD_MARK_TAKE (PluginJobUninstallApps,
 				   self->begin_time_nsec,
@@ -436,6 +457,7 @@ gs_plugin_job_uninstall_apps_class_init (GsPluginJobUninstallAppsClass *klass)
 	object_class->get_property = gs_plugin_job_uninstall_apps_get_property;
 	object_class->set_property = gs_plugin_job_uninstall_apps_set_property;
 
+	job_class->get_interactive = gs_plugin_job_uninstall_apps_get_interactive;
 	job_class->run_async = gs_plugin_job_uninstall_apps_run_async;
 	job_class->run_finish = gs_plugin_job_uninstall_apps_run_finish;
 
