@@ -103,6 +103,25 @@ typedef enum {
 	GS_APP_QUERY_DEVELOPER_VERIFIED_ONLY,
 } GsAppQueryDeveloperVerifiedType;
 
+/**
+ * GS_APP_QUERY_DEDUPE_FLAGS_DEFAULT:
+ *
+ * Common default value to use for #GsAppQuery:dedupe-flags.
+ *
+ * This is not set as the default for all #GsAppQuery instances, but is a
+ * typical value which callers might want to specify themselves.
+ *
+ * It deduplicates by ID, default source and version.
+ *
+ * Since: 49
+ */
+#define GS_APP_QUERY_DEDUPE_FLAGS_DEFAULT (GS_APP_LIST_FILTER_FLAG_KEY_ID | \
+					   GS_APP_LIST_FILTER_FLAG_KEY_DEFAULT_SOURCE | \
+					   GS_APP_LIST_FILTER_FLAG_KEY_VERSION)
+
+gboolean gs_component_kind_array_contains (const AsComponentKind *haystack,
+                                           AsComponentKind        needle);
+
 #define GS_TYPE_APP_QUERY (gs_app_query_get_type ())
 
 G_DECLARE_FINAL_TYPE (GsAppQuery, gs_app_query, GS, APP_QUERY, GObject)
@@ -111,6 +130,7 @@ GsAppQuery	*gs_app_query_new	(const gchar *first_property_name,
 					 ...) G_GNUC_NULL_TERMINATED;
 
 GsPluginRefineFlags	 gs_app_query_get_refine_flags	(GsAppQuery *self);
+GsPluginRefineRequireFlags	 gs_app_query_get_refine_require_flags	(GsAppQuery *self);
 guint			 gs_app_query_get_max_results	(GsAppQuery *self);
 GsAppListFilterFlags	 gs_app_query_get_dedupe_flags	(GsAppQuery *self);
 GsAppListSortFunc	 gs_app_query_get_sort_func	(GsAppQuery *self,
@@ -140,6 +160,7 @@ GsAppQueryDeveloperVerifiedType
 GsAppQueryTristate	 gs_app_query_get_is_for_update	 (GsAppQuery *self);
 GsAppQueryTristate	 gs_app_query_get_is_historical_update
 							 (GsAppQuery *self);
-GsAppQueryTristate	 gs_app_query_get_is_source	 (GsAppQuery *self);
+const AsComponentKind	*gs_app_query_get_component_kinds (GsAppQuery *self);
+const gchar		*gs_app_query_get_is_langpack_for_locale (GsAppQuery *self);
 
 G_END_DECLS

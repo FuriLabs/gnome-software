@@ -22,9 +22,9 @@
  *
  * Since snapd is a daemon accessible via HTTP calls on a Unix socket, this
  * plugin basically translates every job into one or more HTTP request, and all
- * the real work is done in the snapd daemon. FIXME: This means the plugin can
- * therefore execute entirely in the main thread, making asynchronous calls,
- * once all the vfuncs have been ported.
+ * the real work is done in the snapd daemon. This means the plugin can execute
+ * entirely in the main thread, making asynchronous calls. It doesn’t need to do
+ * any locking.
  */
 
 struct _GsPluginSnap {
@@ -34,7 +34,6 @@ struct _GsPluginSnap {
 	gchar			*store_hostname;
 	SnapdSystemConfinement	 system_confinement;
 
-	GMutex			 store_snaps_lock;
 	GHashTable		*store_snaps;
 };
 
@@ -135,8 +134,6 @@ gs_plugin_snap_init (GsPluginSnap *self)
 	g_autoptr(SnapdClient) client = NULL;
 	g_autoptr (GError) error = NULL;
 
-	g_mutex_init (&self->store_snaps_lock);
-
 	client = get_client (self, FALSE, &error);
 	if (client == NULL) {
 		gs_plugin_set_enabled (GS_PLUGIN (self), FALSE);
@@ -148,13 +145,11 @@ gs_plugin_snap_init (GsPluginSnap *self)
 
 	gs_plugin_add_rule (GS_PLUGIN (self), GS_PLUGIN_RULE_BETTER_THAN, "packagekit");
 	gs_plugin_add_rule (GS_PLUGIN (self), GS_PLUGIN_RULE_RUN_BEFORE, "icons");
-
-	/* set name of MetaInfo file */
-	gs_plugin_set_appstream_id (GS_PLUGIN (self), "org.gnome.Software.Plugin.Snap");
 }
 
-void
-gs_plugin_adopt_app (GsPlugin *plugin, GsApp *app)
+static void
+gs_plugin_snap_adopt_app (GsPlugin *plugin,
+			  GsApp *app)
 {
 	if (gs_app_get_bundle_kind (app) == AS_BUNDLE_KIND_SNAP)
 		gs_app_set_management_plugin (app, plugin);
@@ -261,7 +256,7 @@ gs_plugin_snap_setup_async (GsPlugin            *plugin,
 	GsPluginSnap *self = GS_PLUGIN_SNAP (plugin);
 	g_autoptr(SnapdClient) client = NULL;
 	g_autoptr(GTask) task = NULL;
-	gboolean interactive = gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
+	gboolean interactive = TRUE;
 	g_autoptr(GError) local_error = NULL;
 
 	task = g_task_new (plugin, cancellable, callback, user_data);
@@ -325,7 +320,6 @@ store_snap_cache_lookup (GsPluginSnap *self,
                          gboolean      need_details)
 {
 	CacheEntry *entry;
-	g_autoptr(GMutexLocker) locker = g_mutex_locker_new (&self->store_snaps_lock);
 
 	entry = g_hash_table_lookup (self->store_snaps, name);
 	if (entry == NULL)
@@ -342,7 +336,6 @@ store_snap_cache_update (GsPluginSnap *self,
                          GPtrArray    *snaps,
                          gboolean      full_details)
 {
-	g_autoptr(GMutexLocker) locker = g_mutex_locker_new (&self->store_snaps_lock);
 	guint i;
 
 	for (i = 0; i < snaps->len; i++) {
@@ -436,7 +429,7 @@ snap_to_app (GsPluginSnap *self, SnapdSnap *snap, const gchar *branch)
 	if (gs_plugin_check_distro_id (GS_PLUGIN (self), "ubuntu"))
 		gs_app_add_quirk (app, GS_APP_QUIRK_PROVENANCE);
 	if (branch != NULL && (g_str_has_suffix (branch, "/beta") || g_str_has_suffix (branch, "/edge")))
-		gs_app_add_quirk (app, GS_APP_QUIRK_DEVELOPMENT_SOURCE);
+		gs_app_add_quirk (app, GS_APP_QUIRK_FROM_DEVELOPMENT_REPOSITORY);
 
 	return g_steal_pointer (&app);
 }
@@ -465,6 +458,8 @@ static void
 gs_plugin_snap_url_to_app_async (GsPlugin *plugin,
 				 const gchar *url,
 				 GsPluginUrlToAppFlags flags,
+				 GsPluginEventCallback event_callback,
+				 void *event_user_data,
 				 GCancellable *cancellable,
 				 GAsyncReadyCallback callback,
 				 gpointer user_data)
@@ -576,16 +571,6 @@ gs_plugin_snap_dispose (GObject *object)
 	G_OBJECT_CLASS (gs_plugin_snap_parent_class)->dispose (object);
 }
 
-static void
-gs_plugin_snap_finalize (GObject *object)
-{
-	GsPluginSnap *self = GS_PLUGIN_SNAP (object);
-
-	g_mutex_clear (&self->store_snaps_lock);
-
-	G_OBJECT_CLASS (gs_plugin_snap_parent_class)->finalize (object);
-}
-
 static gboolean
 is_banner_image (const gchar *filename)
 {
@@ -670,6 +655,8 @@ static void
 gs_plugin_snap_list_apps_async (GsPlugin              *plugin,
                                 GsAppQuery            *query,
                                 GsPluginListAppsFlags  flags,
+                                GsPluginEventCallback  event_callback,
+                                void                  *event_user_data,
                                 GCancellable          *cancellable,
                                 GAsyncReadyCallback    callback,
                                 gpointer               user_data)
@@ -1465,12 +1452,15 @@ static void get_snaps_cb (GObject      *object,
                           gpointer      user_data);
 
 static void
-gs_plugin_snap_refine_async (GsPlugin            *plugin,
-                             GsAppList           *list,
-                             GsPluginRefineFlags  flags,
-                             GCancellable        *cancellable,
-                             GAsyncReadyCallback  callback,
-                             gpointer             user_data)
+gs_plugin_snap_refine_async (GsPlugin                   *plugin,
+                             GsAppList                  *list,
+                             GsPluginRefineFlags         job_flags,
+                             GsPluginRefineRequireFlags  require_flags,
+                             GsPluginEventCallback       event_callback,
+                             void                       *event_user_data,
+                             GCancellable               *cancellable,
+                             GAsyncReadyCallback         callback,
+                             gpointer                    user_data)
 {
 	GsPluginSnap *self = GS_PLUGIN_SNAP (plugin);
 	g_autoptr(SnapdClient) client = NULL;
@@ -1478,7 +1468,7 @@ gs_plugin_snap_refine_async (GsPlugin            *plugin,
 	g_autoptr(GTask) task = NULL;
 	g_autoptr(GsAppList) snap_apps = NULL;
 	g_autoptr(GsPluginRefineData) data = NULL;
-	gboolean interactive = gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE);
+	gboolean interactive = (job_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0;
 	g_autoptr(GError) local_error = NULL;
 
 	task = g_task_new (plugin, cancellable, callback, user_data);
@@ -1495,7 +1485,7 @@ gs_plugin_snap_refine_async (GsPlugin            *plugin,
 		gs_app_list_add (snap_apps, app);
 	}
 
-	data = gs_plugin_refine_data_new (snap_apps, flags);
+	data = gs_plugin_refine_data_new (snap_apps, job_flags, require_flags, event_callback, event_user_data);
 	g_task_set_task_data (task, g_steal_pointer (&data), (GDestroyNotify) gs_plugin_refine_data_free);
 
 	client = get_client (self, interactive, &local_error);
@@ -1530,7 +1520,7 @@ get_snaps_cb (GObject      *object,
 	GCancellable *cancellable = g_task_get_cancellable (task);
 	GsPluginRefineData *data = g_task_get_task_data (task);
 	GsAppList *list = data->list;
-	GsPluginRefineFlags flags = data->flags;
+	GsPluginRefineRequireFlags require_flags = data->require_flags;
 	g_autoptr(GsAppList) get_icons_list = NULL;
 	g_autoptr(GPtrArray) local_snaps = NULL;
 	g_autoptr(GError) local_error = NULL;
@@ -1565,7 +1555,7 @@ get_snaps_cb (GObject      *object,
 			store_channel = expand_channel_name (snapd_snap_get_channel (store_snap));
 
 		/* check if requested information requires us to go to the Snap Store */
-		if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SCREENSHOTS)
+		if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SCREENSHOTS) != 0)
 			need_details = TRUE;
 		if (channel != NULL && g_strcmp0 (store_channel, channel) != 0)
 			need_details = TRUE;
@@ -1660,7 +1650,7 @@ get_snaps_cb (GObject      *object,
 			g_type_class_unref (enum_class);
 		}
 
-		if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_KUDOS &&
+		if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_KUDOS) != 0 &&
 		    self->system_confinement == SNAPD_SYSTEM_CONFINEMENT_STRICT &&
 		    confinement == SNAPD_CONFINEMENT_STRICT)
 			gs_app_add_kudo (app, GS_APP_KUDO_SANDBOXED);
@@ -1698,12 +1688,12 @@ get_snaps_cb (GObject      *object,
 			download_size_bytes = snapd_snap_get_download_size (store_snap);
 			gs_app_set_size_download (app, (download_size_bytes > 0) ? GS_SIZE_TYPE_VALID : GS_SIZE_TYPE_UNKNOWN, (guint64) download_size_bytes);
 
-			if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SCREENSHOTS && gs_app_get_screenshots (app)->len == 0)
+			if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SCREENSHOTS) != 0 && gs_app_get_screenshots (app)->len == 0)
 				refine_screenshots (app, store_snap);
 		}
 
 		/* load icon if requested */
-		if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON) != 0 &&
+		if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON) != 0 &&
 		    !gs_app_has_icons (app)) {
 			if (get_icons_list == NULL)
 				get_icons_list = gs_app_list_new ();
@@ -1712,7 +1702,7 @@ get_snaps_cb (GObject      *object,
 			refine_icons (app, snap);
 		}
 
-		if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE_DATA) != 0 &&
+		if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE_DATA) != 0 &&
 		    gs_app_is_installed (app) &&
 		    gs_app_get_kind (app) != AS_COMPONENT_KIND_RUNTIME) {
 			if (gs_app_get_size_cache_data (app, NULL) != GS_SIZE_TYPE_VALID)
@@ -1728,7 +1718,7 @@ get_snaps_cb (GObject      *object,
 	}
 
 	/* Icons require async calls to get */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON) != 0 && get_icons_list != NULL) {
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON) != 0 && get_icons_list != NULL) {
 		GsApp *app;
 
 		g_clear_object (&data->list);
@@ -1802,6 +1792,8 @@ typedef struct {
 	GsPluginInstallAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 
 	/* In-progress data. */
 	guint n_pending_ops;
@@ -1861,6 +1853,8 @@ gs_plugin_snap_install_apps_async (GsPlugin                           *plugin,
                                    GsPluginInstallAppsFlags            flags,
                                    GsPluginProgressCallback            progress_callback,
                                    gpointer                            progress_user_data,
+                                   GsPluginEventCallback               event_callback,
+                                   void                               *event_user_data,
                                    GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                    gpointer                            app_needs_user_action_data,
                                    GCancellable                       *cancellable,
@@ -1882,6 +1876,8 @@ gs_plugin_snap_install_apps_async (GsPlugin                           *plugin,
 	data->flags = flags;
 	data->progress_callback = progress_callback;
 	data->progress_user_data = progress_user_data;
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) install_apps_data_free);
 
 	if (flags & (GS_PLUGIN_INSTALL_APPS_FLAGS_NO_DOWNLOAD | GS_PLUGIN_INSTALL_APPS_FLAGS_NO_APPLY)) {
@@ -1899,7 +1895,8 @@ gs_plugin_snap_install_apps_async (GsPlugin                           *plugin,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (event_callback != NULL)
+			event_callback (GS_PLUGIN (self), event, event_user_data);
 		g_clear_error (&local_error);
 
 		g_task_return_boolean (task, TRUE);
@@ -2046,7 +2043,8 @@ install_app_cb (GObject      *source_object,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 		g_clear_error (&local_error);
 
 		finish_install_apps_op (task, g_steal_pointer (&local_error));
@@ -2260,6 +2258,8 @@ typedef struct {
 	GsPluginUninstallAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 
 	/* In-progress data. */
 	guint n_pending_ops;
@@ -2316,6 +2316,8 @@ gs_plugin_snap_uninstall_apps_async (GsPlugin                           *plugin,
                                      GsPluginUninstallAppsFlags          flags,
                                      GsPluginProgressCallback            progress_callback,
                                      gpointer                            progress_user_data,
+                                     GsPluginEventCallback               event_callback,
+                                     void                               *event_user_data,
                                      GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                      gpointer                            app_needs_user_action_data,
                                      GCancellable                       *cancellable,
@@ -2337,6 +2339,8 @@ gs_plugin_snap_uninstall_apps_async (GsPlugin                           *plugin,
 	data->flags = flags;
 	data->progress_callback = progress_callback;
 	data->progress_user_data = progress_user_data;
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	data->n_apps = gs_app_list_length (apps);
 	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) uninstall_apps_data_free);
 
@@ -2458,7 +2462,8 @@ uninstall_app_cb (GObject      *source_object,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 		g_clear_error (&local_error);
 
 		finish_uninstall_apps_op (task, g_steal_pointer (&local_error));
@@ -2556,6 +2561,8 @@ gs_plugin_snap_update_apps_async (GsPlugin                           *plugin,
                                   GsPluginUpdateAppsFlags             flags,
                                   GsPluginProgressCallback            progress_callback,
                                   gpointer                            progress_user_data,
+                                  GsPluginEventCallback               event_callback,
+                                  void                               *event_user_data,
                                   GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                   gpointer                            app_needs_user_action_data,
                                   GCancellable                       *cancellable,
@@ -2697,8 +2704,8 @@ gs_plugin_snap_class_init (GsPluginSnapClass *klass)
 	GsPluginClass *plugin_class = GS_PLUGIN_CLASS (klass);
 
 	object_class->dispose = gs_plugin_snap_dispose;
-	object_class->finalize = gs_plugin_snap_finalize;
 
+	plugin_class->adopt_app = gs_plugin_snap_adopt_app;
 	plugin_class->setup_async = gs_plugin_snap_setup_async;
 	plugin_class->setup_finish = gs_plugin_snap_setup_finish;
 	plugin_class->refine_async = gs_plugin_snap_refine_async;

@@ -1,8 +1,8 @@
 project('gnome-software', 'c',
-  version : '48.4',
+  version : '49.rc',
   license : 'GPL-2.0-or-later',
   default_options : ['warning_level=2', 'c_std=c11'],
-  meson_version : '>=1.0.1'
+  meson_version : '>=1.6.0'
 )
 
 conf = configuration_data()
@@ -23,7 +23,7 @@ conf.set_quoted('APPLICATION_ID', application_id)
 
 # this refers to the gnome-software plugin API version
 # this is not in any way related to a package or soname version
-gs_plugin_api_version = '22'
+gs_plugin_api_version = '23'
 conf.set_quoted('GS_PLUGIN_API_VERSION', gs_plugin_api_version)
 
 datadir = join_paths(get_option('prefix'), get_option('datadir'))
@@ -268,6 +268,13 @@ if get_option('hardcoded_proprietary_webapps')
     install_dir : join_paths(datadir, 'swcatalog', 'xml'),
   )
 endif
+
+systemd = dependency('systemd', required : false)
+systemd_user_unit_dir = systemd.get_variable(
+    'systemd_user_unit_dir',
+    pkgconfig_define : ['prefix', get_option('prefix')],
+    default_value: get_option('prefix') / 'lib' / 'systemd' / 'user'
+)
 
 gnome = import('gnome')
 i18n = import('i18n')

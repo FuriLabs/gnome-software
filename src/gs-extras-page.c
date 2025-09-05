@@ -339,7 +339,7 @@ gs_extras_page_app_notify_state_cb (GsApp *app,
 }
 
 static void
-gs_extras_page_add_app (GsExtrasPage *self, GsApp *app, GsAppList *list, SearchData *search_data)
+gs_extras_page_add_app (GsExtrasPage *self, GsApp *app, SearchData *search_data)
 {
 	GtkWidget *app_row, *child;
 	guint n_can_install = 0;
@@ -623,13 +623,13 @@ search_files_cb (GObject *source_object,
 {
 	SearchData *search_data = (SearchData *) user_data;
 	GsExtrasPage *self = search_data->self;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	guint i;
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) error = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		g_autofree gchar *str = NULL;
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
@@ -642,6 +642,8 @@ search_files_cb (GObject *source_object,
 		gs_extras_page_set_state (self, GS_EXTRAS_PAGE_STATE_FAILED);
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* add missing item */
 	if (gs_app_list_length (list) == 0) {
@@ -656,7 +658,7 @@ search_files_cb (GObject *source_object,
 		GsApp *app = gs_app_list_index (list, i);
 
 		g_debug ("%s\n\n", gs_app_to_string (app));
-		gs_extras_page_add_app (self, app, list, search_data);
+		gs_extras_page_add_app (self, app, search_data);
 	}
 
 	self->pending_search_cnt--;
@@ -676,10 +678,9 @@ file_to_app_cb (GObject *source_object,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) error = NULL;
 	g_autoptr(GsApp) app = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobFileToApp) file_to_app_job = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &file_to_app_job, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("extras: search what provides cancelled");
@@ -700,11 +701,11 @@ file_to_app_cb (GObject *source_object,
 			return;
 		}
 	} else {
-		app = g_object_ref (gs_app_list_index (list, 0));
+		app = g_object_ref (gs_app_list_index (gs_plugin_job_file_to_app_get_result_list (file_to_app_job), 0));
 	}
 
 	g_debug ("%s\n\n", gs_app_to_string (app));
-	gs_extras_page_add_app (self, app, list, search_data);
+	gs_extras_page_add_app (self, app, search_data);
 
 	self->pending_search_cnt--;
 
@@ -720,13 +721,13 @@ get_search_what_provides_cb (GObject *source_object,
 {
 	SearchData *search_data = (SearchData *) user_data;
 	GsExtrasPage *self = search_data->self;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	guint i;
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) error = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		g_autofree gchar *str = NULL;
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
@@ -739,6 +740,8 @@ get_search_what_provides_cb (GObject *source_object,
 		gs_extras_page_set_state (self, GS_EXTRAS_PAGE_STATE_FAILED);
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* add missing item */
 	if (gs_app_list_length (list) == 0) {
@@ -753,7 +756,7 @@ get_search_what_provides_cb (GObject *source_object,
 		GsApp *app = gs_app_list_index (list, i);
 
 		g_debug ("%s\n\n", gs_app_to_string (app));
-		gs_extras_page_add_app (self, app, list, search_data);
+		gs_extras_page_add_app (self, app, search_data);
 	}
 
 	self->pending_search_cnt--;
@@ -799,18 +802,17 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 
 	/* start new searches, separate one for each codec */
 	for (i = 0; i < self->array_search_data->len; i++) {
-		GsPluginRefineFlags refine_flags;
+		GsPluginRefineRequireFlags require_flags;
 		SearchData *search_data;
 
-		refine_flags = GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_HISTORY |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE |
-		               GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
-		               GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES;
+		require_flags = GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE |
+		                GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING;
 
 		search_data = g_ptr_array_index (self->array_search_data, i);
 		if (search_data->search_filename != NULL) {
@@ -819,7 +821,8 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 			const gchar *provides_files[2] = { search_data->search_filename, NULL };
 
 			query = gs_app_query_new ("provides-files", provides_files,
-						  "refine-flags", refine_flags,
+						  "refine-flags", GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES,
+						  "refine-require-flags", require_flags,
 						  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
 						  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						  NULL);
@@ -837,8 +840,8 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 			g_autoptr (GFile) file = NULL;
 			g_autoptr(GsPluginJob) plugin_job = NULL;
 			file = g_file_new_for_path (search_data->package_filename);
-			plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE);
-			gs_plugin_job_set_refine_flags (plugin_job, refine_flags);
+			plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE,
+								    require_flags);
 			g_debug ("resolving filename to app: '%s'", search_data->package_filename);
 			gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 							    self->search_cancellable,
@@ -850,7 +853,7 @@ gs_extras_page_load (GsExtrasPage *self, GPtrArray *array_search_data)
 
 			query = gs_app_query_new ("provides-tag", search_data->search,
 						  "provides-type", search_data->search_provides_type,
-						  "refine-flags", refine_flags,
+						  "refine-require-flags", require_flags,
 						  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
 						  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
 						  NULL);

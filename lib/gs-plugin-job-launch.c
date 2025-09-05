@@ -114,6 +114,13 @@ gs_plugin_job_launch_set_property (GObject *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_launch_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobLaunch *self = GS_PLUGIN_JOB_LAUNCH (job);
+	return (self->flags & GS_PLUGIN_LAUNCH_FLAGS_INTERACTIVE) != 0;
+}
+
 static void plugin_app_func_cb (GObject      *source_object,
 				GAsyncResult *result,
 				gpointer      user_data);
@@ -163,8 +170,12 @@ gs_plugin_job_launch_run_async (GsPluginJob         *job,
 		plugin_class->launch_async (plugin, self->app, self->flags, cancellable, plugin_app_func_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle app operation");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle launching an app");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
 }
@@ -181,7 +192,6 @@ plugin_app_func_cb (GObject      *source_object,
 	g_autoptr(GError) local_error = NULL;
 
 	success = plugin_class->launch_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	g_assert (success || local_error != NULL);
 
@@ -237,6 +247,7 @@ gs_plugin_job_launch_class_init (GsPluginJobLaunchClass *klass)
 	object_class->get_property = gs_plugin_job_launch_get_property;
 	object_class->set_property = gs_plugin_job_launch_set_property;
 
+	job_class->get_interactive = gs_plugin_job_launch_get_interactive;
 	job_class->run_async = gs_plugin_job_launch_run_async;
 	job_class->run_finish = gs_plugin_job_launch_run_finish;
 
@@ -296,6 +307,22 @@ gs_plugin_job_launch_new (GsApp *app,
 	return g_object_new (GS_TYPE_PLUGIN_JOB_LAUNCH,
 			     "app", app,
 			     "flags", flags,
-			     "interactive", (flags & GS_PLUGIN_LAUNCH_FLAGS_INTERACTIVE) != 0,
 			     NULL);
+}
+
+/**
+ * gs_plugin_job_launch_get_app:
+ * @self: a #GsPluginJobLaunch
+ *
+ * Gets the value of #GsPluginJobLaunch:app.
+ *
+ * Returns: (transfer none) (not nullable): the app being launched
+ * Since: 49
+ */
+GsApp *
+gs_plugin_job_launch_get_app (GsPluginJobLaunch *self)
+{
+	g_return_val_if_fail (GS_IS_PLUGIN_JOB_LAUNCH (self), NULL);
+
+	return self->app;
 }

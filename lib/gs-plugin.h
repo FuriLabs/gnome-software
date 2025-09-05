@@ -28,6 +28,8 @@ G_DECLARE_DERIVABLE_TYPE (GsPlugin, gs_plugin, GS, PLUGIN, GObject)
 
 /**
  * GsPluginClass:
+ * @adopt_app: (nullable): Called when an app has not been claimed (i.e. a management
+ *   plugin has not been set). (Since: 49)
  * @setup_async: (nullable): Setup method for the plugin. This is called after
  *   the #GsPlugin object is constructed, before it’s used for anything. It
  *   should do any long-running setup operations which the plugin needs, such as
@@ -45,17 +47,17 @@ G_DECLARE_DERIVABLE_TYPE (GsPlugin, gs_plugin, GS, PLUGIN, GObject)
  * @shutdown_finish: (nullable): Finish method for @shutdown_async. Must be
  *   implemented if @shutdown_async is implemented.
  * @refine_async: (nullable): Refining looks up and adds data to #GsApps. The
- *   apps to refine are provided in a list, and the flags specify what data to
+ *   apps to refine are provided in a list, and the @require_flags specify what data to
  *   look up and add. Refining certain kinds of data can be very expensive (for
  *   example, requiring network requests), which is why it’s not all loaded by
  *   default. By refining multiple apps at once, data requests can be
- *   batched by the plugin where possible. (Since: 43)
+ *   batched by the plugin where possible. (Since: 49)
  * @refine_finish: (nullable): Finish method for @refine_async. Must be
  *   implemented if @refine_async is implemented. (Since: 43)
- * @list_apps_async: (nullable): List apps matching a given query. (Since: 43)
+ * @list_apps_async: (nullable): List apps matching a given query. (Since: 49)
  * @list_apps_finish: (nullable): Finish method for @list_apps_async. Must be
  *   implemented if @list_apps_async is implemented. (Since: 43)
- * @refresh_metadata_async: (nullable): Refresh plugin metadata. (Since: 43)
+ * @refresh_metadata_async: (nullable): Refresh plugin metadata. (Since: 49)
  * @refresh_metadata_finish: (nullable): Finish method for
  *   @refresh_metadata_async. Must be implemented if @refresh_metadata_async is
  *   implemented. (Since: 43)
@@ -63,19 +65,19 @@ G_DECLARE_DERIVABLE_TYPE (GsPlugin, gs_plugin, GS, PLUGIN, GObject)
  * @list_distro_upgrades_finish: (nullable): Finish method for
  *   @list_distro_upgrades_async. Must be implemented if
  *   @list_distro_upgrades_async is implemented. (Since: 43)
- * @install_repository_async: (nullable): Install repository. (Since: 43)
+ * @install_repository_async: (nullable): Install repository. (Since: 49)
  * @install_repository_finish: (nullable): Finish method for
  *   @install_repository_async. Must be implemented if
  *   @install_repository_async is implemented. (Since: 43)
- * @remove_repository_async: (nullable): Remove repository. (Since: 43)
+ * @remove_repository_async: (nullable): Remove repository. (Since: 49)
  * @remove_repository_finish: (nullable): Finish method for
  *   @remove_repository_async. Must be implemented if
  *   @remove_repository_async is implemented. (Since: 43)
- * @enable_repository_async: (nullable): Enable repository. (Since: 43)
+ * @enable_repository_async: (nullable): Enable repository. (Since: 49)
  * @enable_repository_finish: (nullable): Finish method for
  *   @enable_repository_async. Must be implemented if
  *   @enable_repository_async is implemented. (Since: 43)
- * @disable_repository_async: (nullable): Disable repository. (Since: 43)
+ * @disable_repository_async: (nullable): Disable repository. (Since: 49)
  * @disable_repository_finish: (nullable): Finish method for
  *   @disable_repository_async. Must be implemented if
  *   @disable_repository_async is implemented. (Since: 43)
@@ -84,19 +86,19 @@ G_DECLARE_DERIVABLE_TYPE (GsPlugin, gs_plugin, GS, PLUGIN, GObject)
  *   flags specify what data to look up and add. Refining certain kinds of data
  *   can be very expensive (for example, requiring network requests), which is
  *   why it’s not all loaded by default. By refining multiple categories at
- *   once, data requests can be batched by the plugin where possible. (Since: 43)
+ *   once, data requests can be batched by the plugin where possible. (Since: 49)
  * @refine_categories_finish: (nullable): Finish method for
  *   @refine_categories_async. Must be implemented if @refine_categories_async
  *   is implemented. (Since: 43)
  * @update_apps_async: (nullable): Update apps or the OS, or download updates
- *   ready for installation. (Since: 44)
+ *   ready for installation. (Since: 49)
  * @update_apps_finish: (nullable): Finish method for @update_apps_async. Must
  *   be implemented if @update_apps_async is implemented. (Since: 44)
  * @install_apps_async: (nullable): Install apps, or download them ready for
- *   installation. (Since: 47)
+ *   installation. (Since: 49)
  * @install_apps_finish: (nullable): Finish method for @install_apps_async. Must
  *   be implemented if @install_apps_async is implemented. (Since: 47)
- * @uninstall_apps_async: (nullable): Uninstall apps. (Since: 47)
+ * @uninstall_apps_async: (nullable): Uninstall apps. (Since: 49)
  * @uninstall_apps_finish: (nullable): Finish method for @uninstall_apps_async.
  *   Must be implemented if @uninstall_apps_async is implemented. (Since: 47)
  * @cancel_offline_update_async: (nullable): Cancels the pending offline update. (Since: 47)
@@ -104,7 +106,7 @@ G_DECLARE_DERIVABLE_TYPE (GsPlugin, gs_plugin, GS, PLUGIN, GObject)
  *   @cancel_offline_update_async. Must be implemented if
  *   @cancel_offline_update_async is implemented. (Since: 47)
  * @download_upgrade_async: (nullable): Start download of a distribution upgrade
- *   in the background. (Since: 47)
+ *   in the background. (Since: 49)
  * @download_upgrade_finish: (nullable): Finish method for
  *   @download_upgrade_async. Must be implemented if
  *   @download_upgrade_async is implemented. (Since: 47)
@@ -117,11 +119,11 @@ G_DECLARE_DERIVABLE_TYPE (GsPlugin, gs_plugin, GS, PLUGIN, GObject)
  * @launch_finish: (nullable): Finish method for
  *   @launch_async. Must be implemented if
  *   @launch_async is implemented. (Since: 47)
- * @file_to_app_async: (nullable): Converts a local file to a #GsApp. (Since: 47)
+ * @file_to_app_async: (nullable): Converts a local file to a #GsApp. (Since: 49)
  * @file_to_app_finish: (nullable): Finish method for
  *   @file_to_app_async. Must be implemented if
  *   @file_to_app_async is implemented. (Since: 47)
- * @url_to_app_async: (nullable): Converts a URL to a #GsApp. (Since: 47)
+ * @url_to_app_async: (nullable): Converts a URL to a #GsApp. (Since: 49)
  * @url_to_app_finish: (nullable): Finish method for
  *   @url_to_app_async. Must be implemented if
  *   @url_to_app_async is implemented. (Since: 47)
@@ -134,9 +136,6 @@ struct _GsPluginClass
 {
 	GObjectClass		 parent_class;
 	void			(*updates_changed)	(GsPlugin	*plugin);
-	void			(*status_changed)	(GsPlugin	*plugin,
-							 GsApp		*app,
-							 guint		 status);
 	void			(*reload)		(GsPlugin	*plugin);
 	void			(*report_event)		(GsPlugin	*plugin,
 							 GsPluginEvent	*event);
@@ -154,6 +153,8 @@ struct _GsPluginClass
 							 const gchar	*msg,
 							 const gchar	*details,
 							 const gchar	*accept_label);
+	void			(*adopt_app)		(GsPlugin	*plugin,
+							 GsApp		*app);
 
 	void			(*setup_async)		(GsPlugin		*plugin,
 							 GCancellable		*cancellable,
@@ -173,7 +174,10 @@ struct _GsPluginClass
 
 	void			(*refine_async)		(GsPlugin		*plugin,
 							 GsAppList		*list,
-							 GsPluginRefineFlags	 flags,
+							 GsPluginRefineFlags	 job_flags,
+							 GsPluginRefineRequireFlags require_flags,
+							 GsPluginEventCallback	 event_callback,
+							 void			*event_user_data,
 							 GCancellable		*cancellable,
 							 GAsyncReadyCallback	 callback,
 							 gpointer		 user_data);
@@ -184,6 +188,8 @@ struct _GsPluginClass
 	void			(*list_apps_async)		(GsPlugin		*plugin,
 								 GsAppQuery		*query,
 								 GsPluginListAppsFlags	 flags,
+								 GsPluginEventCallback	 event_callback,
+								 void			*event_user_data,
 								 GCancellable		*cancellable,
 								 GAsyncReadyCallback	 callback,
 								 gpointer		 user_data);
@@ -194,6 +200,8 @@ struct _GsPluginClass
 	void			(*refresh_metadata_async)	(GsPlugin		*plugin,
 								 guint64		 cache_age_secs,
 								 GsPluginRefreshMetadataFlags flags,
+								 GsPluginEventCallback	 event_callback,
+								 void			*event_user_data,
 								 GCancellable		*cancellable,
 								 GAsyncReadyCallback	 callback,
 								 gpointer		 user_data);
@@ -213,6 +221,8 @@ struct _GsPluginClass
 	void			(*install_repository_async)	(GsPlugin		*plugin,
 								 GsApp			*repository,
 								 GsPluginManageRepositoryFlags flags,
+								 GsPluginEventCallback	 event_callback,
+								 void			*event_user_data,
 								 GCancellable		*cancellable,
 								 GAsyncReadyCallback	 callback,
 								 gpointer		 user_data);
@@ -222,6 +232,8 @@ struct _GsPluginClass
 	void			(*remove_repository_async)	(GsPlugin		*plugin,
 								 GsApp			*repository,
 								 GsPluginManageRepositoryFlags flags,
+								 GsPluginEventCallback	 event_callback,
+								 void			*event_user_data,
 								 GCancellable		*cancellable,
 								 GAsyncReadyCallback	 callback,
 								 gpointer		 user_data);
@@ -231,6 +243,8 @@ struct _GsPluginClass
 	void			(*enable_repository_async)	(GsPlugin		*plugin,
 								 GsApp			*repository,
 								 GsPluginManageRepositoryFlags flags,
+								 GsPluginEventCallback	 event_callback,
+								 void			*event_user_data,
 								 GCancellable		*cancellable,
 								 GAsyncReadyCallback	 callback,
 								 gpointer		 user_data);
@@ -240,6 +254,8 @@ struct _GsPluginClass
 	void			(*disable_repository_async)	(GsPlugin		*plugin,
 								 GsApp			*repository,
 								 GsPluginManageRepositoryFlags flags,
+								 GsPluginEventCallback	 event_callback,
+								 void			*event_user_data,
 								 GCancellable		*cancellable,
 								 GAsyncReadyCallback	 callback,
 								 gpointer		 user_data);
@@ -250,6 +266,8 @@ struct _GsPluginClass
 	void			(*refine_categories_async)	(GsPlugin			*plugin,
 								 GPtrArray			*list,
 								 GsPluginRefineCategoriesFlags	 flags,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GCancellable			*cancellable,
 								 GAsyncReadyCallback		 callback,
 								 gpointer			 user_data);
@@ -262,6 +280,8 @@ struct _GsPluginClass
 								 GsPluginUpdateAppsFlags	 flags,
 								 GsPluginProgressCallback	 progress_callback,
 								 gpointer			 progress_user_data,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GsPluginAppNeedsUserActionCallback	app_needs_user_action_callback,
 								 gpointer				app_needs_user_action_data,
 								 GCancellable			*cancellable,
@@ -276,6 +296,8 @@ struct _GsPluginClass
 								 GsPluginInstallAppsFlags	 flags,
 								 GsPluginProgressCallback	 progress_callback,
 								 gpointer			 progress_user_data,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GsPluginAppNeedsUserActionCallback	app_needs_user_action_callback,
 								 gpointer				app_needs_user_action_data,
 								 GCancellable			*cancellable,
@@ -290,6 +312,8 @@ struct _GsPluginClass
 								 GsPluginUninstallAppsFlags	 flags,
 								 GsPluginProgressCallback	 progress_callback,
 								 gpointer			 progress_user_data,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GsPluginAppNeedsUserActionCallback	app_needs_user_action_callback,
 								 gpointer				app_needs_user_action_data,
 								 GCancellable			*cancellable,
@@ -311,6 +335,8 @@ struct _GsPluginClass
 	void			(*download_upgrade_async)	(GsPlugin			*plugin,
 								 GsApp				*app,
 								 GsPluginDownloadUpgradeFlags	 flags,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GCancellable			*cancellable,
 								 GAsyncReadyCallback		 callback,
 								 gpointer			 user_data);
@@ -341,6 +367,8 @@ struct _GsPluginClass
 	void			(*file_to_app_async)		(GsPlugin			*plugin,
 								 GFile				*file,
 								 GsPluginFileToAppFlags		 flags,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GCancellable			*cancellable,
 								 GAsyncReadyCallback		 callback,
 								 gpointer			 user_data);
@@ -351,6 +379,8 @@ struct _GsPluginClass
 	void			(*url_to_app_async)		(GsPlugin			*plugin,
 								 const gchar			*url,
 								 GsPluginUrlToAppFlags		 flags,
+								 GsPluginEventCallback		 event_callback,
+								 void				*event_user_data,
 								 GCancellable			*cancellable,
 								 GAsyncReadyCallback		 callback,
 								 gpointer			 user_data);
@@ -368,23 +398,16 @@ GQuark		 gs_plugin_error_quark			(void);
 
 /* public getters and setters */
 const gchar	*gs_plugin_get_name			(GsPlugin	*plugin);
-const gchar	*gs_plugin_get_appstream_id		(GsPlugin	*plugin);
-void		 gs_plugin_set_appstream_id		(GsPlugin	*plugin,
-							 const gchar	*appstream_id);
 gboolean	 gs_plugin_get_enabled			(GsPlugin	*plugin);
 void		 gs_plugin_set_enabled			(GsPlugin	*plugin,
 							 gboolean	 enabled);
-gboolean	 gs_plugin_has_flags			(GsPlugin	*plugin,
-							 GsPluginFlags	 flags);
-void		 gs_plugin_add_flags			(GsPlugin	*plugin,
-							 GsPluginFlags	 flags);
-void		 gs_plugin_remove_flags			(GsPlugin	*plugin,
-							 GsPluginFlags	 flags);
 guint		 gs_plugin_get_scale			(GsPlugin	*plugin);
 const gchar	*gs_plugin_get_language			(GsPlugin	*plugin);
 void		 gs_plugin_add_rule			(GsPlugin	*plugin,
 							 GsPluginRule	 rule,
 							 const gchar	*name);
+void		 gs_plugin_adopt_app			(GsPlugin	*plugin,
+							 GsApp		*app);
 
 /* helpers */
 gboolean	 gs_plugin_check_distro_id		(GsPlugin	*plugin,
@@ -401,9 +424,6 @@ void		 gs_plugin_cache_remove			(GsPlugin	*plugin,
 							 const gchar	*key);
 void		 gs_plugin_cache_invalidate		(GsPlugin	*plugin);
 GsAppList	*gs_plugin_list_cached			(GsPlugin	*plugin);
-void		 gs_plugin_status_update		(GsPlugin	*plugin,
-							 GsApp		*app,
-							 GsPluginStatus	 status);
 void		 gs_plugin_app_launch_async		(GsPlugin	*plugin,
 							 GsApp		*app,
 							 GsPluginLaunchFlags flags,
@@ -447,7 +467,6 @@ gboolean	 gs_plugin_app_launch_filtered_finish	(GsPlugin	*plugin,
 							 GError		**error);
 void		 gs_plugin_updates_changed		(GsPlugin	*plugin);
 void		 gs_plugin_reload			(GsPlugin	*plugin);
-const gchar	*gs_plugin_status_to_string		(GsPluginStatus	 status);
 void		 gs_plugin_report_event			(GsPlugin	*plugin,
 							 GsPluginEvent	*event);
 void		 gs_plugin_set_allow_updates		(GsPlugin	*plugin,

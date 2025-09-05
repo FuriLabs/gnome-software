@@ -23,8 +23,8 @@
  * downloaded until the user has explicitly requested it.
  *
  * The known properties on the set of apps returned by this operation can be
- * controlled with the #GsPluginJobListDistroUpgrades:refine-flags property. All
- * results will be refined using %GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION
+ * controlled with the #GsPluginJobListDistroUpgrades:refine-require-flags property. All
+ * results will be refined using %GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION
  * plus the given set of refine flags. See #GsPluginJobRefine.
  *
  * This class is a wrapper around #GsPluginClass.list_distro_upgrades_async,
@@ -61,7 +61,7 @@ struct _GsPluginJobListDistroUpgrades
 
 	/* Input arguments. */
 	GsPluginListDistroUpgradesFlags flags;
-	GsPluginRefineFlags refine_flags;
+	GsPluginRefineRequireFlags require_flags;
 
 	/* In-progress data. */
 	GsAppList *merged_list;  /* (owned) (nullable) */
@@ -75,7 +75,7 @@ struct _GsPluginJobListDistroUpgrades
 G_DEFINE_TYPE (GsPluginJobListDistroUpgrades, gs_plugin_job_list_distro_upgrades, GS_TYPE_PLUGIN_JOB)
 
 typedef enum {
-	PROP_REFINE_FLAGS = 1,
+	PROP_REFINE_REQUIRE_FLAGS = 1,
 	PROP_FLAGS,
 } GsPluginJobListDistroUpgradesProperty;
 
@@ -104,8 +104,8 @@ gs_plugin_job_list_distro_upgrades_get_property (GObject    *object,
 	GsPluginJobListDistroUpgrades *self = GS_PLUGIN_JOB_LIST_DISTRO_UPGRADES (object);
 
 	switch ((GsPluginJobListDistroUpgradesProperty) prop_id) {
-	case PROP_REFINE_FLAGS:
-		g_value_set_flags (value, self->refine_flags);
+	case PROP_REFINE_REQUIRE_FLAGS:
+		g_value_set_flags (value, self->require_flags);
 		break;
 	case PROP_FLAGS:
 		g_value_set_flags (value, self->flags);
@@ -125,10 +125,10 @@ gs_plugin_job_list_distro_upgrades_set_property (GObject      *object,
 	GsPluginJobListDistroUpgrades *self = GS_PLUGIN_JOB_LIST_DISTRO_UPGRADES (object);
 
 	switch ((GsPluginJobListDistroUpgradesProperty) prop_id) {
-	case PROP_REFINE_FLAGS:
+	case PROP_REFINE_REQUIRE_FLAGS:
 		/* Construct only. */
-		g_assert (self->refine_flags == 0);
-		self->refine_flags = g_value_get_flags (value);
+		g_assert (self->require_flags == 0);
+		self->require_flags = g_value_get_flags (value);
 		g_object_notify_by_pspec (object, props[prop_id]);
 		break;
 	case PROP_FLAGS:
@@ -141,6 +141,13 @@ gs_plugin_job_list_distro_upgrades_set_property (GObject      *object,
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
 	}
+}
+
+static gboolean
+gs_plugin_job_list_distro_upgrades_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobListDistroUpgrades *self = GS_PLUGIN_JOB_LIST_DISTRO_UPGRADES (job);
+	return (self->flags & GS_PLUGIN_LIST_DISTRO_UPGRADES_FLAGS_INTERACTIVE) != 0;
 }
 
 static gint
@@ -208,8 +215,12 @@ gs_plugin_job_list_distro_upgrades_run_async (GsPluginJob         *job,
 		plugin_class->list_distro_upgrades_async (plugin, self->flags, cancellable, plugin_list_distro_upgrades_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle listing distro upgrades");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle listing distro upgrades");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
 }
@@ -227,7 +238,6 @@ plugin_list_distro_upgrades_cb (GObject      *source_object,
 	g_autoptr(GError) local_error = NULL;
 
 	plugin_apps = plugin_class->list_distro_upgrades_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	if (plugin_apps != NULL)
 		gs_app_list_add_list (self->merged_list, plugin_apps);
@@ -275,9 +285,9 @@ finish_op (GTask  *task,
 		 * information to be able to install the upgrade later if
 		 * requested. */
 		refine_job = gs_plugin_job_refine_new (merged_list,
-						       self->refine_flags |
-						       GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION |
-						       GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING);
+						       GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+						       self->require_flags |
+						       GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION);
 		gs_plugin_loader_job_process_async (plugin_loader, refine_job,
 						    cancellable,
 						    refine_cb,
@@ -296,18 +306,17 @@ refine_cb (GObject      *source_object,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GTask) task = G_TASK (user_data);
 	GsPluginJobListDistroUpgrades *self = g_task_get_source_object (task);
-	g_autoptr(GsAppList) new_list = NULL;
+	g_autoptr(GsPluginJobRefine) refine_job = NULL;
 	g_autoptr(GError) local_error = NULL;
 
-	new_list = gs_plugin_loader_job_process_finish (plugin_loader, result, &local_error);
-	if (new_list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, result, (GsPluginJob **) &refine_job, &local_error)) {
 		gs_utils_error_convert_gio (&local_error);
 		g_task_return_error (task, g_steal_pointer (&local_error));
 		g_signal_emit_by_name (G_OBJECT (self), "completed");
 		return;
 	}
 
-	finish_task (task, new_list);
+	finish_task (task, gs_plugin_job_refine_get_result_list (refine_job));
 }
 
 static void
@@ -353,22 +362,23 @@ gs_plugin_job_list_distro_upgrades_class_init (GsPluginJobListDistroUpgradesClas
 	object_class->get_property = gs_plugin_job_list_distro_upgrades_get_property;
 	object_class->set_property = gs_plugin_job_list_distro_upgrades_set_property;
 
+	job_class->get_interactive = gs_plugin_job_list_distro_upgrades_get_interactive;
 	job_class->run_async = gs_plugin_job_list_distro_upgrades_run_async;
 	job_class->run_finish = gs_plugin_job_list_distro_upgrades_run_finish;
 
 	/**
-	 * GsPluginJobListDistroUpgrades:refine-flags:
+	 * GsPluginJobListDistroUpgrades:refine-require-flags:
 	 *
 	 * Flags to specify how to refine the returned apps.
 	 *
-	 * %GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION will always be used.
+	 * %GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION will always be used.
 	 *
-	 * Since: 42
+	 * Since: 49
 	 */
-	props[PROP_REFINE_FLAGS] =
-		g_param_spec_flags ("refine-flags", "Refine Flags",
+	props[PROP_REFINE_REQUIRE_FLAGS] =
+		g_param_spec_flags ("refine-require-flags", "Refine Flags",
 				    "Flags to specify how to refine the returned apps.",
-				    GS_TYPE_PLUGIN_REFINE_FLAGS, GS_PLUGIN_REFINE_FLAGS_NONE,
+				    GS_TYPE_PLUGIN_REFINE_REQUIRE_FLAGS, GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE,
 				    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 				    G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
@@ -398,20 +408,20 @@ gs_plugin_job_list_distro_upgrades_init (GsPluginJobListDistroUpgrades *self)
 /**
  * gs_plugin_job_list_distro_upgrades_new:
  * @flags: flags affecting how the operation runs
- * @refine_flags: flags to affect how the results are refined
+ * @require_flags: flags to affect how the results are refined
  *
  * Create a new #GsPluginJobListDistroUpgrades for listing the available distro
  * upgrades.
  *
  * Returns: (transfer full): a new #GsPluginJobListDistroUpgrades
- * Since: 42
+ * Since: 49
  */
 GsPluginJob *
 gs_plugin_job_list_distro_upgrades_new (GsPluginListDistroUpgradesFlags flags,
-                                        GsPluginRefineFlags             refine_flags)
+                                        GsPluginRefineRequireFlags      require_flags)
 {
 	return g_object_new (GS_TYPE_PLUGIN_JOB_LIST_DISTRO_UPGRADES,
-			     "refine-flags", refine_flags,
+			     "refine-require-flags", require_flags,
 			     "flags", flags,
 			     NULL);
 }

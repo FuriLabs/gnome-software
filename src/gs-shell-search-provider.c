@@ -68,18 +68,20 @@ search_done_cb (GObject *source,
 	GsShellSearchProvider *self = search->provider;
 	guint i;
 	GVariantBuilder builder;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 
 	/* cache no longer valid */
 	gs_app_list_remove_all (self->search_results);
 
-	list = gs_plugin_loader_job_process_finish (self->plugin_loader, res, NULL);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (self->plugin_loader, res, (GsPluginJob **) &list_apps_job, NULL)) {
 		g_dbus_method_invocation_return_value (search->invocation, g_variant_new ("(as)", NULL));
 		pending_search_free (search);
 		g_application_release (g_application_get_default ());
 		return;	
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* sort by kudos, as there is no ratings data by default */
 	gs_app_list_sort (list, search_sort_by_kudo_cb, NULL);
@@ -172,8 +174,8 @@ execute_search (GsShellSearchProvider  *self,
 	settings = g_settings_new ("org.gnome.software");
 
 	query = gs_app_query_new ("keywords", terms,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME,
 				  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
 						  GS_APP_LIST_FILTER_FLAG_KEY_ID_PROVIDES,
 				  "max-results", GS_SHELL_SEARCH_PROVIDER_MAX_RESULTS,
@@ -260,7 +262,8 @@ handle_get_result_metas (GsShellSearchProvider2	*skeleton,
 				g_variant_builder_add (&meta, "{sv}", "gicon", g_variant_new_string (icon_str));
 			} else {
 				g_autoptr(GVariant) icon_serialized = g_icon_serialize (icon);
-				g_variant_builder_add (&meta, "{sv}", "icon", icon_serialized);
+				if (icon_serialized != NULL)
+					g_variant_builder_add (&meta, "{sv}", "icon", icon_serialized);
 			}
 		}
 

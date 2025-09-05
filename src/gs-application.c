@@ -28,6 +28,8 @@
 #include "gs-update-monitor.h"
 #include "gs-shell-search-provider.h"
 
+#define CODE_COPYRIGHT_YEAR 2025
+
 #define ENABLE_REPOS_DIALOG_CONF_KEY "enable-repos-dialog"
 
 struct _GsApplication {
@@ -220,7 +222,7 @@ sources_activated (GSimpleAction *action,
 		   GVariant      *parameter,
 		   gpointer       app)
 {
-	gs_shell_show_sources (GS_APPLICATION (app)->shell);
+	gs_shell_show_repositories (GS_APPLICATION (app)->shell);
 }
 
 static void
@@ -257,20 +259,22 @@ about_activated (GSimpleAction *action,
 		NULL
 	};
 
-adw_show_about_dialog (GTK_WIDGET (app->main_window),
-		       "application-name", g_get_application_name (),
-		       "application-icon", APPLICATION_ID,
-		       "developer-name", _("The GNOME Project"),
-		       "version", get_version(),
-		       "website", "https://apps.gnome.org/Software",
-		       "support-url", "https://discourse.gnome.org/tag/gnome-software",
-		       "issue-url", "https://gitlab.gnome.org/GNOME/gnome-software/-/issues",
-		       "developers", developers,
-		       "designers", designers,
-		       "copyright", _("Copyright \xc2\xa9 2016–2023 GNOME Software contributors"),
-		       "license-type", GTK_LICENSE_GPL_2_0,
-		       "translator-credits", _("translator-credits"),
-		       NULL);
+	g_autofree gchar *copyright_text = g_strdup_printf (_("Copyright \xc2\xa9 2016–%d GNOME Software contributors"), CODE_COPYRIGHT_YEAR);
+
+	adw_show_about_dialog (GTK_WIDGET (app->main_window),
+			       "application-name", g_get_application_name (),
+			       "application-icon", APPLICATION_ID,
+			       "developer-name", _("The GNOME Project"),
+			       "version", get_version(),
+			       "website", "https://apps.gnome.org/Software",
+			       "support-url", "https://discourse.gnome.org/tag/gnome-software",
+			       "issue-url", "https://gitlab.gnome.org/GNOME/gnome-software/-/issues",
+			       "developers", developers,
+			       "designers", designers,
+			       "copyright", copyright_text,
+			       "license-type", GTK_LICENSE_GPL_2_0,
+			       "translator-credits", _("translator-credits"),
+			       NULL);
 }
 
 static void
@@ -278,7 +282,7 @@ cancel_trigger_failed_cb (GObject *source, GAsyncResult *res, gpointer user_data
 {
 	GsApplication *app = GS_APPLICATION (user_data);
 	g_autoptr(GError) error = NULL;
-	if (!gs_plugin_loader_job_action_finish (app->plugin_loader, res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (app->plugin_loader, res, NULL, &error)) {
 		g_warning ("failed to cancel trigger: %s", error->message);
 		return;
 	}
@@ -398,7 +402,7 @@ offline_update_cb (GsPluginLoader *plugin_loader,
 		   GsApplication *app)
 {
 	g_autoptr(GError) error = NULL;
-	if (!gs_plugin_loader_job_action_finish (plugin_loader, res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		g_warning ("Failed to trigger offline update: %s", error->message);
 		return;
 	}
@@ -494,13 +498,16 @@ _search_launchable_details_cb (GObject *source, GAsyncResult *res, gpointer user
 	GsApp *a;
 	GsApplication *app = GS_APPLICATION (user_data);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 
-	list = gs_plugin_loader_job_process_finish (app->plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (app->plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		g_warning ("failed to find application: %s", error->message);
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
+
 	if (gs_app_list_length (list) == 0) {
 		gs_shell_set_mode (app->shell, GS_SHELL_MODE_OVERVIEW);
 		gs_shell_show_notification (app->shell,
@@ -566,7 +573,7 @@ details_activated (GSimpleAction *action,
 
 		/* find by launchable */
 		query = gs_app_query_new ("keywords", keywords,
-					  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
+					  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON,
 					  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
 							  GS_APP_LIST_FILTER_FLAG_KEY_ID_PROVIDES,
 					  "sort-func", gs_utils_app_sort_match_value,
@@ -834,7 +841,7 @@ launch_activated (GSimpleAction *action,
 	GsApplication *self = GS_APPLICATION (data);
 	GsApp *app = NULL;
 	const gchar *id, *management_plugin_name;
-	g_autoptr(GsAppList) list = NULL;
+	GsAppList *list;
 	g_autoptr(GsPluginJob) search_job = NULL;
 	g_autoptr(GsPluginJob) launch_job = NULL;
 	g_autoptr(GError) error = NULL;
@@ -847,16 +854,17 @@ launch_activated (GSimpleAction *action,
 
 	keywords[0] = id;
 	query = gs_app_query_new ("keywords", keywords,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_PERMISSIONS |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_RUNTIME,
-				  "dedupe-flags", GS_PLUGIN_JOB_DEDUPE_FLAGS_DEFAULT,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_RUNTIME,
+				  "dedupe-flags", GS_APP_QUERY_DEDUPE_FLAGS_DEFAULT,
 				  "sort-func", gs_utils_app_sort_match_value,
 				  "license-type", gs_shell_get_query_license_type (self->shell),
 				  "developer-verified-type", gs_shell_get_query_developer_verified_type (self->shell),
 				  NULL);
 	search_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
-	list = gs_plugin_loader_job_process (self->plugin_loader, search_job, self->cancellable, &error);
+	gs_plugin_loader_job_process (self->plugin_loader, search_job, self->cancellable, &error);
+	list = gs_plugin_job_list_apps_get_result_list (GS_PLUGIN_JOB_LIST_APPS (search_job));
 	if (!list) {
 		g_warning ("Failed to search for application '%s' (from '%s'): %s", id, management_plugin_name, error ? error->message : "Unknown error");
 		return;
@@ -879,7 +887,7 @@ launch_activated (GSimpleAction *action,
 	}
 
 	launch_job = gs_plugin_job_launch_new (app, GS_PLUGIN_LAUNCH_FLAGS_NONE);
-	if (!gs_plugin_loader_job_action (self->plugin_loader, launch_job, self->cancellable, &error)) {
+	if (!gs_plugin_loader_job_process (self->plugin_loader, launch_job, self->cancellable, &error)) {
 		g_warning ("Failed to launch app: %s", error->message);
 		return;
 	}

@@ -64,7 +64,7 @@ static GParamSpec *obj_props[PROP_IS_NARROW + 1] = { NULL, };
 static void gs_installed_page_pending_apps_refined_cb (GObject *source,
 						       GAsyncResult *res,
 						       gpointer user_data);
-static GsPluginRefineFlags gs_installed_page_get_refine_flags (GsInstalledPage *self);
+static GsPluginRefineRequireFlags gs_installed_page_get_refine_require_flags (GsInstalledPage *self);
 static void gs_installed_page_notify_state_changed_cb (GsApp *app,
 						       GParamSpec *pspec,
 						       GsInstalledPage *self);
@@ -346,7 +346,7 @@ gs_installed_page_add_app (GsInstalledPage *self, GsAppList *list, GsApp *app)
 	app_row = g_object_new (GS_TYPE_APP_ROW,
 				"app", app,
 				"show-buttons", TRUE,
-				"show-source", gs_utils_list_has_component_fuzzy (list, app),
+				"show-origin", gs_utils_list_has_component_fuzzy (list, app),
 				"show-installed-size", !gs_app_has_quirk (app, GS_APP_QUIRK_COMPULSORY) && should_show_installed_size (self),
 				NULL);
 
@@ -384,7 +384,7 @@ gs_installed_page_add_app (GsInstalledPage *self, GsAppList *list, GsApp *app)
 				    self->sizegroup_button_image);
 
 	gs_app_row_set_show_description (GS_APP_ROW (app_row), FALSE);
-	gs_app_row_set_show_source (GS_APP_ROW (app_row), FALSE);
+	gs_app_row_set_show_origin (GS_APP_ROW (app_row), FALSE);
 	g_object_bind_property (self, "is-narrow", app_row, "is-narrow", G_BINDING_SYNC_CREATE);
 }
 
@@ -398,7 +398,8 @@ gs_installed_page_get_installed_cb (GObject *source_object,
 	GsInstalledPage *self = GS_INSTALLED_PAGE (user_data);
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	g_autoptr(GsAppList) pending = gs_plugin_loader_get_pending (plugin_loader);
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
@@ -407,15 +408,15 @@ gs_installed_page_get_installed_cb (GObject *source_object,
 	self->waiting = FALSE;
 	self->cache_valid = TRUE;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader,
-						    res,
-						    &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_warning ("failed to get installed apps: %s", error->message);
 		goto out;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
+
 	for (i = 0; i < gs_app_list_length (list); i++) {
 		app = gs_app_list_index (list, i);
 		gs_installed_page_add_app (self, list, app);
@@ -423,7 +424,8 @@ gs_installed_page_get_installed_cb (GObject *source_object,
 out:
 	if (gs_app_list_length (pending) > 0) {
 		plugin_job = gs_plugin_job_refine_new (pending,
-						       gs_installed_page_get_refine_flags (self));
+						       GS_PLUGIN_REFINE_FLAGS_INTERACTIVE,
+						       gs_installed_page_get_refine_require_flags (self));
 		gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 						    self->cancellable,
 						    gs_installed_page_pending_apps_refined_cb,
@@ -470,25 +472,25 @@ filter_app_kinds_cb (GsApp    *app,
 	}
 }
 
-static GsPluginRefineFlags
-gs_installed_page_get_refine_flags (GsInstalledPage *self)
+static GsPluginRefineRequireFlags
+gs_installed_page_get_refine_require_flags (GsInstalledPage *self)
 {
-	GsPluginRefineFlags flags;
+	GsPluginRefineRequireFlags flags;
 
-	flags = GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_HISTORY |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_PERMISSIONS |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_CATEGORIES |
-		GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING;
+	flags = GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_CATEGORIES |
+		GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING;
 
 	if (should_show_installed_size (self))
-		flags |= GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE;
+		flags |= GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE;
 
 	return flags;
 }
@@ -513,7 +515,7 @@ gs_installed_page_load (GsInstalledPage *self)
 
 	/* get installed apps */
 	query = gs_app_query_new ("is-installed", GS_APP_QUERY_TRISTATE_TRUE,
-				  "refine-flags", gs_installed_page_get_refine_flags (self),
+				  "refine-require-flags", gs_installed_page_get_refine_require_flags (self),
 				  "filter-func", filter_app_kinds_cb,
 				  NULL);
 	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
@@ -736,10 +738,9 @@ gs_installed_page_pending_apps_refined_cb (GObject *source,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source);
 	GsInstalledPage *self = GS_INSTALLED_PAGE (user_data);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = gs_plugin_loader_job_process_finish (plugin_loader,
-									 res,
-									 &error);
-	if (list == NULL) {
+	g_autoptr(GsPluginJobRefine) refine_job = NULL;
+
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &refine_job, &error)) {
 		if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED) &&
 		    !g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED))
 			g_warning ("failed to refine pending apps: %s", error->message);
@@ -749,7 +750,7 @@ gs_installed_page_pending_apps_refined_cb (GObject *source,
 	/* we add the pending apps and install them because this is called after we
 	 * populate the page, and there may be pending apps coming from the saved list
 	 * (i.e. after loading the saved pending apps from the disk) */
-	gs_installed_page_add_pending_apps (self, list, TRUE);
+	gs_installed_page_add_pending_apps (self, gs_plugin_job_refine_get_result_list (refine_job), TRUE);
 }
 
 static void

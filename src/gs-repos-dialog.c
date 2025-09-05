@@ -79,7 +79,7 @@ repo_enabled_cb (GObject *source,
 	if (row)
 		gs_repo_row_unmark_busy (row);
 
-	if (!gs_plugin_loader_job_action_finish (plugin_loader, res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("repo %s cancelled", operation_str);
@@ -98,17 +98,25 @@ _enable_repo (InstallRemoveData *install_data)
 {
 	GsReposDialog *dialog = install_data->dialog;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
-	g_autoptr(GCancellable) cancellable = gs_app_peek_cancellable (install_data->repo);
-	if (cancellable != NULL) {
-		g_cancellable_cancel (cancellable);
-		g_clear_object (&cancellable);
+	g_autoptr(GsRepoRow) row = NULL;
+	g_autoptr(GCancellable) new_cancellable = NULL;
+
+	/* Cancel any pending jobs on the row’s repo. */
+	row = g_weak_ref_get (&install_data->row_weakref);
+	if (row != NULL) {
+		GCancellable *old_cancellable = gs_repo_row_get_cancellable (row);
+		g_cancellable_cancel (old_cancellable);
 	}
-	cancellable = g_object_ref (gs_app_get_cancellable (install_data->repo));
+
+	new_cancellable = g_cancellable_new ();
+	if (row != NULL)
+		gs_repo_row_set_cancellable (row, new_cancellable);
+
 	g_debug ("enabling repo %s", gs_app_get_id (install_data->repo));
 	plugin_job = gs_plugin_job_manage_repository_new (install_data->repo,
 							  install_data->operation | GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (dialog->plugin_loader, plugin_job,
-	                                    cancellable,
+	                                    new_cancellable,
 	                                    repo_enabled_cb,
 	                                    install_data);
 }
@@ -197,28 +205,35 @@ remove_repo_response_cb (AdwAlertDialog *confirm_dialog,
 	g_autoptr(InstallRemoveData) remove_data = (InstallRemoveData *) user_data;
 	GsReposDialog *dialog = remove_data->dialog;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
-	g_autoptr(GCancellable) cancellable = gs_app_peek_cancellable (remove_data->repo);
+	g_autoptr(GsRepoRow) row = NULL;
+	g_autoptr(GCancellable) new_cancellable = NULL;
+
+	row = g_weak_ref_get (&remove_data->row_weakref);
 
 	/* not agreed */
 	if (g_strcmp0 (response, "disable") != 0 &&
 	    g_strcmp0 (response, "remove") != 0) {
-		g_autoptr(GsRepoRow) row = g_weak_ref_get (&remove_data->row_weakref);
 		if (row)
 			gs_repo_row_unmark_busy (row);
 		return;
 	}
 
-	if (cancellable != NULL) {
-		g_cancellable_cancel (cancellable);
-		g_clear_object (&cancellable);
+	/* Cancel any pending jobs on the row’s repo. */
+	if (row != NULL) {
+		GCancellable *old_cancellable = gs_repo_row_get_cancellable (row);
+		g_cancellable_cancel (old_cancellable);
 	}
-	cancellable = g_object_ref (gs_app_get_cancellable (remove_data->repo));
+
+	new_cancellable = g_cancellable_new ();
+	if (row != NULL)
+		gs_repo_row_set_cancellable (row, new_cancellable);
+
 	g_debug ("removing repo %s", gs_app_get_id (remove_data->repo));
 	plugin_job = gs_plugin_job_manage_repository_new (remove_data->repo,
 							  remove_data->operation |
 							  GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE);
 	gs_plugin_loader_job_process_async (dialog->plugin_loader, plugin_job,
-					    cancellable,
+					    new_cancellable,
 					    repo_enabled_cb,
 					    g_steal_pointer (&remove_data));
 }
@@ -424,19 +439,6 @@ repos_dialog_compare_sections_cb (gconstpointer aa,
 
 	return g_strcmp0 (title_sort_key_a, title_sort_key_b);
 }
-typedef struct {
-	GsReposDialog *dialog; /* not owned */
-	GsAppList *list; /* owned */
-} RefineData;
-
-static void
-refine_data_free (RefineData *self)
-{
-	g_object_unref (self->list);
-	g_free (self);
-}
-
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(RefineData, refine_data_free)
 
 static void
 refine_sources_related_finish (GsReposDialog *dialog)
@@ -459,10 +461,8 @@ refine_sources_related_cb (GObject *source_object,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	GsReposDialog *dialog = user_data;
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("refine sources' related cancelled");
@@ -481,27 +481,28 @@ refine_sources_cb (GObject *source_object,
 		   gpointer user_data)
 {
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
-	g_autoptr(RefineData) rd = user_data;
+	GsReposDialog *dialog = GS_REPOS_DIALOG (user_data);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobRefine) refine_job = NULL;
+	GsAppList *refined_sources;
 	g_autoptr(GsAppList) related_list = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &refine_job, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("refine sources cancelled");
 		} else {
 			g_warning ("failed to refine sources: %s", error->message);
-			refine_sources_related_finish (rd->dialog);
+			refine_sources_related_finish (dialog);
 		}
 		return;
 	}
 
 	/* refine related apps with generic or unknown kind, thus the GsRepoRow can use proper data */
+	refined_sources = gs_plugin_job_refine_get_result_list (refine_job);
 	related_list = gs_app_list_new ();
-	for (guint j = 0; j < gs_app_list_length (rd->list); j++) {
-		GsApp *source = gs_app_list_index (rd->list, j);
+	for (guint j = 0; j < gs_app_list_length (refined_sources); j++) {
+		GsApp *source = gs_app_list_index (refined_sources, j);
 		GsAppList *related = gs_app_get_related (source);
 		for (guint i = 0; i < gs_app_list_length (related); i++) {
 			GsApp *app = gs_app_list_index (related, i);
@@ -515,13 +516,13 @@ refine_sources_cb (GObject *source_object,
 	if (gs_app_list_length (related_list) > 0) {
 		g_autoptr(GsPluginJob) plugin_job = NULL;
 
-		plugin_job = gs_plugin_job_refine_new (related_list, GS_PLUGIN_REFINE_FLAGS_REQUIRE_ID);
+		plugin_job = gs_plugin_job_refine_new (related_list, GS_PLUGIN_REFINE_FLAGS_NONE, GS_PLUGIN_REFINE_REQUIRE_FLAGS_ID);
 		gs_plugin_loader_job_process_async (plugin_loader, plugin_job,
-						    rd->dialog->cancellable,
+						    dialog->cancellable,
 						    refine_sources_related_cb,
-						    rd->dialog);
+						    dialog);
 	} else {
-		refine_sources_related_finish (rd->dialog);
+		refine_sources_related_finish (dialog);
 	}
 }
 
@@ -532,18 +533,17 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 {
 	GsApp *app;
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	g_autoptr(GsAppList) refine_list = NULL;
 	g_autoptr(GSList) other_repos = NULL;
 	g_autoptr(GList) sections = NULL;
 	g_autoptr(GsPluginJob) plugin_job = NULL;
-	RefineData *rd;
 	AdwPreferencesGroup *added_section;
 	GHashTableIter iter;
 
 	/* get the results */
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("get sources cancelled");
@@ -554,6 +554,8 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 		gtk_stack_set_visible_child_name (GTK_STACK (dialog->stack), "empty");
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* remove previous */
 	g_hash_table_iter_init (&iter, dialog->sections);
@@ -654,14 +656,11 @@ get_sources_cb (GsPluginLoader *plugin_loader,
 					  ADW_PREFERENCES_GROUP (section));
 	}
 
-	rd = g_new0 (RefineData, 1);
-	rd->dialog = dialog;
-	rd->list = g_object_ref (refine_list);
-	plugin_job = gs_plugin_job_refine_new (refine_list, GS_PLUGIN_REFINE_FLAGS_REQUIRE_RELATED);
+	plugin_job = gs_plugin_job_refine_new (refine_list, GS_PLUGIN_REFINE_FLAGS_NONE, GS_PLUGIN_REFINE_REQUIRE_FLAGS_RELATED);
 	gs_plugin_loader_job_process_async (dialog->plugin_loader, plugin_job,
 					    dialog->cancellable,
 					    refine_sources_cb,
-					    rd);
+					    dialog);
 }
 
 static void
@@ -671,9 +670,9 @@ reload_sources (GsReposDialog *dialog)
 	g_autoptr(GsPluginJob) plugin_job = NULL;
 
 	/* get the list of non-core software repositories */
-	query = gs_app_query_new ("is-source", GS_APP_QUERY_TRISTATE_TRUE,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE,
+	query = gs_app_query_new ("component-kinds", (AsComponentKind[]) { AS_COMPONENT_KIND_REPOSITORY, 0 },
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE,
 				  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_NONE,
 				  NULL);
 	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);

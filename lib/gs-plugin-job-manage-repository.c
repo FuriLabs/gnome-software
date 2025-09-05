@@ -117,6 +117,16 @@ gs_plugin_job_manage_repository_set_property (GObject      *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_manage_repository_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobManageRepository *self = GS_PLUGIN_JOB_MANAGE_REPOSITORY (job);
+	return (self->flags & GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE) != 0;
+}
+
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 static void plugin_repository_func_cb (GObject      *source_object,
 				       GAsyncResult *result,
 				       gpointer      user_data);
@@ -151,6 +161,8 @@ gs_plugin_job_manage_repository_run_async (GsPluginJob         *job,
 		void (* repository_func_async) (GsPlugin *plugin,
 						GsApp *repository,
 						GsPluginManageRepositoryFlags flags,
+						GsPluginEventCallback event_callback,
+						void *event_user_data,
 						GCancellable *cancellable,
 						GAsyncReadyCallback callback,
 						gpointer user_data) = NULL;
@@ -180,13 +192,28 @@ gs_plugin_job_manage_repository_run_async (GsPluginJob         *job,
 
 		/* run the plugin */
 		self->n_pending_ops++;
-		repository_func_async (plugin, self->repository, self->flags, cancellable, plugin_repository_func_cb, g_object_ref (task));
+		repository_func_async (plugin, self->repository, self->flags, plugin_event_cb, task, cancellable, plugin_repository_func_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle repository operation");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle repository operations");
+	}
 
 	finish_op (task, g_steal_pointer (&local_error));
+}
+
+static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
 }
 
 static void
@@ -216,7 +243,6 @@ plugin_repository_func_cb (GObject      *source_object,
 		g_assert_not_reached ();
 
 	success = repository_func_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	g_assert (success || local_error != NULL);
 
@@ -292,6 +318,7 @@ gs_plugin_job_manage_repository_class_init (GsPluginJobManageRepositoryClass *kl
 	object_class->get_property = gs_plugin_job_manage_repository_get_property;
 	object_class->set_property = gs_plugin_job_manage_repository_set_property;
 
+	job_class->get_interactive = gs_plugin_job_manage_repository_get_interactive;
 	job_class->run_async = gs_plugin_job_manage_repository_run_async;
 	job_class->run_finish = gs_plugin_job_manage_repository_run_finish;
 
@@ -368,4 +395,38 @@ gs_plugin_job_manage_repository_new (GsApp			   *repository,
 			     "repository", repository,
 			     "flags", flags,
 			     NULL);
+}
+
+/**
+ * gs_plugin_job_manage_repository_get_repository:
+ * @self: a #GsPluginJobManageRepository
+ *
+ * Get the repository being modified by this #GsPluginJobManageRepository.
+ *
+ * Returns: (transfer none) (not nullable): repository being managed
+ * Since: 49
+ */
+GsApp *
+gs_plugin_job_manage_repository_get_repository (GsPluginJobManageRepository *self)
+{
+	g_return_val_if_fail (GS_IS_PLUGIN_JOB_MANAGE_REPOSITORY (self), NULL);
+
+	return self->repository;
+}
+
+/**
+ * gs_plugin_job_manage_repository_get_flags:
+ * @self: a #GsPluginJobManageRepository
+ *
+ * Get the flags affecting the behaviour of this #GsPluginJobManageRepository.
+ *
+ * Returns: flags for the job
+ * Since: 49
+ */
+GsPluginManageRepositoryFlags
+gs_plugin_job_manage_repository_get_flags (GsPluginJobManageRepository *self)
+{
+	g_return_val_if_fail (GS_IS_PLUGIN_JOB_MANAGE_REPOSITORY (self), GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_NONE);
+
+	return self->flags;
 }

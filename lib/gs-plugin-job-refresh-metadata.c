@@ -168,10 +168,20 @@ gs_plugin_job_refresh_metadata_set_property (GObject      *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_refresh_metadata_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobRefreshMetadata *self = GS_PLUGIN_JOB_REFRESH_METADATA (job);
+	return (self->flags & GS_PLUGIN_REFRESH_METADATA_FLAGS_INTERACTIVE) != 0;
+}
+
 static void refresh_progress_tuple_cb (gsize    bytes_downloaded,
                                        gsize    total_download_size,
                                        gpointer user_data);
 static gboolean progress_cb (gpointer user_data);
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 #ifdef ENABLE_EXTERNAL_APPSTREAM
 static void external_appstream_refresh_cb (GObject      *source_object,
                                            GAsyncResult *result,
@@ -273,6 +283,8 @@ gs_plugin_job_refresh_metadata_run_async (GsPluginJob         *job,
 		plugin_class->refresh_metadata_async (plugin,
 						      self->cache_age_secs,
 						      self->flags,
+						      plugin_event_cb,
+						      task,
 						      cancellable,
 						      plugin_refresh_metadata_cb,
 						      g_object_ref (task));
@@ -366,6 +378,17 @@ progress_cb (gpointer user_data)
 	return G_SOURCE_CONTINUE;
 }
 
+static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
+}
+
 #ifdef ENABLE_EXTERNAL_APPSTREAM
 static void
 external_appstream_refresh_cb (GObject      *source_object,
@@ -419,7 +442,6 @@ plugin_refresh_metadata_cb (GObject      *source_object,
 
 	if (!plugin_class->refresh_metadata_finish (plugin, result, &local_error))
 		g_debug ("Failed to refresh plugin '%s': %s", gs_plugin_get_name (plugin), local_error->message);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	/* Update progress reporting. */
 	self->plugins_progress.n_plugins_complete++;
@@ -504,6 +526,7 @@ gs_plugin_job_refresh_metadata_class_init (GsPluginJobRefreshMetadataClass *klas
 	object_class->get_property = gs_plugin_job_refresh_metadata_get_property;
 	object_class->set_property = gs_plugin_job_refresh_metadata_set_property;
 
+	job_class->get_interactive = gs_plugin_job_refresh_metadata_get_interactive;
 	job_class->run_async = gs_plugin_job_refresh_metadata_run_async;
 	job_class->run_finish = gs_plugin_job_refresh_metadata_run_finish;
 

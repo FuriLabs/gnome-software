@@ -61,11 +61,12 @@ get_installed_updates_cb (GsPluginLoader *plugin_loader,
 {
 	guint i;
 	guint64 install_date;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	g_autoptr(GError) error = NULL;
 
 	/* get the results */
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
+	gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error);
 
 	/* if we're in teardown, short-circuit and return immediately without
 	 * dereferencing priv variables */
@@ -77,11 +78,13 @@ get_installed_updates_cb (GsPluginLoader *plugin_loader,
 	}
 
 	/* error */
-	if (list == NULL) {
+	if (error != NULL) {
 		g_warning ("failed to get installed updates: %s", error->message);
 		gtk_stack_set_visible_child_name (GTK_STACK (dialog->stack), "empty");
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* no results */
 	if (gs_app_list_length (list) == 0) {
@@ -90,8 +93,25 @@ get_installed_updates_cb (GsPluginLoader *plugin_loader,
 		return;
 	}
 
-	/* set the header title using any one of the apps */
-	install_date = gs_app_get_install_date (gs_app_list_index (list, 0));
+	/* set the header title using the latest app install date */
+	install_date = 0;
+	for (i = 0; i < gs_app_list_length (list); i++) {
+		GsApp *app = gs_app_list_index (list, i);
+		guint64 app_inst_date = gs_app_get_install_date (app);
+		if (app_inst_date > install_date)
+			install_date = app_inst_date;
+
+		/* handle also "System Updates" */
+		if (gs_app_has_quirk (app, GS_APP_QUIRK_IS_PROXY)) {
+			GsAppList *related = gs_app_get_related (app);
+			for (guint j = 0; j < gs_app_list_length (related); j++) {
+				GsApp *rel_app = gs_app_list_index (related, j);
+				app_inst_date = gs_app_get_install_date (rel_app);
+				if (app_inst_date > install_date)
+					install_date = app_inst_date;
+			}
+		}
+	}
 	if (install_date > 0) {
 		g_autoptr(GDateTime) date = NULL;
 		g_autofree gchar *date_str = NULL;
@@ -131,10 +151,10 @@ gs_update_dialog_show_installed_updates (GsUpdateDialog *dialog)
 	gtk_stack_set_visible_child_name (GTK_STACK (dialog->stack), "spinner");
 
 	query = gs_app_query_new ("is-historical-update", GS_APP_QUERY_TRISTATE_TRUE,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
-						  GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_SEVERITY |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION,
 				  NULL);
 	plugin_job = gs_plugin_job_list_apps_new (query, GS_PLUGIN_LIST_APPS_FLAGS_NONE);
 	gs_plugin_loader_job_process_async (dialog->plugin_loader, plugin_job,

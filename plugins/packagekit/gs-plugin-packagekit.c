@@ -49,6 +49,15 @@
  * and https://www.freedesktop.org/software/systemd/man/latest/systemd.offline-updates.html
  * for details of how offline updates work.
  *
+ * As PackageKit provides a D-Bus API, this plugin is a wrapper around that and
+ * runs almost entirely asynchronously in the main thread. A few PackageKit
+ * operations don’t yet have an asynchronous API provided in libpackagekit-glib2
+ * so have to be run in a #GTask thread pool thread. These operations happen
+ * infrequently, so it’s not worth keeping a #GsWorkerThread around for them.
+ * The few fields which are used for them in `GsPluginPackagekit` are locked
+ * individually; most fields in `GsPluginPackagekit` do not require a lock to
+ * access.
+ *
  * Requires:    | [source-id], [repos::repo-filename]
  * Refines:     | [source-id], [source], [update-details], [management-plugin]
  */
@@ -75,13 +84,11 @@ struct _GsPluginPackagekit {
 	GPermission		*permission;
 	gboolean		 is_triggered;
 	GHashTable		*prepared_updates;  /* (element-type utf8); set of package IDs for updates which are already prepared */
-	GMutex			 prepared_updates_mutex;
 	guint			 prepare_update_timeout_id;
 
 	GCancellable		*proxy_settings_cancellable;  /* (nullable) (owned) */
 
 	GHashTable		*cached_sources; /* (nullable) (owned) (element-type utf8 GsApp); sources by id, each value is weak reffed */
-	GMutex			 cached_sources_mutex;
 };
 
 G_DEFINE_TYPE (GsPluginPackagekit, gs_plugin_packagekit, GS_TYPE_PLUGIN)
@@ -100,6 +107,8 @@ static gboolean gs_plugin_packagekit_refine_history_finish (GsPluginPackagekit  
 static void gs_plugin_packagekit_enable_repository_async (GsPlugin                      *plugin,
                                                           GsApp                         *repository,
                                                           GsPluginManageRepositoryFlags  flags,
+                                                          GsPluginEventCallback          event_callback,
+                                                          void                          *event_user_data,
                                                           GCancellable                  *cancellable,
                                                           GAsyncReadyCallback            callback,
                                                           gpointer                       user_data);
@@ -110,18 +119,22 @@ static void gs_plugin_packagekit_proxy_changed_cb (GSettings   *settings,
                                                    const gchar *key,
                                                    gpointer     user_data);
 static void reload_proxy_settings_async (GsPluginPackagekit  *self,
+                                         gboolean             force_set,
                                          GCancellable        *cancellable,
                                          GAsyncReadyCallback  callback,
                                          gpointer             user_data);
 static gboolean reload_proxy_settings_finish (GsPluginPackagekit  *self,
                                               GAsyncResult        *result,
                                               GError             **error);
-static void gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
-                                               GsAppList           *list,
-                                               GsPluginRefineFlags  flags,
-                                               GCancellable        *cancellable,
-                                               GAsyncReadyCallback  callback,
-                                               gpointer             user_data);
+static void gs_plugin_packagekit_refine_async (GsPlugin                   *plugin,
+                                               GsAppList                  *list,
+                                               GsPluginRefineFlags         job_flags,
+                                               GsPluginRefineRequireFlags  require_flags,
+                                               GsPluginEventCallback       event_callback,
+                                               void                       *event_user_data,
+                                               GCancellable               *cancellable,
+                                               GAsyncReadyCallback         callback,
+                                               gpointer                    user_data);
 static gboolean gs_plugin_packagekit_refine_finish (GsPlugin      *plugin,
                                                     GAsyncResult  *result,
                                                     GError       **error);
@@ -133,9 +146,6 @@ cached_sources_weak_ref_cb (gpointer user_data,
 	GsPluginPackagekit *self = user_data;
 	GHashTableIter iter;
 	gpointer key, value;
-	g_autoptr(GMutexLocker) locker = NULL;
-
-	locker = g_mutex_locker_new (&self->cached_sources_mutex);
 
 	g_assert (self->cached_sources != NULL);
 
@@ -188,11 +198,8 @@ gs_plugin_packagekit_init (GsPluginPackagekit *self)
 			  G_CALLBACK (gs_plugin_packagekit_proxy_changed_cb), self);
 
 	/* offline updates */
-	g_mutex_init (&self->prepared_updates_mutex);
 	self->prepared_updates = g_hash_table_new_full (g_str_hash, g_str_equal,
 							g_free, NULL);
-
-	g_mutex_init (&self->cached_sources_mutex);
 
 	/* need pkgname and ID */
 	gs_plugin_add_rule (plugin, GS_PLUGIN_RULE_RUN_AFTER, "appstream");
@@ -250,17 +257,6 @@ gs_plugin_packagekit_dispose (GObject *object)
 	}
 
 	G_OBJECT_CLASS (gs_plugin_packagekit_parent_class)->dispose (object);
-}
-
-static void
-gs_plugin_packagekit_finalize (GObject *object)
-{
-	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (object);
-
-	g_mutex_clear (&self->prepared_updates_mutex);
-	g_mutex_clear (&self->cached_sources_mutex);
-
-	G_OBJECT_CLASS (gs_plugin_packagekit_parent_class)->finalize (object);
 }
 
 static gboolean
@@ -384,7 +380,6 @@ gs_plugin_packagekit_dup_app_origin_repo (GsPluginPackagekit  *self,
                                           GError             **error)
 {
 	GsPlugin *plugin = GS_PLUGIN (self);
-	g_autoptr(GMutexLocker) locker = NULL;
 	g_autoptr(GTask) task = NULL;
 	g_autoptr(GsApp) repo_app = NULL;
 	const gchar *repo_id;
@@ -398,7 +393,6 @@ gs_plugin_packagekit_dup_app_origin_repo (GsPluginPackagekit  *self,
 		return NULL;
 	}
 
-	locker = g_mutex_locker_new (&self->cached_sources_mutex);
 	repo_app = g_hash_table_lookup (self->cached_sources, repo_id);
 	if (repo_app != NULL) {
 		g_object_ref (repo_app);
@@ -412,8 +406,6 @@ gs_plugin_packagekit_dup_app_origin_repo (GsPluginPackagekit  *self,
 		gs_plugin_packagekit_set_packaging_format (plugin, repo_app);
 	}
 
-	g_clear_pointer (&locker, g_mutex_locker_free);
-
 	return g_steal_pointer (&repo_app);
 }
 
@@ -423,6 +415,8 @@ typedef struct {
 	GsPluginInstallAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 
 	/* In-progress data. */
 	guint n_pending_enable_repo_ops;
@@ -473,6 +467,8 @@ gs_plugin_packagekit_install_apps_async (GsPlugin                           *plu
                                          GsPluginInstallAppsFlags            flags,
                                          GsPluginProgressCallback            progress_callback,
                                          gpointer                            progress_user_data,
+                                         GsPluginEventCallback               event_callback,
+                                         void                               *event_user_data,
                                          GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                          gpointer                            app_needs_user_action_data,
                                          GCancellable                       *cancellable,
@@ -496,6 +492,8 @@ gs_plugin_packagekit_install_apps_async (GsPlugin                           *plu
 	data->flags = flags;
 	data->progress_callback = progress_callback;
 	data->progress_user_data = progress_user_data;
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	data->apps = g_object_ref (apps);
 	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) install_apps_data_free);
 
@@ -551,7 +549,6 @@ gs_plugin_packagekit_install_apps_async (GsPlugin                           *plu
 				return;
 			}
 
-			gs_plugin_status_update (plugin, app, GS_PLUGIN_STATUS_WAITING);
 			repo_app_id = gs_app_get_id (repo_app);
 			g_hash_table_replace (repos, (gpointer) repo_app_id, g_steal_pointer (&repo_app));
 		}
@@ -566,6 +563,7 @@ gs_plugin_packagekit_install_apps_async (GsPlugin                           *plu
 		data->n_pending_enable_repo_ops++;
 		gs_plugin_packagekit_enable_repository_async (plugin, repo_app,
 							      interactive ? GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_INTERACTIVE : GS_PLUGIN_MANAGE_REPOSITORY_FLAGS_NONE,
+							      data->event_callback, data->event_user_data,
 							      cancellable, install_apps_enable_repo_cb, g_object_ref (task));
 	}
 
@@ -621,7 +619,8 @@ finish_install_apps_enable_repo_op (GTask  *task,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 
 		g_task_return_boolean (task, TRUE);
 		return;
@@ -685,7 +684,8 @@ finish_install_apps_enable_repo_op (GTask  *task,
 				if (interactive)
 					gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-				gs_plugin_report_event (GS_PLUGIN (self), event);
+				if (data->event_callback != NULL)
+					data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 				g_clear_error (&local_error);
 
 				continue;
@@ -716,7 +716,8 @@ finish_install_apps_enable_repo_op (GTask  *task,
 				if (interactive)
 					gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-				gs_plugin_report_event (GS_PLUGIN (self), event);
+				if (data->event_callback != NULL)
+					data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 				g_clear_error (&local_error);
 
 				continue;
@@ -753,7 +754,8 @@ finish_install_apps_enable_repo_op (GTask  *task,
 				if (interactive)
 					gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-				gs_plugin_report_event (GS_PLUGIN (self), event);
+				if (data->event_callback != NULL)
+					data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 				g_clear_error (&local_error);
 
 				continue;
@@ -783,7 +785,8 @@ finish_install_apps_enable_repo_op (GTask  *task,
 			if (interactive)
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-			gs_plugin_report_event (GS_PLUGIN (self), event);
+			if (data->event_callback != NULL)
+				data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 			g_clear_error (&local_error);
 
 			continue;
@@ -877,7 +880,8 @@ install_apps_remote_cb (GObject      *source_object,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 		g_clear_error (&local_error);
 
 		finish_install_apps_install_op (task, g_steal_pointer (&local_error));
@@ -927,7 +931,8 @@ install_apps_local_cb (GObject      *source_object,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 		g_clear_error (&local_error);
 
 		finish_install_apps_install_op (task, g_steal_pointer (&local_error));
@@ -991,6 +996,8 @@ typedef struct {
 	GsPluginUninstallAppsFlags flags;
 	GsPluginProgressCallback progress_callback;
 	gpointer progress_user_data;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 
 	/* In-progress data. */
 	GsAppList *apps_to_uninstall;  /* (owned) (nullable) */
@@ -1022,6 +1029,8 @@ gs_plugin_packagekit_uninstall_apps_async (GsPlugin                           *p
                                            GsPluginUninstallAppsFlags          flags,
                                            GsPluginProgressCallback            progress_callback,
                                            gpointer                            progress_user_data,
+                                           GsPluginEventCallback               event_callback,
+                                           void                               *event_user_data,
                                            GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                            gpointer                            app_needs_user_action_data,
                                            GCancellable                       *cancellable,
@@ -1044,6 +1053,8 @@ gs_plugin_packagekit_uninstall_apps_async (GsPlugin                           *p
 	data->flags = flags;
 	data->progress_callback = progress_callback;
 	data->progress_user_data = progress_user_data;
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	data->apps = g_object_ref (apps);
 	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) uninstall_apps_data_free);
 
@@ -1078,7 +1089,8 @@ gs_plugin_packagekit_uninstall_apps_async (GsPlugin                           *p
 			if (interactive)
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-			gs_plugin_report_event (GS_PLUGIN (self), event);
+			if (event_callback != NULL)
+				event_callback (GS_PLUGIN (self), event, event_user_data);
 			g_clear_error (&local_error);
 
 			continue;
@@ -1107,7 +1119,8 @@ gs_plugin_packagekit_uninstall_apps_async (GsPlugin                           *p
 			if (interactive)
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-			gs_plugin_report_event (GS_PLUGIN (self), event);
+			if (event_callback != NULL)
+				event_callback (GS_PLUGIN (self), event, event_user_data);
 			g_clear_error (&local_error);
 
 			continue;
@@ -1182,7 +1195,8 @@ uninstall_apps_remove_cb (GObject      *source_object,
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
 		gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
-		gs_plugin_report_event (GS_PLUGIN (self), event);
+		if (data->event_callback != NULL)
+			data->event_callback (GS_PLUGIN (self), event, data->event_user_data);
 		g_clear_error (&local_error);
 
 		g_task_return_boolean (task, TRUE);
@@ -1213,8 +1227,11 @@ uninstall_apps_remove_cb (GObject      *source_object,
 	/* Refine the apps so their state is up to date again. */
 	gs_plugin_packagekit_refine_async (GS_PLUGIN (self),
 					   data->apps_to_uninstall,
-					   GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN |
-					   GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION,
+					   GS_PLUGIN_REFINE_FLAGS_NONE,
+					   GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN |
+					   GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION,
+					   data->event_callback,
+					   data->event_user_data,
 					   cancellable,
 					   uninstall_apps_refine_cb,
 					   g_steal_pointer (&task));
@@ -1353,32 +1370,6 @@ gs_plugin_package_list_updates_process_results (GsPlugin *plugin,
 	}
 
 	return TRUE;
-}
-
-static gboolean
-gs_plugin_packagekit_add_updates (GsPlugin *plugin,
-				  GsAppList *list,
-				  GCancellable *cancellable,
-				  GError **error)
-{
-	g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
-	g_autoptr(PkTask) task_updates = NULL;
-	g_autoptr(PkResults) results = NULL;
-
-	/* do sync call */
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_WAITING);
-
-	task_updates = gs_packagekit_task_new (plugin);
-	gs_packagekit_task_setup (GS_PACKAGEKIT_TASK (task_updates), GS_PACKAGEKIT_TASK_QUESTION_TYPE_NONE, gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE));
-	gs_packagekit_helper_set_allow_emit_updates_changed (helper, FALSE);
-
-	results = pk_client_get_updates (PK_CLIENT (task_updates),
-					 pk_bitfield_value (PK_FILTER_ENUM_NONE),
-					 cancellable,
-					 gs_packagekit_helper_cb, helper,
-					 error);
-
-	return gs_plugin_package_list_updates_process_results (plugin, results, list, cancellable, error);
 }
 
 static void
@@ -1527,7 +1518,6 @@ gs_packagekit_list_sources_cb (GObject *source_object,
 {
 	g_autoptr(GTask) task = g_steal_pointer (&user_data);
 	g_autoptr(GsAppList) list = gs_app_list_new ();
-	g_autoptr(GMutexLocker) locker = NULL;
 	g_autoptr(PkResults) results = NULL;
 	g_autoptr(GPtrArray) array = NULL;
 	g_autoptr(GError) local_error = NULL;
@@ -1539,7 +1529,7 @@ gs_packagekit_list_sources_cb (GObject *source_object,
 		g_task_return_error (task, g_steal_pointer (&local_error));
 		return;
 	}
-	locker = g_mutex_locker_new (&self->cached_sources_mutex);
+
 	if (self->cached_sources == NULL)
 		self->cached_sources = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	array = pk_results_get_repo_detail_array (results);
@@ -1588,6 +1578,8 @@ static void
 gs_plugin_packagekit_list_apps_async (GsPlugin              *plugin,
                                       GsAppQuery            *query,
                                       GsPluginListAppsFlags  flags,
+                                      GsPluginEventCallback  event_callback,
+                                      void                  *event_user_data,
                                       GCancellable          *cancellable,
                                       GAsyncReadyCallback    callback,
                                       gpointer               user_data)
@@ -1601,7 +1593,7 @@ gs_plugin_packagekit_list_apps_async (GsPlugin              *plugin,
 	GsAppQueryProvidesType provides_type = GS_APP_QUERY_PROVIDES_UNKNOWN;
 	GsAppQueryTristate is_for_update = GS_APP_QUERY_TRISTATE_UNSET;
 	GsAppQueryTristate is_historical_update = GS_APP_QUERY_TRISTATE_UNSET;
-	GsAppQueryTristate is_source = GS_APP_QUERY_TRISTATE_UNSET;
+	const AsComponentKind *component_kinds = NULL;
 	gboolean interactive = (flags & GS_PLUGIN_LIST_APPS_FLAGS_INTERACTIVE);
 	g_autoptr(GTask) task = NULL;
 
@@ -1614,7 +1606,7 @@ gs_plugin_packagekit_list_apps_async (GsPlugin              *plugin,
 		provides_type = gs_app_query_get_provides (query, &provides_tag);
 		is_for_update = gs_app_query_get_is_for_update (query);
 		is_historical_update = gs_app_query_get_is_historical_update (query);
-		is_source = gs_app_query_get_is_source (query);
+		component_kinds = gs_app_query_get_component_kinds (query);
 	}
 
 	/* Currently only support a subset of query properties, and only one set at once. */
@@ -1622,17 +1614,16 @@ gs_plugin_packagekit_list_apps_async (GsPlugin              *plugin,
 	     provides_tag == NULL &&
 	     is_for_update == GS_APP_QUERY_TRISTATE_UNSET &&
 	     is_historical_update == GS_APP_QUERY_TRISTATE_UNSET &&
-	     is_source == GS_APP_QUERY_TRISTATE_UNSET) ||
+	     component_kinds == NULL) ||
 	    is_for_update == GS_APP_QUERY_TRISTATE_FALSE ||
 	    is_historical_update == GS_APP_QUERY_TRISTATE_FALSE ||
-	    is_source == GS_APP_QUERY_TRISTATE_FALSE ||
+	    (component_kinds != NULL && !gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) ||
 	    gs_app_query_get_n_properties_set (query) != 1) {
 		g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
 					 "Unsupported query");
 		return;
 	}
 
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_WAITING);
 	gs_packagekit_helper_set_progress_app (helper, app_dl);
 
 	task_list_apps = gs_packagekit_task_new (plugin);
@@ -1675,7 +1666,7 @@ gs_plugin_packagekit_list_apps_async (GsPlugin              *plugin,
 			g_task_return_pointer (task, g_steal_pointer (&list), g_object_unref);
 		else
 			g_task_return_error (task, g_steal_pointer (&local_error));
-	} else if (is_source == GS_APP_QUERY_TRISTATE_TRUE) {
+	} else if (gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) {
 		/* ask PK for the repo details */
 		filter = pk_bitfield_from_enums (PK_FILTER_ENUM_NOT_SOURCE,
 						 PK_FILTER_ENUM_NOT_DEVELOPMENT,
@@ -1788,8 +1779,9 @@ gs_plugin_packagekit_repo_list_changed_cb (PkControl *control, GsPlugin *plugin)
 	gs_plugin_packagekit_invoke_reload (plugin);
 }
 
-void
-gs_plugin_adopt_app (GsPlugin *plugin, GsApp *app)
+static void
+gs_plugin_packagekit_adopt_app (GsPlugin *plugin,
+				GsApp *app)
 {
 	if (gs_app_get_bundle_kind (app) == AS_BUNDLE_KIND_PACKAGE &&
 	    gs_app_get_scope (app) == AS_COMPONENT_SCOPE_SYSTEM) {
@@ -1960,82 +1952,82 @@ markdown_to_pango (const gchar *text)
 }
 
 static gboolean
-gs_plugin_refine_app_needs_details (GsPluginRefineFlags  flags,
-                                    GsApp               *app)
+gs_plugin_refine_app_needs_details (GsPluginRefineRequireFlags  flags,
+                                    GsApp                      *app)
 {
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE) > 0 &&
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE) > 0 &&
 	    gs_app_get_license (app) == NULL)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_URL) > 0 &&
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_URL) > 0 &&
 	    gs_app_get_url (app, AS_URL_KIND_HOMEPAGE) == NULL)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE) > 0 &&
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE) > 0 &&
 	    gs_app_get_size_installed (app, NULL) != GS_SIZE_TYPE_VALID)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE) > 0 &&
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE) > 0 &&
 	    gs_app_get_size_download (app, NULL) != GS_SIZE_TYPE_VALID)
 		return TRUE;
 	return FALSE;
 }
 
 static gboolean
-gs_plugin_refine_requires_version (GsApp *app, GsPluginRefineFlags flags)
+gs_plugin_refine_requires_version (GsApp *app, GsPluginRefineRequireFlags flags)
 {
 	const gchar *tmp;
 	tmp = gs_app_get_version (app);
 	if (tmp != NULL)
 		return FALSE;
-	return (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION) > 0;
+	return (flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION) > 0;
 }
 
 static gboolean
-gs_plugin_refine_requires_update_details (GsApp *app, GsPluginRefineFlags flags)
+gs_plugin_refine_requires_update_details (GsApp *app, GsPluginRefineRequireFlags flags)
 {
 	const gchar *tmp;
 	tmp = gs_app_get_update_details_markup (app);
 	if (tmp != NULL)
 		return FALSE;
-	return (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS) > 0;
+	return (flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS) > 0;
 }
 
 static gboolean
-gs_plugin_refine_requires_origin (GsApp *app, GsPluginRefineFlags flags)
+gs_plugin_refine_requires_origin (GsApp *app, GsPluginRefineRequireFlags flags)
 {
 	const gchar *tmp;
 	tmp = gs_app_get_origin (app);
 	if (tmp != NULL)
 		return FALSE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN) > 0)
 		return TRUE;
 	return FALSE;
 }
 
 static gboolean
-gs_plugin_refine_requires_package_id (GsApp *app, GsPluginRefineFlags flags)
+gs_plugin_refine_requires_package_id (GsApp *app, GsPluginRefineRequireFlags flags)
 {
 	const gchar *tmp;
-	tmp = gs_app_get_source_id_default (app);
+	tmp = gs_app_get_default_source_id (app);
 	if (tmp != NULL)
 		return FALSE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_URL) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_URL) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_DETAILS) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_SEVERITY) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE) > 0)
 		return TRUE;
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION) > 0)
+	if ((flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION) > 0)
 		return TRUE;
 	return FALSE;
 }
@@ -2056,7 +2048,6 @@ gs_plugin_systemd_update_cache (GsPluginPackagekit  *self,
 	g_autoptr(GError) error_local = NULL;
 	g_auto(GStrv) package_ids = NULL;
 	g_autoptr(GHashTable) new_prepared_updates = NULL;
-	g_autoptr(GMutexLocker) locker = NULL;
 
 	/* get new list of package-ids. This loads a local file, so should be
 	 * just about fast enough to be sync. */
@@ -2082,7 +2073,6 @@ gs_plugin_systemd_update_cache (GsPluginPackagekit  *self,
 	g_clear_pointer (&package_ids, g_free);
 
 	/* Update the shared state. */
-	locker = g_mutex_locker_new (&self->prepared_updates_mutex);
 	g_clear_pointer (&self->prepared_updates, g_hash_table_unref);
 	self->prepared_updates = g_steal_pointer (&new_prepared_updates);
 
@@ -2273,12 +2263,15 @@ static void sources_related_got_installed_cb (GObject      *source_object,
 					      GAsyncResult *result,
 					      gpointer      user_data);
 static void
-gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
-                                   GsAppList           *list,
-                                   GsPluginRefineFlags  flags,
-                                   GCancellable        *cancellable,
-                                   GAsyncReadyCallback  callback,
-                                   gpointer             user_data)
+gs_plugin_packagekit_refine_async (GsPlugin                   *plugin,
+                                   GsAppList                  *list,
+                                   GsPluginRefineFlags         job_flags,
+                                   GsPluginRefineRequireFlags  require_flags,
+                                   GsPluginEventCallback       event_callback,
+                                   void                       *event_user_data,
+                                   GCancellable               *cancellable,
+                                   GAsyncReadyCallback         callback,
+                                   gpointer                    user_data)
 {
 	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (plugin);
 	g_autoptr(GHashTable) resolve_list_apps = g_hash_table_new (NULL, NULL);
@@ -2309,7 +2302,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 	data->n_pending_operations = 1;  /* to prevent the task being completed before all operations have been started */
 	data->progress_datas = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	data->client_refine = pk_client_new ();
-	pk_client_set_interactive (data->client_refine, gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE));
+	pk_client_set_interactive (data->client_refine, (job_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0);
 	g_task_set_task_data (task, g_steal_pointer (&data), (GDestroyNotify) refine_data_free);
 
 	/* Process the @list and work out what information is needed for each
@@ -2342,26 +2335,26 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 		if (sources->len > 0 &&
 		    gs_plugin_packagekit_refine_valid_package_name (g_ptr_array_index (sources, 0)) &&
 		    (gs_app_get_state (app) == GS_APP_STATE_UNKNOWN ||
-		     gs_plugin_refine_requires_package_id (app, flags) ||
-		     gs_plugin_refine_requires_origin (app, flags) ||
-		     gs_plugin_refine_requires_version (app, flags))) {
+		     gs_plugin_refine_requires_package_id (app, require_flags) ||
+		     gs_plugin_refine_requires_origin (app, require_flags) ||
+		     gs_plugin_refine_requires_version (app, require_flags))) {
 			g_hash_table_add (resolve_list_apps, app);
 			gs_app_list_add (resolve_list, app);
 		}
 
 		if ((gs_app_get_state (app) == GS_APP_STATE_UPDATABLE ||
 		     gs_app_get_state (app) == GS_APP_STATE_UNKNOWN) &&
-		    gs_app_get_source_id_default (app) != NULL &&
-		    gs_plugin_refine_requires_update_details (app, flags)) {
+		    gs_app_get_default_source_id (app) != NULL &&
+		    gs_plugin_refine_requires_update_details (app, require_flags)) {
 			gs_app_list_add (update_details_list, app);
 		}
 
-		if (gs_app_get_source_id_default (app) != NULL &&
-		    gs_plugin_refine_app_needs_details (flags, app)) {
+		if (gs_app_get_default_source_id (app) != NULL &&
+		    gs_plugin_refine_app_needs_details (require_flags, app)) {
 			gs_app_list_add (details_list, app);
 		}
 
-		if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_HISTORY) != 0 &&
+		if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY) != 0 &&
 		    sources->len > 0 &&
 		    gs_app_get_install_date (app) == 0) {
 			gs_app_list_add (history_list, app);
@@ -2369,7 +2362,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 	}
 
 	/* Add sources' related apps only when refining sources and nothing else */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_RELATED) != 0 &&
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_RELATED) != 0 &&
 	    n_considered > 0 && gs_app_list_length (repos_list) == n_considered) {
 		PkBitfield filter;
 		g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
@@ -2391,7 +2384,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 
 	/* re-read /var/lib/PackageKit/prepared-update so we know what packages
 	 * to mark as already downloaded and prepared for offline updates */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE) &&
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE) &&
 	    !gs_plugin_systemd_update_cache (self, cancellable, &local_error)) {
 		refine_task_complete_operation_with_error (task, g_steal_pointer (&local_error));
 		return;
@@ -2400,7 +2393,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 	/* when we need the cannot-be-upgraded applications, we implement this
 	 * by doing a UpgradeSystem(SIMULATE) which adds the removed packages
 	 * to the related-apps list with a state of %GS_APP_STATE_UNAVAILABLE */
-	if (flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPGRADE_REMOVED) {
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPGRADE_REMOVED) != 0) {
 		for (guint i = 0; i < gs_app_list_length (list); i++) {
 			GsApp *app = gs_app_list_index (list, i);
 			g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
@@ -2420,7 +2413,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 			/* ask PK to simulate upgrading the system */
 			cache_age_save = pk_client_get_cache_age (data_unowned->client_refine);
 			pk_client_set_cache_age (data_unowned->client_refine, 60 * 60 * 24 * 7); /* once per week */
-			pk_client_set_interactive (data_unowned->client_refine, gs_plugin_has_flags (plugin, GS_PLUGIN_FLAGS_INTERACTIVE));
+			pk_client_set_interactive (data_unowned->client_refine, (job_flags & GS_PLUGIN_REFINE_FLAGS_INTERACTIVE) != 0);
 			pk_client_upgrade_system_async (data_unowned->client_refine,
 							pk_bitfield_from_enums (PK_TRANSACTION_FLAG_ENUM_SIMULATE, -1),
 							gs_app_get_version (app),
@@ -2460,7 +2453,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 	}
 
 	/* set the package-id for an installed desktop file */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION) != 0) {
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION) != 0) {
 		g_autoptr(GPtrArray) to_array = g_ptr_array_new_with_free_func (g_free);
 		g_autoptr(GHashTable) source_to_app = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 		g_autoptr(GsPackagekitHelper) helper = NULL;
@@ -2472,7 +2465,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 
 			if (gs_app_has_quirk (app, GS_APP_QUIRK_IS_WILDCARD))
 				continue;
-			if (gs_app_get_source_id_default (app) != NULL)
+			if (gs_app_get_default_source_id (app) != NULL)
 				continue;
 			if (!gs_app_has_management_plugin (app, NULL) &&
 			    !gs_app_has_management_plugin (app, GS_PLUGIN (self)))
@@ -2614,7 +2607,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 		package_ids = g_new0 (const gchar *, gs_app_list_length (update_details_list) + 1);
 		for (guint i = 0; i < gs_app_list_length (update_details_list); i++) {
 			app = gs_app_list_index (update_details_list, i);
-			package_ids[i] = gs_app_get_source_id_default (app);
+			package_ids[i] = gs_app_get_default_source_id (app);
 			g_assert (package_ids[i] != NULL);  /* checked when update_details_list is built */
 		}
 
@@ -2644,7 +2637,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 			g_ptr_array_add (package_ids, NULL);
 
 			#if PK_CHECK_VERSION (1, 2, 7)
-			if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE) != 0)
+			if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE) != 0)
 				pk_client_set_details_with_deps_size (data_unowned->client_refine, TRUE);
 			#endif
 
@@ -2659,7 +2652,7 @@ gs_plugin_packagekit_refine_async (GsPlugin            *plugin,
 	}
 
 	/* get the update severity */
-	if ((flags & GS_PLUGIN_REFINE_FLAGS_REQUIRE_UPDATE_SEVERITY) != 0) {
+	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_SEVERITY) != 0) {
 		PkBitfield filter;
 		g_autoptr(GsPackagekitHelper) helper = gs_packagekit_helper_new (plugin);
 
@@ -2786,13 +2779,13 @@ sources_related_got_installed_cb (GObject      *source_object,
 	for (guint i = 0; i < gs_app_list_length (installed); i++) {
 		g_auto(GStrv) split = NULL;
 		GsApp *app = gs_app_list_index (installed, i);
-		split = pk_package_id_split (gs_app_get_source_id_default (app));
+		split = pk_package_id_split (gs_app_get_default_source_id (app));
 		if (split == NULL) {
 			g_set_error (&local_error,
 				     GS_PLUGIN_ERROR,
 				     GS_PLUGIN_ERROR_INVALID_FORMAT,
 				     "invalid package-id: %s",
-				     gs_app_get_source_id_default (app));
+				     gs_app_get_default_source_id (app));
 			refine_task_complete_operation_with_error (refine_task, g_steal_pointer (&local_error));
 			return;
 		}
@@ -2801,7 +2794,7 @@ sources_related_got_installed_cb (GObject      *source_object,
 			GsApp *app_tmp = g_hash_table_lookup (sources_hash, id);
 			if (app_tmp != NULL) {
 				g_debug ("found package %s from %s",
-					 gs_app_get_source_default (app), id);
+					 gs_app_get_default_source (app), id);
 				gs_app_add_related (app_tmp, app);
 			}
 		}
@@ -2979,7 +2972,7 @@ get_update_detail_cb (GObject      *source_object,
 	array = pk_results_get_update_detail_array (results);
 	for (guint j = 0; j < gs_app_list_length (data->update_details_list); j++) {
 		GsApp *app = gs_app_list_index (data->update_details_list, j);
-		const gchar *package_id = gs_app_get_source_id_default (app);
+		const gchar *package_id = gs_app_get_default_source_id (app);
 
 		for (guint i = 0; i < array->len; i++) {
 			const gchar *tmp;
@@ -3044,9 +3037,7 @@ get_details_cb (GObject      *source_object,
 	details_collection = gs_plugin_packagekit_details_array_to_hash (array);
 
 	/* set the update details for the update */
-	g_mutex_lock (&self->prepared_updates_mutex);
 	prepared_updates = g_hash_table_ref (self->prepared_updates);
-	g_mutex_unlock (&self->prepared_updates_mutex);
 
 	for (guint i = 0; i < gs_app_list_length (data->details_list); i++) {
 		GsApp *app = gs_app_list_index (data->details_list, i);
@@ -3085,7 +3076,7 @@ get_updates_cb (GObject      *source_object,
 
 		if (gs_app_has_quirk (app, GS_APP_QUIRK_IS_WILDCARD))
 			continue;
-		package_id = gs_app_get_source_id_default (app);
+		package_id = gs_app_get_default_source_id (app);
 		if (package_id == NULL)
 			continue;
 		pkg = pk_package_sack_find_by_id (sack, package_id);
@@ -3193,58 +3184,117 @@ gs_plugin_packagekit_permission_cb (GPermission *permission,
 	gs_plugin_set_allow_updates (plugin, ret);
 }
 
-static void gs_plugin_packagekit_download_async (GsPluginPackagekit  *self,
-                                                 GsAppList           *list,
-                                                 gboolean             interactive,
-                                                 GCancellable        *cancellable,
-                                                 GAsyncReadyCallback  callback,
-                                                 gpointer             user_data);
+static void gs_plugin_packagekit_download_async (GsPluginPackagekit    *self,
+                                                 GsAppList             *list,
+                                                 gboolean               interactive,
+                                                 GsPluginEventCallback  event_callback,
+                                                 void                  *event_user_data,
+                                                 GCancellable          *cancellable,
+                                                 GAsyncReadyCallback    callback,
+                                                 gpointer               user_data);
 static gboolean gs_plugin_packagekit_download_finish (GsPluginPackagekit  *self,
                                                       GAsyncResult        *result,
                                                       GError             **error);
 
+/* Any events from the auto-prepare-update job need to be reported via
+ * `GsPlugin`’s event code (rather than, as is more typical, a
+ * `GsPluginEventCallback` provided by a `GsPluginJob`) because this job is
+ * started in response to an external system change, and is not tied to any
+ * `GsPluginJob`.
+ *
+ * This callback could be called in a worker thread or the main thread.
+ * gs_plugin_report_event() allows that. */
 static void
-async_result_cb (GObject      *source_object,
-                 GAsyncResult *result,
-                 gpointer      user_data)
+prepare_update_event_cb (GsPlugin      *plugin,
+                         GsPluginEvent *event,
+                         void          *user_data)
 {
-	GAsyncResult **result_out = user_data;
+	gs_plugin_report_event (plugin, event);
+}
 
-	g_assert (result_out != NULL && *result_out == NULL);
-	*result_out = g_object_ref (result);
-	g_main_context_wakeup (g_main_context_get_thread_default ());
+static void prepare_update_get_updates_cb (GObject      *source_object,
+                                           GAsyncResult *result,
+                                           void         *user_data);
+static void prepare_update_download_cb (GObject      *source_object,
+                                        GAsyncResult *result,
+                                        void         *user_data);
+static void prepare_update_finished_cb (GObject      *source_object,
+                                        GAsyncResult *result,
+                                        void         *user_data);
+
+static gboolean
+gs_plugin_packagekit_run_prepare_update_cb (gpointer user_data)
+{
+	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (user_data);
+	g_autoptr(GTask) task = NULL;
+	GCancellable *cancellable = self->proxy_settings_cancellable;
+	gboolean interactive = FALSE; /* this is done in the background, thus not interactive */
+	g_autoptr(GsPackagekitHelper) helper = NULL;
+	g_autoptr(PkTask) task_updates = NULL;
+
+	self->prepare_update_timeout_id = 0;
+
+	g_debug ("Going to auto-prepare update");
+	task = g_task_new (self, cancellable, prepare_update_finished_cb, NULL);
+	g_task_set_source_tag (task, gs_plugin_packagekit_run_prepare_update_cb);
+
+	/* Get updates */
+	task_updates = gs_packagekit_task_new (GS_PLUGIN (self));
+	helper = gs_packagekit_helper_new (GS_PLUGIN (self));
+	gs_packagekit_task_setup (GS_PACKAGEKIT_TASK (task_updates), GS_PACKAGEKIT_TASK_QUESTION_TYPE_NONE, interactive);
+	gs_packagekit_helper_set_allow_emit_updates_changed (helper, FALSE);
+	gs_packagekit_task_take_helper (GS_PACKAGEKIT_TASK (task_updates), helper);
+
+	pk_client_get_updates_async (PK_CLIENT (task_updates),
+				     pk_bitfield_value (PK_FILTER_ENUM_NONE),
+				     cancellable,
+				     gs_packagekit_helper_cb, g_steal_pointer (&helper),
+				     prepare_update_get_updates_cb, g_steal_pointer (&task));
+
+	return G_SOURCE_REMOVE;
 }
 
 static void
-gs_plugin_packagekit_auto_prepare_update_thread (GTask *task,
-						 gpointer source_object,
-						 gpointer task_data,
-						 GCancellable *cancellable)
+prepare_update_get_updates_cb (GObject      *source_object,
+                               GAsyncResult *result,
+                               void         *user_data)
 {
-	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (source_object);
+	PkTask *task_updates = PK_TASK (source_object);
+	g_autoptr(GTask) task = g_steal_pointer (&user_data);
+	GsPluginPackagekit *self = g_task_get_source_object (task);
+	GCancellable *cancellable = g_task_get_cancellable (task);
+	gboolean interactive = FALSE; /* this is done in the background, thus not interactive */
 	g_autoptr(GsAppList) list = NULL;
 	g_autoptr(GError) local_error = NULL;
-	gboolean interactive = gs_plugin_has_flags (GS_PLUGIN (self), GS_PLUGIN_FLAGS_INTERACTIVE);
+	g_autoptr(PkResults) results = NULL;
 
 	list = gs_app_list_new ();
-	if (!gs_plugin_packagekit_add_updates (GS_PLUGIN (self), list, cancellable, &local_error)) {
+	results = pk_client_generic_finish (PK_CLIENT (task_updates), result, &local_error);
+	if (!gs_plugin_package_list_updates_process_results (GS_PLUGIN (self), results, list, cancellable, &local_error)) {
 		g_task_return_error (task, g_steal_pointer (&local_error));
 		return;
 	}
 
-	if (gs_app_list_length (list) > 0) {
-		g_autoptr(GMainContext) context = g_main_context_new ();
-		g_autoptr(GMainContextPusher) pusher = g_main_context_pusher_new (context);
-		g_autoptr(GAsyncResult) result = NULL;
+	/* It’s OK to call this with an empty list; it’ll return immediately */
+	gs_plugin_packagekit_download_async (self, list, interactive,
+					     prepare_update_event_cb, NULL,
+					     cancellable,
+					     prepare_update_download_cb, g_steal_pointer (&task));
+}
 
-		gs_plugin_packagekit_download_async (self, list, interactive, cancellable, async_result_cb, &result);
-		while (result == NULL)
-			g_main_context_iteration (context, TRUE);
+static void
+prepare_update_download_cb (GObject      *source_object,
+                            GAsyncResult *result,
+                            void         *user_data)
+{
+	GsPluginPackagekit *self = GS_PLUGIN_PACKAGEKIT (source_object);
+	g_autoptr(GTask) task = g_steal_pointer (&user_data);
+	GCancellable *cancellable = g_task_get_cancellable (task);
+	g_autoptr(GError) local_error = NULL;
 
-		if (!gs_plugin_packagekit_download_finish (self, result, &local_error)) {
-			g_task_return_error (task, g_steal_pointer (&local_error));
-			return;
-		}
+	if (!gs_plugin_packagekit_download_finish (self, result, &local_error)) {
+		g_task_return_error (task, g_steal_pointer (&local_error));
+		return;
 	}
 
 	/* Ignore errors here */
@@ -3254,9 +3304,9 @@ gs_plugin_packagekit_auto_prepare_update_thread (GTask *task,
 }
 
 static void
-gs_plugin_packagekit_auto_prepare_update_cb (GObject *source_object,
-					     GAsyncResult *result,
-					     gpointer user_data)
+prepare_update_finished_cb (GObject      *source_object,
+                            GAsyncResult *result,
+                            void         *user_data)
 {
 	g_autoptr(GError) local_error = NULL;
 
@@ -3266,21 +3316,6 @@ gs_plugin_packagekit_auto_prepare_update_cb (GObject *source_object,
 	} else {
 		g_debug ("Failed to auto-prepare update: %s", local_error->message);
 	}
-}
-
-static gboolean
-gs_plugin_packagekit_run_prepare_update_cb (gpointer user_data)
-{
-	GsPluginPackagekit *self = user_data;
-	g_autoptr(GTask) task = NULL;
-
-	self->prepare_update_timeout_id = 0;
-
-	g_debug ("Going to auto-prepare update");
-	task = g_task_new (self, self->proxy_settings_cancellable, gs_plugin_packagekit_auto_prepare_update_cb, NULL);
-	g_task_set_source_tag (task, gs_plugin_packagekit_run_prepare_update_cb);
-	g_task_run_in_thread (task, gs_plugin_packagekit_auto_prepare_update_thread);
-	return G_SOURCE_REMOVE;
 }
 
 /* Run in the main thread. */
@@ -3417,7 +3452,7 @@ gs_plugin_packagekit_setup_async (GsPlugin            *plugin,
 	task = g_task_new (plugin, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_setup_async);
 
-	reload_proxy_settings_async (self, cancellable, setup_proxy_settings_cb, g_steal_pointer (&task));
+	reload_proxy_settings_async (self, FALSE, cancellable, setup_proxy_settings_cb, g_steal_pointer (&task));
 }
 
 static void
@@ -3549,7 +3584,7 @@ gs_plugin_packagekit_refine_history_async (GsPluginPackagekit  *self,
 	package_names = g_new0 (const gchar *, gs_app_list_length (list) + 1);
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
 		app = gs_app_list_index (list, i);
-		package_names[i] = gs_app_get_source_default (app);
+		package_names[i] = gs_app_get_default_source (app);
 	}
 
 	g_debug ("getting history for %u packages", gs_app_list_length (list));
@@ -3635,7 +3670,7 @@ refine_history_cb (GObject      *source_object,
 		g_autoptr(GVariant) entries = NULL;
 		GsApp *app = gs_app_list_index (list, i);
 		ret = g_variant_lookup (tuple,
-					gs_app_get_source_default (app),
+					gs_app_get_default_source (app),
 					"@aa{sv}",
 					&entries);
 		if (!ret) {
@@ -3688,7 +3723,7 @@ add_quirks_from_package_name (GsApp *app, const gchar *package_name)
 		NULL };
 
 	if (g_strv_contains (packages_with_repos, package_name))
-		gs_app_add_quirk (app, GS_APP_QUIRK_HAS_SOURCE);
+		gs_app_add_quirk (app, GS_APP_QUIRK_LOCAL_HAS_REPOSITORY);
 }
 
 typedef struct {
@@ -3725,6 +3760,8 @@ static void
 gs_plugin_packagekit_file_to_app_async (GsPlugin *plugin,
 					GFile *file,
 					GsPluginFileToAppFlags flags,
+					GsPluginEventCallback event_callback,
+					void *event_user_data,
 					GCancellable *cancellable,
 					GAsyncReadyCallback callback,
 					gpointer user_data)
@@ -3904,7 +3941,7 @@ file_to_app_get_details_local_cb (GObject      *source_object,
 	data->app = g_steal_pointer (&app);
 
 	/* is already installed? */
-	names[0] = gs_app_get_source_default (data->app);
+	names[0] = gs_app_get_default_source (data->app);
 	filter = pk_bitfield_from_enums (PK_FILTER_ENUM_NEWEST,
 					 PK_FILTER_ENUM_ARCH,
 					 PK_FILTER_ENUM_INSTALLED,
@@ -4019,7 +4056,7 @@ file_to_app_get_files_cb (GObject      *source_object,
 		for (guint j = 0; fns[j] != NULL; j++) {
 			if (g_str_has_prefix (fns[j], "/etc/yum.repos.d/") &&
 			    g_str_has_suffix (fns[j], ".repo")) {
-				gs_app_add_quirk (data->app, GS_APP_QUIRK_HAS_SOURCE);
+				gs_app_add_quirk (data->app, GS_APP_QUIRK_LOCAL_HAS_REPOSITORY);
 			}
 			if (g_str_has_prefix (fns[j], "/usr/share/applications/") &&
 			    g_str_has_suffix (fns[j], ".desktop")) {
@@ -4058,6 +4095,8 @@ static void
 gs_plugin_packagekit_url_to_app_async (GsPlugin *plugin,
 				       const gchar *url,
 				       GsPluginUrlToAppFlags flags,
+				       GsPluginEventCallback event_callback,
+				       void *event_user_data,
 				       GCancellable *cancellable,
 				       GAsyncReadyCallback callback,
 				       gpointer user_data)
@@ -4069,7 +4108,7 @@ gs_plugin_packagekit_url_to_app_async (GsPlugin *plugin,
 	g_autoptr(GTask) task = NULL;
 	g_autoptr(GError) local_error = NULL;
 
-	task = gs_plugin_url_to_app_data_new_task (plugin, url, flags, cancellable, callback, user_data);
+	task = gs_plugin_url_to_app_data_new_task (plugin, url, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_url_to_app_async);
 
 	/* only do this for apt:// on debian or debian-like distros */
@@ -4155,9 +4194,7 @@ gs_plugin_packagekit_url_to_app_resolved_cb (GObject *source_object,
 		if (gs_app_get_local_file (app) == NULL) {
 			details_collection = gs_plugin_packagekit_details_array_to_hash (details);
 
-			g_mutex_lock (&self->prepared_updates_mutex);
 			prepared_updates = g_hash_table_ref (self->prepared_updates);
-			g_mutex_unlock (&self->prepared_updates_mutex);
 
 			gs_plugin_packagekit_resolve_packages_app (plugin, packages, app);
 			gs_plugin_packagekit_refine_details_app (plugin, details_collection, prepared_updates, app);
@@ -4183,173 +4220,95 @@ gs_plugin_packagekit_url_to_app_finish (GsPlugin      *plugin,
 	return g_task_propagate_pointer (G_TASK (result), error);
 }
 
-static gchar *
-get_proxy_http (GsPluginPackagekit *self)
+static void
+get_desktop_proxy_settings (GsPluginPackagekit  *self,
+                            char               **out_http,
+                            char               **out_https,
+                            char               **out_ftp,
+                            char               **out_socks,
+                            char               **out_ignore_hosts,
+                            char               **out_pac)
 {
-	gboolean ret;
-	GString *string = NULL;
-	gint port;
 	GDesktopProxyMode proxy_mode;
-	g_autofree gchar *host = NULL;
-	g_autofree gchar *password = NULL;
-	g_autofree gchar *username = NULL;
+
+	/* Clear all the outputs first. */
+	*out_http = NULL;
+	*out_https = NULL;
+	*out_ftp = NULL;
+	*out_socks = NULL;
+	*out_ignore_hosts = NULL;
+	*out_pac = NULL;
 
 	proxy_mode = g_settings_get_enum (self->settings_proxy, "mode");
-	if (proxy_mode != G_DESKTOP_PROXY_MODE_MANUAL)
-		return NULL;
 
-	host = g_settings_get_string (self->settings_http, "host");
-	if (host == NULL || host[0] == '\0')
-		return NULL;
+	if (proxy_mode == G_DESKTOP_PROXY_MODE_MANUAL) {
+		g_autofree char *http_host = NULL;
+		g_auto(GStrv) ignore_hosts = NULL;
+		const struct {
+			GSettings *settings;
+			char **out;
+		} similar_protocols[] = {
+			{ self->settings_https, out_https },
+			{ self->settings_ftp, out_ftp },
+			{ self->settings_socks, out_socks },
+		};
 
-	port = g_settings_get_int (self->settings_http, "port");
+		/* HTTP */
+		http_host = g_settings_get_string (self->settings_http, "host");
+		if (http_host != NULL && *http_host != '\0') {
+			GString *string = NULL;
+			gint port;
+			g_autofree gchar *password = NULL;
+			g_autofree gchar *username = NULL;
 
-	ret = g_settings_get_boolean (self->settings_http,
-				      "use-authentication");
-	if (ret) {
-		username = g_settings_get_string (self->settings_http,
-						  "authentication-user");
-		password = g_settings_get_string (self->settings_http,
-						  "authentication-password");
+			port = g_settings_get_int (self->settings_http, "port");
+
+			if (g_settings_get_boolean (self->settings_http,
+						    "use-authentication")) {
+				username = g_settings_get_string (self->settings_http,
+								  "authentication-user");
+				password = g_settings_get_string (self->settings_http,
+								  "authentication-password");
+			}
+
+			/* make PackageKit proxy string */
+			string = g_string_new ("");
+			if (username != NULL || password != NULL) {
+				if (username != NULL)
+					g_string_append_printf (string, "%s", username);
+				if (password != NULL)
+					g_string_append_printf (string, ":%s", password);
+				g_string_append (string, "@");
+			}
+			g_string_append (string, http_host);
+			if (port > 0)
+				g_string_append_printf (string, ":%i", port);
+			*out_http = g_string_free (string, FALSE);
+		}
+
+		/* HTTPS, FTP and SOCKS all follow the same pattern */
+		for (size_t i = 0; i < G_N_ELEMENTS (similar_protocols); i++) {
+			g_autofree char *host = g_settings_get_string (similar_protocols[i].settings, "host");
+			int port = g_settings_get_int (similar_protocols[i].settings, "port");
+
+			if (host != NULL && *host != '\0' && port != 0) {
+				/* make PackageKit proxy string */
+				if (port > 0)
+					*(similar_protocols[i].out) = g_strdup_printf ("%s:%i", host, port);
+				else
+					*(similar_protocols[i].out) = g_steal_pointer (&host);
+			}
+		}
+
+		/* ignore-hosts */
+		ignore_hosts = g_settings_get_strv (self->settings_proxy, "ignore-hosts");
+
+		if (ignore_hosts != NULL)
+			*out_ignore_hosts = g_strjoinv (",", ignore_hosts);
+	} else if (proxy_mode == G_DESKTOP_PROXY_MODE_AUTO) {
+		/* PAC */
+		*out_pac = g_settings_get_string (self->settings_proxy, "autoconfig-url");
 	}
-
-	/* make PackageKit proxy string */
-	string = g_string_new ("");
-	if (username != NULL || password != NULL) {
-		if (username != NULL)
-			g_string_append_printf (string, "%s", username);
-		if (password != NULL)
-			g_string_append_printf (string, ":%s", password);
-		g_string_append (string, "@");
-	}
-	g_string_append (string, host);
-	if (port > 0)
-		g_string_append_printf (string, ":%i", port);
-	return g_string_free (string, FALSE);
-}
-
-static gchar *
-get_proxy_https (GsPluginPackagekit *self)
-{
-	GString *string = NULL;
-	gint port;
-	GDesktopProxyMode proxy_mode;
-	g_autofree gchar *host = NULL;
-
-	proxy_mode = g_settings_get_enum (self->settings_proxy, "mode");
-	if (proxy_mode != G_DESKTOP_PROXY_MODE_MANUAL)
-		return NULL;
-
-	host = g_settings_get_string (self->settings_https, "host");
-	if (host == NULL || host[0] == '\0')
-		return NULL;
-	port = g_settings_get_int (self->settings_https, "port");
-	if (port == 0)
-		return NULL;
-
-	/* make PackageKit proxy string */
-	string = g_string_new (host);
-	if (port > 0)
-		g_string_append_printf (string, ":%i", port);
-	return g_string_free (string, FALSE);
-}
-
-static gchar *
-get_proxy_ftp (GsPluginPackagekit *self)
-{
-	GString *string = NULL;
-	gint port;
-	GDesktopProxyMode proxy_mode;
-	g_autofree gchar *host = NULL;
-
-	proxy_mode = g_settings_get_enum (self->settings_proxy, "mode");
-	if (proxy_mode != G_DESKTOP_PROXY_MODE_MANUAL)
-		return NULL;
-
-	host = g_settings_get_string (self->settings_ftp, "host");
-	if (host == NULL || host[0] == '\0')
-		return NULL;
-	port = g_settings_get_int (self->settings_ftp, "port");
-	if (port == 0)
-		return NULL;
-
-	/* make PackageKit proxy string */
-	string = g_string_new (host);
-	if (port > 0)
-		g_string_append_printf (string, ":%i", port);
-	return g_string_free (string, FALSE);
-}
-
-static gchar *
-get_proxy_socks (GsPluginPackagekit *self)
-{
-	GString *string = NULL;
-	gint port;
-	GDesktopProxyMode proxy_mode;
-	g_autofree gchar *host = NULL;
-
-	proxy_mode = g_settings_get_enum (self->settings_proxy, "mode");
-	if (proxy_mode != G_DESKTOP_PROXY_MODE_MANUAL)
-		return NULL;
-
-	host = g_settings_get_string (self->settings_socks, "host");
-	if (host == NULL || host[0] == '\0')
-		return NULL;
-	port = g_settings_get_int (self->settings_socks, "port");
-	if (port == 0)
-		return NULL;
-
-	/* make PackageKit proxy string */
-	string = g_string_new (host);
-	if (port > 0)
-		g_string_append_printf (string, ":%i", port);
-	return g_string_free (string, FALSE);
-}
-
-static gchar *
-get_no_proxy (GsPluginPackagekit *self)
-{
-	GString *string = NULL;
-	GDesktopProxyMode proxy_mode;
-	g_autofree gchar **hosts = NULL;
-	guint i;
-
-	proxy_mode = g_settings_get_enum (self->settings_proxy, "mode");
-	if (proxy_mode != G_DESKTOP_PROXY_MODE_MANUAL)
-		return NULL;
-
-	hosts = g_settings_get_strv (self->settings_proxy, "ignore-hosts");
-	if (hosts == NULL)
-		return NULL;
-
-	/* make PackageKit proxy string */
-	string = g_string_new ("");
-	for (i = 0; hosts[i] != NULL; i++) {
-		if (i == 0)
-			g_string_assign (string, hosts[i]);
-		else
-			g_string_append_printf (string, ",%s", hosts[i]);
-		g_free (hosts[i]);
-	}
-
-	return g_string_free (string, FALSE);
-}
-
-static gchar *
-get_pac (GsPluginPackagekit *self)
-{
-	GDesktopProxyMode proxy_mode;
-	gchar *url = NULL;
-
-	proxy_mode = g_settings_get_enum (self->settings_proxy, "mode");
-	if (proxy_mode != G_DESKTOP_PROXY_MODE_AUTO)
-		return NULL;
-
-	url = g_settings_get_string (self->settings_proxy, "autoconfig-url");
-	if (url == NULL)
-		return NULL;
-
-	return url;
 }
 
 static void get_permission_cb (GObject      *source_object,
@@ -4361,6 +4320,7 @@ static void set_proxy_cb (GObject      *source_object,
 
 static void
 reload_proxy_settings_async (GsPluginPackagekit  *self,
+                             gboolean             force_set,
                              GCancellable        *cancellable,
                              GAsyncReadyCallback  callback,
                              gpointer             user_data)
@@ -4369,6 +4329,32 @@ reload_proxy_settings_async (GsPluginPackagekit  *self,
 
 	task = g_task_new (self, cancellable, callback, user_data);
 	g_task_set_source_tag (task, reload_proxy_settings_async);
+
+	/* Check whether there are any proxy settings set. If not, we can save
+	 * several D-Bus round-trips to query polkit and call SetProxy() on
+	 * PackageKit just to set its defaults.
+	 *
+	 * We always want to set the proxy settings if they’ve changed, though,
+	 * which is what @force_set is for. */
+	if (!force_set) {
+		g_autofree char *proxy_http = NULL;
+		g_autofree char *proxy_https = NULL;
+		g_autofree char *proxy_ftp = NULL;
+		g_autofree char *proxy_socks = NULL;
+		g_autofree char *proxy_ignore_hosts = NULL;
+		g_autofree char *proxy_pac = NULL;
+
+		get_desktop_proxy_settings (self, &proxy_http, &proxy_https,
+					    &proxy_ftp, &proxy_socks,
+					    &proxy_ignore_hosts, &proxy_pac);
+
+		if (proxy_http == NULL && proxy_https == NULL && proxy_ftp == NULL &&
+		    proxy_socks == NULL && proxy_ignore_hosts == NULL && proxy_pac == NULL) {
+			g_debug ("Setting skipping proxies as they are all empty");
+			g_task_return_boolean (task, TRUE);
+			return;
+		}
+	}
 
 	/* only if we can achieve the action *without* an auth dialog */
 	gs_utils_get_permission_async ("org.freedesktop.packagekit."
@@ -4389,8 +4375,8 @@ get_permission_cb (GObject      *source_object,
 	g_autofree gchar *proxy_https = NULL;
 	g_autofree gchar *proxy_ftp = NULL;
 	g_autofree gchar *proxy_socks = NULL;
-	g_autofree gchar *no_proxy = NULL;
-	g_autofree gchar *pac = NULL;
+	g_autofree gchar *proxy_ignore_hosts = NULL;
+	g_autofree gchar *proxy_pac = NULL;
 	g_autoptr(GPermission) permission = NULL;
 	g_autoptr(GError) local_error = NULL;
 
@@ -4406,25 +4392,21 @@ get_permission_cb (GObject      *source_object,
 		return;
 	}
 
-	proxy_http = get_proxy_http (self);
-	proxy_https = get_proxy_https (self);
-	proxy_ftp = get_proxy_ftp (self);
-	proxy_socks = get_proxy_socks (self);
-	no_proxy = get_no_proxy (self);
-	pac = get_pac (self);
+	get_desktop_proxy_settings (self, &proxy_http, &proxy_https, &proxy_ftp,
+				    &proxy_socks, &proxy_ignore_hosts, &proxy_pac);
 
 	g_debug ("Setting proxies (http: %s, https: %s, ftp: %s, socks: %s, "
-	         "no_proxy: %s, pac: %s)",
-	         proxy_http, proxy_https, proxy_ftp, proxy_socks,
-	         no_proxy, pac);
+		 "ignore-hosts: %s, pac: %s)",
+		 proxy_http, proxy_https, proxy_ftp, proxy_socks,
+		 proxy_ignore_hosts, proxy_pac);
 
 	pk_control_set_proxy2_async (self->control_proxy,
 				     proxy_http,
 				     proxy_https,
 				     proxy_ftp,
 				     proxy_socks,
-				     no_proxy,
-				     pac,
+				     proxy_ignore_hosts,
+				     proxy_pac,
 				     cancellable,
 				     set_proxy_cb,
 				     g_steal_pointer (&task));
@@ -4473,7 +4455,7 @@ gs_plugin_packagekit_proxy_changed_cb (GSettings   *settings,
 	g_clear_object (&self->proxy_settings_cancellable);
 	self->proxy_settings_cancellable = g_cancellable_new ();
 
-	reload_proxy_settings_async (self, self->proxy_settings_cancellable,
+	reload_proxy_settings_async (self, TRUE, self->proxy_settings_cancellable,
 				     proxy_changed_reload_proxy_settings_cb, self);
 }
 
@@ -4519,6 +4501,8 @@ static void
 gs_plugin_packagekit_download_upgrade_async (GsPlugin                     *plugin,
                                              GsApp                        *app,
                                              GsPluginDownloadUpgradeFlags  flags,
+                                             GsPluginEventCallback         event_callback,
+                                             void                         *event_user_data,
                                              GCancellable                 *cancellable,
                                              GAsyncReadyCallback           callback,
                                              gpointer                      user_data)
@@ -4528,7 +4512,7 @@ gs_plugin_packagekit_download_upgrade_async (GsPlugin                     *plugi
 	g_autoptr(GTask) task = NULL;
 	gboolean interactive = (flags & GS_PLUGIN_DOWNLOAD_UPGRADE_FLAGS_INTERACTIVE) != 0;
 
-	task = gs_plugin_download_upgrade_data_new_task (plugin, app, flags, cancellable, callback, user_data);
+	task = gs_plugin_download_upgrade_data_new_task (plugin, app, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_download_upgrade_async);
 
 	/* only process this app if was created by this plugin */
@@ -4575,6 +4559,8 @@ gs_plugin_packagekit_download_upgrade_finish (GsPlugin      *plugin,
 static void gs_plugin_packagekit_refresh_metadata_async (GsPlugin                     *plugin,
                                                          guint64                       cache_age_secs,
                                                          GsPluginRefreshMetadataFlags  flags,
+                                                         GsPluginEventCallback         event_callback,
+                                                         void                         *event_user_data,
                                                          GCancellable                 *cancellable,
                                                          GAsyncReadyCallback           callback,
                                                          gpointer                      user_data);
@@ -4632,6 +4618,8 @@ gs_plugin_packagekit_enable_repository_ready_cb (GObject *source_object,
 	gs_plugin_packagekit_refresh_metadata_async (GS_PLUGIN (self),
 						     1,  /* cache age */
 						     metadata_flags,
+						     data->event_callback,
+						     data->event_user_data,
 						     cancellable,
 						     gs_plugin_packagekit_enable_repository_refresh_ready_cb,
 						     g_steal_pointer (&task));
@@ -4641,6 +4629,8 @@ static void
 gs_plugin_packagekit_enable_repository_async (GsPlugin                     *plugin,
 					      GsApp			   *repository,
                                               GsPluginManageRepositoryFlags flags,
+                                              GsPluginEventCallback         event_callback,
+                                              void                         *event_user_data,
                                               GCancellable		   *cancellable,
                                               GAsyncReadyCallback	    callback,
                                               gpointer			    user_data)
@@ -4649,7 +4639,7 @@ gs_plugin_packagekit_enable_repository_async (GsPlugin                     *plug
 	g_autoptr(PkTask) task_enable_repo = NULL;
 	g_autoptr(GTask) task = NULL;
 
-	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, cancellable, callback, user_data);
+	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_enable_repository_async);
 
 	/* only process this app if was created by this plugin */
@@ -4662,7 +4652,6 @@ gs_plugin_packagekit_enable_repository_async (GsPlugin                     *plug
 	g_assert (gs_app_get_kind (repository) == AS_COMPONENT_KIND_REPOSITORY);
 
 	/* do the call */
-	gs_plugin_status_update (plugin, repository, GS_PLUGIN_STATUS_WAITING);
 	gs_app_set_state (repository, GS_APP_STATE_INSTALLING);
 
 	helper = gs_packagekit_helper_new (plugin);
@@ -4728,6 +4717,8 @@ static void
 gs_plugin_packagekit_disable_repository_async (GsPlugin                     *plugin,
 					       GsApp			    *repository,
                                                GsPluginManageRepositoryFlags flags,
+                                               GsPluginEventCallback         event_callback,
+                                               void                         *event_user_data,
                                                GCancellable		    *cancellable,
                                                GAsyncReadyCallback	     callback,
                                                gpointer			     user_data)
@@ -4736,7 +4727,7 @@ gs_plugin_packagekit_disable_repository_async (GsPlugin                     *plu
 	g_autoptr(PkTask) task_disable_repo = NULL;
 	g_autoptr(GTask) task = NULL;
 
-	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, cancellable, callback, user_data);
+	task = gs_plugin_manage_repository_data_new_task (plugin, repository, flags, event_callback, event_user_data, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_disable_repository_async);
 
 	/* only process this app if was created by this plugin */
@@ -4749,7 +4740,6 @@ gs_plugin_packagekit_disable_repository_async (GsPlugin                     *plu
 	g_assert (gs_app_get_kind (repository) == AS_COMPONENT_KIND_REPOSITORY);
 
 	/* do the call */
-	gs_plugin_status_update (plugin, repository, GS_PLUGIN_STATUS_WAITING);
 	gs_app_set_state (repository, GS_APP_STATE_REMOVING);
 
 	helper = gs_packagekit_helper_new (plugin);
@@ -4787,6 +4777,8 @@ typedef struct {
 	GsAppList *progress_list;  /* (owned) */
 
 	gboolean interactive;
+	GsPluginEventCallback event_callback;
+	void *event_user_data;
 
 	GsPackagekitHelper *helper;  /* (owned) */
 } DownloadData;
@@ -4819,12 +4811,14 @@ static void finish_download (GTask  *task,
                              GError *error);
 
 static void
-gs_plugin_packagekit_download_async (GsPluginPackagekit  *self,
-                                     GsAppList           *list,
-                                     gboolean             interactive,
-                                     GCancellable        *cancellable,
-                                     GAsyncReadyCallback  callback,
-                                     gpointer             user_data)
+gs_plugin_packagekit_download_async (GsPluginPackagekit    *self,
+                                     GsAppList             *list,
+                                     gboolean               interactive,
+                                     GsPluginEventCallback  event_callback,
+                                     void                  *event_user_data,
+                                     GCancellable          *cancellable,
+                                     GAsyncReadyCallback    callback,
+                                     gpointer               user_data)
 {
 	GsPlugin *plugin = GS_PLUGIN (self);
 	g_autoptr(GTask) task = NULL;
@@ -4838,6 +4832,8 @@ gs_plugin_packagekit_download_async (GsPluginPackagekit  *self,
 	data->download_list = gs_app_list_new ();
 	data->progress_list = g_object_ref (list);
 	data->interactive = interactive;
+	data->event_callback = event_callback;
+	data->event_user_data = event_user_data;
 	data->helper = gs_packagekit_helper_new (plugin);
 	gs_packagekit_helper_set_allow_emit_updates_changed (data->helper, FALSE);
 	g_task_set_task_data (task, g_steal_pointer (&data_owned), (GDestroyNotify) download_data_free);
@@ -4902,7 +4898,6 @@ download_schedule_cb (GObject      *source_object,
 	}
 
 	/* get the list of packages to update */
-	gs_plugin_status_update (GS_PLUGIN (self), NULL, GS_PLUGIN_STATUS_WAITING);
 
 	/* never refresh the metadata here as this can surprise the frontend if
 	 * we end up downloading a different set of packages than what was
@@ -4962,7 +4957,8 @@ download_get_updates_cb (GObject      *source_object,
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
 			if (data->interactive)
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
-			gs_plugin_report_event (g_task_get_source_object (task), event);
+			if (data->event_callback != NULL)
+				data->event_callback (g_task_get_source_object (task), event, data->event_user_data);
 		}
 		finish_download (task, g_steal_pointer (&local_error));
 		return;
@@ -4985,6 +4981,10 @@ download_get_updates_cb (GObject      *source_object,
 		gs_packagekit_helper_add_app (data->helper, app);
 	}
 	gs_packagekit_helper_set_progress_list (data->helper, data->progress_list);
+
+	/* make 'download' operation always low priority, so other interactive
+	   operations get to run when a download is in progress */
+	pk_client_set_background (PK_CLIENT (task_update), TRUE);
 
 	/* never refresh the metadata here as this can surprise the frontend if
 	 * we end up downloading a different set of packages than what was
@@ -5021,7 +5021,8 @@ download_update_packages_cb (GObject      *source_object,
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_WARNING);
 			if (data->interactive)
 				gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
-			gs_plugin_report_event (g_task_get_source_object (task), event);
+			if (data->event_callback != NULL)
+				data->event_callback (g_task_get_source_object (task), event, data->event_user_data);
 		}
 		gs_plugin_packagekit_error_convert (&local_error, cancellable);
 		finish_download (task, g_steal_pointer (&local_error));
@@ -5087,6 +5088,8 @@ gs_plugin_packagekit_update_apps_async (GsPlugin                           *plug
                                         GsPluginUpdateAppsFlags             flags,
                                         GsPluginProgressCallback            progress_callback,
                                         gpointer                            progress_user_data,
+                                        GsPluginEventCallback               event_callback,
+                                        void                               *event_user_data,
                                         GsPluginAppNeedsUserActionCallback  app_needs_user_action_callback,
                                         gpointer                            app_needs_user_action_data,
                                         GCancellable                       *cancellable,
@@ -5099,13 +5102,16 @@ gs_plugin_packagekit_update_apps_async (GsPlugin                           *plug
 
 	task = gs_plugin_update_apps_data_new_task (plugin, apps, flags,
 						    progress_callback, progress_user_data,
+						    event_callback, event_user_data,
 						    app_needs_user_action_callback, app_needs_user_action_data,
 						    cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_update_apps_async);
 
 	if (!(flags & GS_PLUGIN_UPDATE_APPS_FLAGS_NO_DOWNLOAD)) {
 		/* FIXME: Add progress reporting */
-		gs_plugin_packagekit_download_async (self, apps, interactive, cancellable, update_apps_download_cb, g_steal_pointer (&task));
+		gs_plugin_packagekit_download_async (self, apps, interactive,
+						     event_callback, event_user_data,
+						     cancellable, update_apps_download_cb, g_steal_pointer (&task));
 	} else {
 		update_apps_download_cb (G_OBJECT (self), NULL, g_steal_pointer (&task));
 	}
@@ -5236,6 +5242,8 @@ static void
 gs_plugin_packagekit_refresh_metadata_async (GsPlugin                     *plugin,
                                              guint64                       cache_age_secs,
                                              GsPluginRefreshMetadataFlags  flags,
+                                             GsPluginEventCallback         event_callback,
+                                             void                         *event_user_data,
                                              GCancellable                 *cancellable,
                                              GAsyncReadyCallback           callback,
                                              gpointer                      user_data)
@@ -5250,7 +5258,6 @@ gs_plugin_packagekit_refresh_metadata_async (GsPlugin                     *plugi
 	g_task_set_source_tag (task, gs_plugin_packagekit_refresh_metadata_async);
 	g_task_set_task_data (task, g_object_ref (helper), g_object_unref);
 
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_WAITING);
 	gs_packagekit_helper_set_progress_app (helper, app_dl);
 
 	task_refresh = gs_packagekit_task_new (plugin);
@@ -5420,8 +5427,8 @@ gs_plugin_packagekit_class_init (GsPluginPackagekitClass *klass)
 	GsPluginClass *plugin_class = GS_PLUGIN_CLASS (klass);
 
 	object_class->dispose = gs_plugin_packagekit_dispose;
-	object_class->finalize = gs_plugin_packagekit_finalize;
 
+	plugin_class->adopt_app = gs_plugin_packagekit_adopt_app;
 	plugin_class->setup_async = gs_plugin_packagekit_setup_async;
 	plugin_class->setup_finish = gs_plugin_packagekit_setup_finish;
 	plugin_class->shutdown_async = gs_plugin_packagekit_shutdown_async;

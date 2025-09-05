@@ -113,7 +113,8 @@ gs_search_page_get_search_cb (GObject *source_object,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	GtkWidget *app_row;
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 
 	/* different stamps means another search had been started before this one finished */
 	if (search_data->stamp != self->stamp)
@@ -122,8 +123,7 @@ gs_search_page_get_search_cb (GObject *source_object,
 	/* don't do the delayed spinner */
 	gs_search_page_waiting_cancel (self);
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader, res, &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("search cancelled");
@@ -136,6 +136,8 @@ gs_search_page_get_search_cb (GObject *source_object,
 			gtk_stack_set_visible_child_name (GTK_STACK (self->stack_search), "no-search");
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* no results */
 	if (gs_app_list_length (list) == 0) {
@@ -297,15 +299,15 @@ gs_search_page_load (GsSearchPage *self)
 
 	keywords[0] = self->value;
 	query = gs_app_query_new ("keywords", keywords,
-				  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_HISTORY |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEW_RATINGS |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_PERMISSIONS |
-						  GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING,
+				  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS |
+							  GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING,
 				  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
 						  GS_APP_LIST_FILTER_FLAG_KEY_ID_PROVIDES,
 				  "max-results", self->max_results,

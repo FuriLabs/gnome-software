@@ -29,6 +29,7 @@ typedef struct
 	GtkWidget	*button_report;
 	GtkWidget	*button_remove;
 	GtkWidget	*box_voting;
+	GtkWidget	*your_review_label;
 } GsReviewRowPrivate;
 
 enum {
@@ -87,6 +88,8 @@ gs_review_row_refresh (GsReviewRow *row)
 					priv->actions & 1 << GS_REVIEW_ACTION_DOWNVOTE);
 	}
 	gtk_widget_set_visible (priv->button_remove,
+				priv->actions & 1 << GS_REVIEW_ACTION_REMOVE);
+	gtk_widget_set_visible (priv->your_review_label,
 				priv->actions & 1 << GS_REVIEW_ACTION_REMOVE);
 	gtk_widget_set_visible (priv->button_report,
 				priv->actions & 1 << GS_REVIEW_ACTION_REPORT);
@@ -166,8 +169,8 @@ gs_review_row_class_init (GsReviewRowClass *klass)
 		g_signal_new ("button-clicked",
 			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (GsReviewRowClass, button_clicked),
-			      NULL, NULL, g_cclosure_marshal_VOID__UINT,
-			      G_TYPE_NONE, 1, G_TYPE_UINT);
+			      NULL, NULL, g_cclosure_marshal_generic,
+			      G_TYPE_NONE, 1, GS_TYPE_REVIEW_ACTION);
 
 	gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Software/gs-review-row.ui");
 
@@ -181,6 +184,7 @@ gs_review_row_class_init (GsReviewRowClass *klass)
 	gtk_widget_class_bind_template_child_private (widget_class, GsReviewRow, button_report);
 	gtk_widget_class_bind_template_child_private (widget_class, GsReviewRow, button_remove);
 	gtk_widget_class_bind_template_child_private (widget_class, GsReviewRow, box_voting);
+	gtk_widget_class_bind_template_child_private (widget_class, GsReviewRow, your_review_label);
 }
 
 static void

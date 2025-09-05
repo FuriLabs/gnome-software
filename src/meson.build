@@ -4,24 +4,25 @@ cargs += ['-DLOCALPLUGINDIR=""']
 resources_src = gnome.compile_resources(
   'gs-resources',
   'gnome-software.gresource.xml',
-  source_dir : '.',
-  c_name : 'gs'
+  source_dir: '.',
+  c_name: 'gs'
 )
 
 gdbus_src = gnome.gdbus_codegen(
   'gs-shell-search-provider-generated',
   'shell-search-provider-dbus-interfaces.xml',
-  interface_prefix : 'org.gnome.',
-  namespace : 'Gs',
-  extra_args : [ '--glib-min-required=' + glib.version() ],
+  interface_prefix: 'org.gnome.',
+  namespace: 'Gs',
+  extra_args: [ '--glib-min-required=' + glib.version() ],
 )
 
 enums = gnome.mkenums_simple('gs-enums',
-  sources : [
+  sources: [
     'gs-context-dialog-row.h',
+    'gs-review-row.h',
     'gs-updates-paused-banner.h',
   ],
-  install_header : false,
+  install_header: false,
 )
 
 gnome_software_sources = [
@@ -119,16 +120,16 @@ if get_option('packagekit')
   gnome_software_sources += gnome.gdbus_codegen(
     'gs-packagekit-generated',
     'org.freedesktop.PackageKit.xml',
-    interface_prefix : 'org.freedesktop.',
-    namespace : 'Gs',
-    extra_args : [ '--glib-min-required=' + glib.version() ],
+    interface_prefix: 'org.freedesktop.',
+    namespace: 'Gs',
+    extra_args: [ '--glib-min-required=' + glib.version() ],
   )
   gnome_software_sources += gnome.gdbus_codegen(
     'gs-packagekit-modify2-generated',
     'org.freedesktop.PackageKit.Modify2.xml',
-    interface_prefix : 'org.freedesktop.',
-    namespace : 'Gs',
-    extra_args : [ '--glib-min-required=' + glib.version() ],
+    interface_prefix: 'org.freedesktop.',
+    namespace: 'Gs',
+    extra_args: [ '--glib-min-required=' + glib.version() ],
   )
   gnome_software_dependencies += [packagekit]
 endif
@@ -141,31 +142,31 @@ executable(
   'gnome-software',
   resources_src,
   gdbus_src,
-  sources : gnome_software_sources + enums,
-  include_directories : [
+  sources: gnome_software_sources + enums,
+  include_directories: [
     include_directories('..'),
     include_directories('../lib'),
   ],
-  dependencies : gnome_software_dependencies,
-  c_args : cargs,
-  install : true,
-  install_dir : get_option('bindir'),
-  install_rpath : gs_private_libdir,
+  dependencies: gnome_software_dependencies,
+  c_args: cargs,
+  install: true,
+  install_dir: get_option('bindir'),
+  install_rpath: gs_private_libdir,
 )
 
 executable(
   'gnome-software-restarter',
-  sources : 'gs-restarter.c',
-  include_directories : [
+  sources: 'gs-restarter.c',
+  include_directories: [
     include_directories('..'),
   ],
-  dependencies : [
+  dependencies: [
     gio_unix,
     glib,
   ],
-  c_args : cargs,
-  install : true,
-  install_dir : get_option('libexecdir')
+  c_args: cargs,
+  install: true,
+  install_dir: get_option('libexecdir')
 )
 
 # no quoting
@@ -191,19 +192,19 @@ cdata.set('application_id', application_id)
 
 # replace @bindir@
 configure_file(
-  input : 'org.gnome.Software.service.in',
-  output : application_id + '.service',
+  input: 'org.gnome.Software.service.in',
+  output: application_id + '.service',
   install_dir: join_paths(get_option('datadir'), 'dbus-1/services'),
-  configuration : cdata
+  configuration: cdata
 )
 
 i18n.merge_file(
   input:
     # replace mime-type handlers
     configure_file(
-      input : 'org.gnome.Software.desktop.in',
-      output : 'org.gnome.Software.desktop.tmp',
-      configuration : cdata
+      input: 'org.gnome.Software.desktop.in',
+      output: 'org.gnome.Software.desktop.tmp',
+      configuration: cdata
     ),
   output: application_id + '.desktop',
   type: 'desktop',
@@ -214,7 +215,12 @@ i18n.merge_file(
 
 if get_option('flatpak')
   i18n.merge_file(
-    input: 'gnome-software-local-file-flatpak.desktop.in',
+    input:
+     configure_file(
+       input: 'gnome-software-local-file-flatpak.desktop.in',
+       output: 'gnome-software-local-file-flatpak.desktop.tmp',
+       configuration: cdata
+     ),
     output: 'gnome-software-local-file-flatpak.desktop',
     type: 'desktop',
     po_dir: join_paths(meson.project_source_root(), 'po'),
@@ -225,7 +231,12 @@ endif
 
 if get_option('fwupd')
   i18n.merge_file(
-    input: 'gnome-software-local-file-fwupd.desktop.in',
+    input:
+     configure_file(
+       input: 'gnome-software-local-file-fwupd.desktop.in',
+       output: 'gnome-software-local-file-fwupd.desktop.tmp',
+       configuration: cdata
+     ),
     output: 'gnome-software-local-file-fwupd.desktop',
     type: 'desktop',
     po_dir: join_paths(meson.project_source_root(), 'po'),
@@ -236,7 +247,12 @@ endif
 
 if get_option('packagekit') or get_option('rpm_ostree')
   i18n.merge_file(
-    input: 'gnome-software-local-file-packagekit.desktop.in',
+    input:
+     configure_file(
+       input: 'gnome-software-local-file-packagekit.desktop.in',
+       output: 'gnome-software-local-file-packagekit.desktop.tmp',
+       configuration: cdata
+     ),
     output: 'gnome-software-local-file-packagekit.desktop',
     type: 'desktop',
     po_dir: join_paths(meson.project_source_root(), 'po'),
@@ -247,7 +263,12 @@ endif
 
 if get_option('snap')
   i18n.merge_file(
-    input: 'gnome-software-local-file-snap.desktop.in',
+    input:
+     configure_file(
+       input: 'gnome-software-local-file-snap.desktop.in',
+       output: 'gnome-software-local-file-snap.desktop.tmp',
+       configuration: cdata
+     ),
     output: 'gnome-software-local-file-snap.desktop',
     type: 'desktop',
     po_dir: join_paths(meson.project_source_root(), 'po'),
@@ -256,8 +277,16 @@ if get_option('snap')
   )
 endif
 
+configure_file(
+    input: 'gnome-software.service.in',
+    output: 'gnome-software.service',
+    configuration: cdata,
+    install: true,
+    install_dir: systemd_user_unit_dir,
+)
+
 install_data('org.gnome.Software-search-provider.ini',
-             install_dir : 'share/gnome-shell/search-providers')
+             install_dir: 'share/gnome-shell/search-providers')
 
 if get_option('man')
   xsltproc = find_program('xsltproc')
@@ -284,10 +313,10 @@ endif
 if get_option('packagekit')
   # replace @bindir@
   configure_file(
-    input : 'org.freedesktop.PackageKit.service.in',
-    output : 'org.freedesktop.PackageKit.service',
+    input: 'org.freedesktop.PackageKit.service.in',
+    output: 'org.freedesktop.PackageKit.service',
     install_dir: join_paths(get_option('datadir'), 'dbus-1', 'services'),
-    configuration : cdata
+    configuration: cdata
   )
 endif
 
@@ -300,16 +329,16 @@ if get_option('tests')
   e = executable(
     'gs-self-test-src',
     compiled_schemas,
-    sources : [
+    sources: [
       'gs-css.c',
       'gs-common.c',
       'gs-self-test.c',
     ],
-    include_directories : [
+    include_directories: [
       include_directories('..'),
       include_directories('../lib'),
     ],
-    dependencies : [
+    dependencies: [
       appstream,
       gio_unix,
       glib,
@@ -321,7 +350,7 @@ if get_option('tests')
       libm,
       libsoup,
     ],
-    c_args : cargs
+    c_args: cargs
   )
   test('gs-self-test-src', e, suite: ['plugins', 'src'], env: test_env)
 endif

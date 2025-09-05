@@ -15,7 +15,7 @@
  *
  * This class is a wrapper around #GsPluginClass.file_to_app_async
  * calling it for all loaded plugins, with #GsPluginJobRefine used to refine the
- * results.
+ * results using the given set of refine flags.
  *
  * Retrieve the resulting #GsAppList using
  * gs_plugin_job_file_to_app_get_result_list().
@@ -43,6 +43,7 @@ struct _GsPluginJobFileToApp
 
 	/* Input arguments. */
 	GFile *file;  /* (owned) (not nullable) */
+	GsPluginRefineRequireFlags require_flags;
 	GsPluginFileToAppFlags flags;
 
 	/* In-progress data. */
@@ -58,7 +59,8 @@ struct _GsPluginJobFileToApp
 G_DEFINE_TYPE (GsPluginJobFileToApp, gs_plugin_job_file_to_app, GS_TYPE_PLUGIN_JOB)
 
 typedef enum {
-	PROP_FLAGS = 1,
+	PROP_REFINE_REQUIRE_FLAGS = 1,
+	PROP_FLAGS,
 	PROP_FILE,
 } GsPluginJobFileToAppProperty;
 
@@ -88,6 +90,9 @@ gs_plugin_job_file_to_app_get_property (GObject    *object,
 	GsPluginJobFileToApp *self = GS_PLUGIN_JOB_FILE_TO_APP (object);
 
 	switch ((GsPluginJobFileToAppProperty) prop_id) {
+	case PROP_REFINE_REQUIRE_FLAGS:
+		g_value_set_flags (value, self->require_flags);
+		break;
 	case PROP_FLAGS:
 		g_value_set_flags (value, self->flags);
 		break;
@@ -109,6 +114,12 @@ gs_plugin_job_file_to_app_set_property (GObject      *object,
 	GsPluginJobFileToApp *self = GS_PLUGIN_JOB_FILE_TO_APP (object);
 
 	switch ((GsPluginJobFileToAppProperty) prop_id) {
+	case PROP_REFINE_REQUIRE_FLAGS:
+		/* Construct only. */
+		g_assert (self->require_flags == 0);
+		self->require_flags = g_value_get_flags (value);
+		g_object_notify_by_pspec (object, props[prop_id]);
+		break;
 	case PROP_FLAGS:
 		/* Construct only. */
 		g_assert (self->flags == 0);
@@ -128,6 +139,16 @@ gs_plugin_job_file_to_app_set_property (GObject      *object,
 	}
 }
 
+static gboolean
+gs_plugin_job_file_to_app_get_interactive (GsPluginJob *job)
+{
+	GsPluginJobFileToApp *self = GS_PLUGIN_JOB_FILE_TO_APP (job);
+	return (self->flags & GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE) != 0;
+}
+
+static void plugin_event_cb (GsPlugin      *plugin,
+                             GsPluginEvent *event,
+                             void          *user_data);
 static void plugin_app_func_cb (GObject      *source_object,
 				GAsyncResult *result,
 				gpointer      user_data);
@@ -181,13 +202,28 @@ gs_plugin_job_file_to_app_run_async (GsPluginJob         *job,
 
 		/* run the plugin */
 		self->n_pending_ops++;
-		plugin_class->file_to_app_async (plugin, self->file, self->flags, cancellable, plugin_app_func_cb, g_object_ref (task));
+		plugin_class->file_to_app_async (plugin, self->file, self->flags, plugin_event_cb, task, cancellable, plugin_app_func_cb, g_object_ref (task));
 	}
 
-	if (!anything_ran)
-		g_debug ("no plugin could handle file-to-app operation");
+	if (!anything_ran) {
+		g_set_error_literal (&local_error,
+				     GS_PLUGIN_ERROR,
+				     GS_PLUGIN_ERROR_NOT_SUPPORTED,
+				     "no plugin could handle converting file to app");
+	}
 
 	finish_op (task, NULL, g_steal_pointer (&local_error));
+}
+
+static void
+plugin_event_cb (GsPlugin      *plugin,
+                 GsPluginEvent *event,
+                 void          *user_data)
+{
+	GTask *task = G_TASK (user_data);
+	GsPluginJob *plugin_job = g_task_get_source_object (task);
+
+	gs_plugin_job_emit_event (plugin_job, plugin, event);
 }
 
 static void
@@ -202,7 +238,6 @@ plugin_app_func_cb (GObject      *source_object,
 	g_autoptr(GError) local_error = NULL;
 
 	list = plugin_class->file_to_app_finish (plugin, result, &local_error);
-	gs_plugin_status_update (plugin, NULL, GS_PLUGIN_STATUS_FINISHED);
 
 	g_assert (list != NULL || local_error != NULL);
 
@@ -239,15 +274,14 @@ finish_op (GTask  *task,
 
 	/* Once all the file-to-app operations are complete, refine the results. */
 	if (self->in_progress_list != NULL) {
-		GsPluginRefineFlags refine_flags = gs_plugin_job_get_refine_flags (GS_PLUGIN_JOB (self));
-
-		if (refine_flags != GS_PLUGIN_REFINE_FLAGS_NONE) {
+		if (self->require_flags != GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE) {
 			g_autoptr(GsPluginJob) refine_job = NULL;
+			GsPluginRefineFlags job_flags;
 
 			/* to not have filtered out repositories */
-			refine_flags |= GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING;
+			job_flags = GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING;
 
-			refine_job = gs_plugin_job_refine_new (self->in_progress_list, refine_flags);
+			refine_job = gs_plugin_job_refine_new (self->in_progress_list, job_flags, self->require_flags);
 			gs_plugin_loader_job_process_async (plugin_loader, refine_job, cancellable,
 							    refine_job_finished_cb, g_object_ref (task));
 			return;
@@ -264,13 +298,13 @@ refine_job_finished_cb (GObject *source_object,
 			gpointer user_data)
 {
 	g_autoptr(GTask) task = G_TASK (g_steal_pointer (&user_data));
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobRefine) refine_job = NULL;
 	g_autoptr(GError) local_error = NULL;
 
-	list = gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (source_object), result, &local_error);
+	gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (source_object), result, (GsPluginJob **) &refine_job, &local_error);
 	g_prefix_error_literal (&local_error, "Failed to refine file-to-app apps:");
 
-	finish_refine_op (task, list, g_steal_pointer (&local_error));
+	finish_refine_op (task, gs_plugin_job_refine_get_result_list (refine_job), g_steal_pointer (&local_error));
 }
 
 /* @error is (transfer full) if non-%NULL */
@@ -313,7 +347,7 @@ finish_refine_op (GTask     *task,
 				if (!gs_app_has_icons (app)) {
 					g_autoptr(GIcon) ic = NULL;
 					const gchar *icon_name;
-					if (gs_app_has_quirk (app, GS_APP_QUIRK_HAS_SOURCE))
+					if (gs_app_has_quirk (app, GS_APP_QUIRK_LOCAL_HAS_REPOSITORY))
 						icon_name = "x-package-repository";
 					else
 						icon_name = "system-component-application";
@@ -353,6 +387,7 @@ gs_plugin_job_file_to_app_class_init (GsPluginJobFileToAppClass *klass)
 	object_class->get_property = gs_plugin_job_file_to_app_get_property;
 	object_class->set_property = gs_plugin_job_file_to_app_set_property;
 
+	job_class->get_interactive = gs_plugin_job_file_to_app_get_interactive;
 	job_class->run_async = gs_plugin_job_file_to_app_run_async;
 	job_class->run_finish = gs_plugin_job_file_to_app_run_finish;
 
@@ -369,6 +404,20 @@ gs_plugin_job_file_to_app_class_init (GsPluginJobFileToAppClass *klass)
 				     G_TYPE_FILE,
 				     G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 				     G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
+
+	/**
+	 * GsPluginJobFileToApp:refine-require-flags:
+	 *
+	 * Flags to specify how to refine the returned apps.
+	 *
+	 * Since: 49
+	 */
+	props[PROP_REFINE_REQUIRE_FLAGS] =
+		g_param_spec_flags ("refine-require-flags", "Refine Flags",
+				    "Flags to specify how to refine the returned apps.",
+				    GS_TYPE_PLUGIN_REFINE_REQUIRE_FLAGS, GS_PLUGIN_REFINE_REQUIRE_FLAGS_NONE,
+				    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+				    G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY);
 
 	/**
 	 * GsPluginJobFileToApp:flags:
@@ -397,20 +446,23 @@ gs_plugin_job_file_to_app_init (GsPluginJobFileToApp *self)
  * gs_plugin_job_file_to_app_new:
  * @file: (not nullable) (transfer none): an #GFile to run the operation on
  * @flags: flags affecting how the operation runs
+ * @require_flags: flags to affect how the results are refined
  *
  * Create a new #GsPluginJobFileToApp to convert the given @file.
  *
  * Returns: (transfer full): a new #GsPluginJobFileToApp
- * Since: 47
+ * Since: 49
  */
 GsPluginJob *
-gs_plugin_job_file_to_app_new (GFile		     *file,
-			       GsPluginFileToAppFlags flags)
+gs_plugin_job_file_to_app_new (GFile                      *file,
+                               GsPluginFileToAppFlags      flags,
+                               GsPluginRefineRequireFlags  require_flags)
 {
 	g_return_val_if_fail (G_IS_FILE (file), NULL);
 
 	return g_object_new (GS_TYPE_PLUGIN_JOB_FILE_TO_APP,
 			     "file", file,
+			     "refine-require-flags", require_flags,
 			     "flags", flags,
 			     NULL);
 }

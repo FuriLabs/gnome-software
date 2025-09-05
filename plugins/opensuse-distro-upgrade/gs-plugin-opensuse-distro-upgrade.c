@@ -14,6 +14,15 @@
 
 #include "gs-plugin-opensuse-distro-upgrade.h"
 
+/*
+ * SECTION:
+ * Plugin to list distribution upgrades on openSUSE systems.
+ *
+ * The distro upgrade API for openSUSE is a JSON/REST HTTP API, which this
+ * plugin queries asynchronously and caches the result. This means the plugin
+ * can run entirely in the main thread, and requires no locking.
+ */
+
 #define OPENSUSE_DISTRO_UPGRADE_API_URI "https://get.opensuse.org/api/v0/distributions.json"
 
 struct _GsPluginOpensuseDistroUpgrade {
@@ -553,6 +562,8 @@ static void
 gs_plugin_opensuse_distro_upgrade_refresh_metadata_async (GsPlugin                     *plugin,
                                                           guint64                       cache_age_secs,
                                                           GsPluginRefreshMetadataFlags  flags,
+                                                          GsPluginEventCallback         event_callback,
+                                                          void                         *event_user_data,
                                                           GCancellable                 *cancellable,
                                                           GAsyncReadyCallback           callback,
                                                           gpointer                      user_data)
@@ -579,7 +590,7 @@ gs_plugin_opensuse_distro_upgrade_init (GsPluginOpensuseDistroUpgrade *self)
 	/* Check if we are running openSUSE Leap. */
 	if (!gs_plugin_check_distro_id (plugin, "opensuse-leap")) {
 		gs_plugin_set_enabled (plugin, FALSE);
-		g_debug ("Disabling itself as it's only supported in openSUSE Leap", gs_plugin_get_name (plugin));
+		g_debug ("Disabling \"%s\" as it's only supported in openSUSE Leap", gs_plugin_get_name (plugin));
 		return;
 	}
 

@@ -36,6 +36,7 @@
 #include "gs-review-histogram.h"
 #include "gs-review-dialog.h"
 #include "gs-review-row.h"
+#include "gs-toast.h"
 
 #ifdef ENABLE_DKMS
 #include "gs-dkms-private.h"
@@ -49,27 +50,26 @@
    to catch full width and smaller width without bottom gap */
 #define N_DEVELOPER_APPS 18
 
-#define GS_DETAILS_PAGE_REFINE_FLAGS	GS_PLUGIN_REFINE_FLAGS_REQUIRE_ADDONS | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_CATEGORIES | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_CONTENT_RATING | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_DESCRIPTION | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_DEVELOPER_NAME | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_HISTORY | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_KUDOS | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_LICENSE | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_ORIGIN_HOSTNAME | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_PERMISSIONS | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROJECT_GROUP | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_PROVENANCE | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_RELATED | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_RUNTIME | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_SCREENSHOTS | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_SETUP_ACTION | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE_DATA | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_URL | \
-					GS_PLUGIN_REFINE_FLAGS_REQUIRE_VERSION
+#define GS_DETAILS_PAGE_REFINE_REQUIRE_FLAGS	GS_PLUGIN_REFINE_REQUIRE_FLAGS_ADDONS | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_CATEGORIES | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_DESCRIPTION | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_DEVELOPER_NAME | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_KUDOS | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_LICENSE | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROJECT_GROUP | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_RELATED | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_RUNTIME | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_SCREENSHOTS | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_SETUP_ACTION | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE_DATA | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_URL | \
+						GS_PLUGIN_REFINE_REQUIRE_FLAGS_VERSION
 
 static void gs_details_page_refresh_addons (GsDetailsPage *self);
 static void gs_details_page_refresh_all (GsDetailsPage *self);
@@ -265,8 +265,7 @@ gs_details_page_app_has_pending_action (GsDetailsPage *self)
 
 	pending_jobs_for_app = gs_job_manager_get_pending_jobs_for_app (job_manager, self->app);
 
-	return (gs_app_get_pending_action (self->app) != GS_PLUGIN_ACTION_UNKNOWN) ||
-	       (gs_app_get_state (self->app) == GS_APP_STATE_QUEUED_FOR_INSTALL) ||
+	return (gs_app_get_state (self->app) == GS_APP_STATE_QUEUED_FOR_INSTALL) ||
 	       pending_jobs_for_app->len > 0;
 }
 
@@ -800,7 +799,8 @@ gs_details_page_get_alternates_cb (GObject *source_object,
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source_object);
 	g_autoptr(GError) error = NULL;
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	gboolean instance_changed = FALSE;
 	gboolean origin_by_packaging_format = self->origin_by_packaging_format;
 	GtkWidget *first_row = NULL;
@@ -818,16 +818,15 @@ gs_details_page_get_alternates_cb (GObject *source_object,
 		return;
 	}
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader,
-						    res,
-						    &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &list_apps_job, &error)) {
 		if (!g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) &&
 		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
 			g_warning ("failed to get alternates: %s", error->message);
 		gtk_widget_set_visible (self->origin_box, FALSE);
 		return;
 	}
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	/* deduplicate the list; duplicates can get in the list if
 	 * get_alternates() returns the old/new version of a renamed app, which
@@ -967,10 +966,11 @@ gs_details_page_get_alternates_cb (GObject *source_object,
 
 		/* Make sure the changed instance contains the reviews and such */
 		plugin_job = gs_plugin_job_refine_new_for_app (self->app,
-							       GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
-							       GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEW_RATINGS |
-							       GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEWS |
-							       GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE);
+							       GS_PLUGIN_REFINE_FLAGS_INTERACTIVE,
+							       GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING |
+							       GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS |
+							       GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEWS |
+							       GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE);
 		gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 						    self->cancellable,
 						    gs_details_page_app_refine_cb,
@@ -1264,12 +1264,12 @@ gs_details_page_search_developer_apps_cb (GObject *source_object,
 					  gpointer user_data)
 {
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobListApps) list_apps_job = NULL;
+	GsAppList *list;
 	g_autoptr(GError) local_error = NULL;
 	guint n_added = 0;
 
-	list = gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (source_object), result, &local_error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (GS_PLUGIN_LOADER (source_object), result, (GsPluginJob **) &list_apps_job, &local_error)) {
 		if (g_error_matches (local_error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED) ||
 		    g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
 			g_debug ("search cancelled");
@@ -1281,6 +1281,8 @@ gs_details_page_search_developer_apps_cb (GObject *source_object,
 
 	if (!self->app || !gs_page_is_active (GS_PAGE (self)))
 		return;
+
+	list = gs_plugin_job_list_apps_get_result_list (list_apps_job);
 
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
 		GsApp *app = gs_app_list_index (list, i);
@@ -1429,7 +1431,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 			names[0] = self->last_developer_name;
 			query = gs_app_query_new ("developers", names,
 						  "max-results", N_DEVELOPER_APPS * 3, /* Ask for more, some can be skipped */
-						  "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
+						  "refine-require-flags", GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON,
 						  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_KEY_ID,
 						  "license-type", gs_page_get_query_license_type (GS_PAGE (self)),
 						  "developer-verified-type", gs_page_get_query_developer_verified_type (GS_PAGE (self)),
@@ -1474,7 +1476,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 			gtk_widget_set_visible (self->list_box_version_history, FALSE);
 		else {
 			gs_app_version_history_row_set_info (GS_APP_VERSION_HISTORY_ROW (self->row_latest_version),
-							     version, gs_app_get_release_date (self->app), NULL);
+							     version, gs_app_get_release_date (self->app), NULL, FALSE);
 			gtk_widget_set_visible (self->list_box_version_history, TRUE);
 		}
 	} else {
@@ -1482,15 +1484,17 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 		const gchar *version = gs_app_get_version_ui (self->app);
 		if (version == NULL || *version == '\0') {
 			gs_app_version_history_row_set_info (GS_APP_VERSION_HISTORY_ROW (self->row_latest_version),
-						     as_release_get_version (latest_version),
-						     as_release_get_timestamp (latest_version),
-						     as_release_get_description (latest_version));
+							     as_release_get_version (latest_version),
+							     as_release_get_timestamp (latest_version),
+							     as_release_get_description (latest_version),
+							     FALSE);
 		} else {
 			gboolean same_version = g_strcmp0 (version, as_release_get_version (latest_version)) == 0;
 			/* Inherit the description from the release history, when the versions match */
 			gs_app_version_history_row_set_info (GS_APP_VERSION_HISTORY_ROW (self->row_latest_version),
 							     version, gs_app_get_release_date (self->app),
-							     same_version ? as_release_get_description (latest_version) : NULL);
+							     same_version ? as_release_get_description (latest_version) : NULL,
+							     FALSE);
 		}
 		gtk_widget_set_visible (self->list_box_version_history, TRUE);
 	}
@@ -1509,7 +1513,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 		gtk_widget_set_visible (GTK_WIDGET (self->license_tile), TRUE);
 		gtk_widget_set_visible (self->infobar_details_app_repo,
 					gs_app_has_quirk (self->app,
-							  GS_APP_QUIRK_HAS_SOURCE) &&
+							  GS_APP_QUIRK_LOCAL_HAS_REPOSITORY) &&
 					gs_app_get_state (self->app) == GS_APP_STATE_AVAILABLE_LOCAL);
 		gtk_widget_set_visible (self->infobar_details_repo, FALSE);
 		break;
@@ -1520,7 +1524,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 		gtk_widget_set_visible (self->infobar_details_app_repo, FALSE);
 		gtk_widget_set_visible (self->infobar_details_repo,
 					gs_app_has_quirk (self->app,
-							  GS_APP_QUIRK_HAS_SOURCE) &&
+							  GS_APP_QUIRK_LOCAL_HAS_REPOSITORY) &&
 					gs_app_get_state (self->app) == GS_APP_STATE_AVAILABLE_LOCAL);
 		break;
 	case AS_COMPONENT_KIND_WEB_APP:
@@ -1545,7 +1549,7 @@ gs_details_page_refresh_all (GsDetailsPage *self)
 		} else {
 			gtk_widget_set_visible (self->infobar_details_app_norepo,
 						!gs_app_has_quirk (self->app,
-							  GS_APP_QUIRK_HAS_SOURCE) &&
+							  GS_APP_QUIRK_LOCAL_HAS_REPOSITORY) &&
 						gs_app_get_state (self->app) == GS_APP_STATE_AVAILABLE_LOCAL);
 		}
 		break;
@@ -1607,16 +1611,8 @@ app_reviews_dialog_destroy_cb (GsDetailsPage *self)
 }
 
 static void
-featured_review_list_row_activated_cb (GtkListBox *list_box,
-				       GtkListBoxRow *row,
-				       GsDetailsPage *self)
+show_app_reviews (GsDetailsPage *self)
 {
-	/* Only the row with the arrow is clickable */
-	if (GS_IS_REVIEW_ROW (row))
-		return;
-
-	g_assert (GS_IS_ODRS_PROVIDER (self->odrs_provider));
-
 	if (self->app_reviews_dialog == NULL) {
 		self->app_reviews_dialog =
 			gs_app_reviews_dialog_new (self->app,
@@ -1630,6 +1626,20 @@ featured_review_list_row_activated_cb (GtkListBox *list_box,
 	}
 
 	adw_dialog_present (ADW_DIALOG (self->app_reviews_dialog), GTK_WIDGET (self));
+}
+
+static void
+featured_review_list_row_activated_cb (GtkListBox *list_box,
+				       GtkListBoxRow *row,
+				       GsDetailsPage *self)
+{
+	/* Only the row with the arrow is clickable */
+	if (GS_IS_REVIEW_ROW (row))
+		return;
+
+	g_assert (GS_IS_ODRS_PROVIDER (self->odrs_provider));
+
+	show_app_reviews (self);
 }
 
 static void gs_details_page_addon_install_cb (GsAppAddonRow *row, gpointer user_data);
@@ -1847,7 +1857,8 @@ gs_details_page_app_refine_cb (GObject *source,
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source);
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
 	g_autoptr(GError) error = NULL;
-	if (!gs_plugin_loader_job_action_finish (plugin_loader, res, &error)) {
+
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED) &&
 		    !g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED)) {
 			g_warning ("failed to refine %s: %s",
@@ -1974,13 +1985,14 @@ gs_details_page_load_stage2 (GsDetailsPage *self,
 	/* if these tasks fail (e.g. because we have no networking) then it's
 	 * of no huge importance if we don't get the required data */
 	plugin_job1 = gs_plugin_job_refine_new_for_app (self->app,
-							GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
-							GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEW_RATINGS |
-							GS_PLUGIN_REFINE_FLAGS_REQUIRE_REVIEWS |
-							GS_PLUGIN_REFINE_FLAGS_REQUIRE_SIZE);
+							GS_PLUGIN_REFINE_FLAGS_INTERACTIVE,
+							GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING |
+							GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS |
+							GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEWS |
+							GS_PLUGIN_REFINE_REQUIRE_FLAGS_SIZE);
 
 	query = gs_app_query_new ("alternate-of", self->app,
-				  "refine-flags", GS_DETAILS_PAGE_REFINE_FLAGS,
+				  "refine-require-flags", GS_DETAILS_PAGE_REFINE_REQUIRE_FLAGS,
 				  "dedupe-flags", GS_APP_LIST_FILTER_FLAG_NONE,
 				  "filter-func", gs_details_page_filter_origin,
 				  "sort-func", gs_utils_app_sort_priority,
@@ -2009,7 +2021,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
 	g_autoptr(GError) error = NULL;
 
-	if (!gs_plugin_loader_job_action_finish (plugin_loader, res, &error)) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, NULL, &error)) {
 		if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED) &&
 		    !g_error_matches (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_CANCELLED)) {
 			g_warning ("failed to refine %s: %s",
@@ -2024,7 +2036,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 		g_autofree gchar *str = NULL;
 		const gchar *id = gs_app_get_id (self->app);
 		str = g_strdup_printf (_("Software failed to retrieve information for “%s” and is unable to show the details for this app."),
-				       id == NULL ? gs_app_get_source_default (self->app) : id);
+				       id == NULL ? gs_app_get_default_source (self->app) : id);
 		adw_status_page_set_description (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
@@ -2041,7 +2053,7 @@ gs_details_page_load_stage1_cb (GObject *source,
 		g_autofree gchar *str = NULL;
 		const gchar *id = gs_app_get_id (self->app);
 		str = g_strdup_printf (_("Software failed to retrieve information for “%s” and is unable to show the details for this app."),
-				       id == NULL ? gs_app_get_source_default (self->app) : id);
+				       id == NULL ? gs_app_get_default_source (self->app) : id);
 		adw_status_page_set_description (ADW_STATUS_PAGE (self->page_failed), str);
 		gs_details_page_set_state (self, GS_DETAILS_PAGE_STATE_FAILED);
 		return;
@@ -2058,18 +2070,15 @@ gs_details_page_file_to_app_cb (GObject *source,
 {
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source);
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobFileToApp) file_to_app_job = NULL;
 	g_autoptr(GError) error = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader,
-						    res,
-						    &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &file_to_app_job, &error)) {
 		g_warning ("failed to convert file to GsApp: %s", error->message);
 		/* go back to the overview */
 		gs_shell_set_mode (self->shell, GS_SHELL_MODE_OVERVIEW);
 	} else {
-		GsApp *app = gs_app_list_index (list, 0);
+		GsApp *app = gs_app_list_index (gs_plugin_job_file_to_app_get_result_list (file_to_app_job), 0);
 		g_set_object (&self->app_local_file, app);
 		_set_app (self, app);
 		gs_details_page_load_stage2 (self, TRUE);
@@ -2083,18 +2092,15 @@ gs_details_page_url_to_app_cb (GObject *source,
 {
 	GsPluginLoader *plugin_loader = GS_PLUGIN_LOADER (source);
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
-	g_autoptr(GsAppList) list = NULL;
+	g_autoptr(GsPluginJobUrlToApp) url_to_app_job = NULL;
 	g_autoptr(GError) error = NULL;
 
-	list = gs_plugin_loader_job_process_finish (plugin_loader,
-						    res,
-						    &error);
-	if (list == NULL) {
+	if (!gs_plugin_loader_job_process_finish (plugin_loader, res, (GsPluginJob **) &url_to_app_job, &error)) {
 		g_warning ("failed to convert URL to GsApp: %s", error->message);
 		/* go back to the overview */
 		gs_shell_set_mode (self->shell, GS_SHELL_MODE_OVERVIEW);
 	} else {
-		GsApp *app = gs_app_list_index (list, 0);
+		GsApp *app = gs_app_list_index (gs_plugin_job_url_to_app_get_result_list (url_to_app_job), 0);
 		g_set_object (&self->app_local_file, app);
 		_set_app (self, app);
 		gs_details_page_load_stage2 (self, TRUE);
@@ -2109,8 +2115,8 @@ gs_details_page_set_local_file (GsDetailsPage *self, GFile *file)
 	g_clear_object (&self->app_local_file);
 	_set_app (self, NULL);
 	self->origin_by_packaging_format = FALSE;
-	plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE);
-	gs_plugin_job_set_refine_flags (plugin_job, GS_DETAILS_PAGE_REFINE_FLAGS);
+	plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_INTERACTIVE,
+						    GS_DETAILS_PAGE_REFINE_REQUIRE_FLAGS);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    gs_details_page_file_to_app_cb,
@@ -2125,9 +2131,10 @@ gs_details_page_set_url (GsDetailsPage *self, const gchar *url)
 	g_clear_object (&self->app_local_file);
 	_set_app (self, NULL);
 	self->origin_by_packaging_format = FALSE;
-	plugin_job = gs_plugin_job_url_to_app_new (url, GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE);
-	gs_plugin_job_set_refine_flags (plugin_job, GS_DETAILS_PAGE_REFINE_FLAGS |
-						    GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES);
+	plugin_job = gs_plugin_job_url_to_app_new (url,
+						   GS_PLUGIN_URL_TO_APP_FLAGS_INTERACTIVE |
+						   GS_PLUGIN_URL_TO_APP_FLAGS_ALLOW_PACKAGES,
+						   GS_DETAILS_PAGE_REFINE_REQUIRE_FLAGS);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    gs_details_page_url_to_app_cb,
@@ -2151,7 +2158,7 @@ gs_details_page_load_stage1 (GsDetailsPage *self)
 	g_cancellable_connect (self->cancellable, G_CALLBACK (gs_details_page_cancel_cb), self, NULL);
 
 	/* get extra details about the app */
-	plugin_job = gs_plugin_job_refine_new_for_app (self->app, GS_DETAILS_PAGE_REFINE_FLAGS);
+	plugin_job = gs_plugin_job_refine_new_for_app (self->app, GS_PLUGIN_REFINE_FLAGS_INTERACTIVE, GS_DETAILS_PAGE_REFINE_REQUIRE_FLAGS);
 	gs_plugin_loader_job_process_async (self->plugin_loader, plugin_job,
 					    self->cancellable,
 					    gs_details_page_load_stage1_cb,
@@ -2280,9 +2287,6 @@ gs_details_page_app_cancel_button_cb (GtkWidget *widget, GsDetailsPage *self)
 	g_cancellable_cancel (self->app_cancellable);
 	gtk_widget_set_sensitive (widget, FALSE);
 
-	/* reset the pending-action from the app if needed */
-	gs_app_set_pending_action (self->app, GS_PLUGIN_ACTION_UNKNOWN);
-
 	/* FIXME: We should be able to revert the QUEUED_FOR_INSTALL without
 	 * having to pretend to remove the app */
 	if (gs_app_get_state (self->app) == GS_APP_STATE_QUEUED_FOR_INSTALL)
@@ -2338,7 +2342,7 @@ gs_details_page_addon_install_cb (GsAppAddonRow *row,
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
 
 	addon = gs_app_addon_row_get_addon (row);
-	gs_page_install_app (GS_PAGE (self), addon, GS_SHELL_INTERACTION_FULL, NULL);
+	gs_page_install_app (GS_PAGE (self), addon, GS_SHELL_INTERACTION_FULL, gs_app_get_cancellable (addon));
 }
 
 static void
@@ -2348,7 +2352,7 @@ gs_details_page_addon_remove_cb (GsAppAddonRow *row, gpointer user_data)
 	GsDetailsPage *self = GS_DETAILS_PAGE (user_data);
 
 	addon = gs_app_addon_row_get_addon (row);
-	gs_page_remove_app (GS_PAGE (self), addon, NULL);
+	gs_page_remove_app (GS_PAGE (self), addon, gs_app_get_cancellable (addon));
 }
 
 static void
@@ -2382,6 +2386,12 @@ submit_review_data_free (ReviewSubmitData *data)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (ReviewSubmitData, submit_review_data_free);
 
 static void
+review_submitted_toast_cb (GsDetailsPage *self)
+{
+	show_app_reviews (self);
+}
+
+static void
 review_submitted_cb (GObject *source_object,
 		     GAsyncResult *result,
 		     gpointer user_data)
@@ -2391,6 +2401,7 @@ review_submitted_cb (GObject *source_object,
 	GsDetailsPage *self = data->details_page;
 	g_autoptr(GsReviewDialog) review_dialog = g_weak_ref_get (&data->dialog_weak);
 	g_autoptr(GError) local_error = NULL;
+	AdwToast *toast;
 
 	/* enable submit action after action completion */
 	gs_review_dialog_submit_set_sensitive (review_dialog, TRUE);
@@ -2430,6 +2441,16 @@ review_submitted_cb (GObject *source_object,
 	/* ensure the dialog is now closed */
 	if (review_dialog != NULL)
 		adw_dialog_force_close (ADW_DIALOG (review_dialog));
+
+	/* display a toast to the user */
+	toast = gs_toast_new (_("Review submitted successfully"),
+			      GS_TOAST_BUTTON_SHOW_APP_REVIEWS,
+			      NULL, NULL);
+
+	g_signal_connect_object (toast, "button-clicked",
+				 G_CALLBACK (review_submitted_toast_cb), self, G_CONNECT_SWAPPED);
+
+	gs_shell_show_toast (self->shell, toast);
 }
 
 static void
@@ -3120,7 +3141,7 @@ gs_details_page_metainfo_thread (GTask *task,
 		return;
 	}
 
-	if (!gs_appstream_refine_app (NULL, app, silo, component, GS_DETAILS_PAGE_REFINE_FLAGS, NULL, NULL, AS_COMPONENT_SCOPE_UNKNOWN, &error)) {
+	if (!gs_appstream_refine_app (NULL, app, silo, component, GS_DETAILS_PAGE_REFINE_REQUIRE_FLAGS, NULL, NULL, AS_COMPONENT_SCOPE_UNKNOWN, &error)) {
 		g_task_return_error (task, g_steal_pointer (&error));
 		return;
 	}
