@@ -104,5 +104,3 @@ endif
 
 execute_before_dh_clean:
 	rm -f debian/gnome-software.gsettings-override
-
-override_dh_gnome_clean:
