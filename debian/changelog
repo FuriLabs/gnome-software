@@ -1,9 +1,9 @@
-gnome-software (49.0-1) UNRELEASED; urgency=medium
+gnome-software (49.0-1) unstable; urgency=medium
 
   * New upstream release
   * Stop using dh-sequence-gnome
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 12 Sep 2025 06:29:58 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 12 Sep 2025 06:33:45 -0400
 
 gnome-software (49~rc-1) unstable; urgency=medium
 
