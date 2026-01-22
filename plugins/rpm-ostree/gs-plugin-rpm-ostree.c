@@ -1567,7 +1567,7 @@ gs_plugin_rpm_ostree_build_version_refspec (GsPluginRpmOstree *self,
 	g_autoptr(GVariant) booted_deployment = gs_rpmostree_os_dup_booted_deployment (os_proxy);
 	g_autoptr(GsOsRelease) os_release = NULL;
 	g_autoptr(GError) local_error = NULL;
-	g_auto(GVariantDict) booted_deployment_dict = { 0, };
+	g_auto(GVariantDict) booted_deployment_dict = G_VARIANT_DICT_INIT (NULL);
 	g_auto(GStrv) split_origin = NULL;
 	const gchar *origin = NULL;
 	const gchar *current_version = NULL;
@@ -3101,7 +3101,7 @@ list_apps_for_update_sync (GsPluginRpmOstree *self,
 	g_autoptr(GError) local_error = NULL;
 	const gchar *checksum = NULL;
 	const gchar *version = NULL;
-	g_auto(GVariantDict) cached_update_dict;
+	g_auto(GVariantDict) cached_update_dict = G_VARIANT_DICT_INIT (NULL);
 
 	/* ensure D-Bus properties are updated before reading them */
 	if (!gs_rpmostree_sysroot_call_reload_sync (sysroot_proxy,
@@ -3177,8 +3177,7 @@ list_apps_for_update_sync (GsPluginRpmOstree *self,
 		g_autoptr(GVariant) downgraded = NULL;
 		g_autoptr(GVariant) removed = NULL;
 		g_autoptr(GVariant) added = NULL;
-		g_auto(GVariantDict) rpm_diff_dict;
-		g_variant_dict_init (&rpm_diff_dict, rpm_diff);
+		g_auto(GVariantDict) rpm_diff_dict = G_VARIANT_DICT_INIT (rpm_diff);
 
 		upgraded = g_variant_dict_lookup_value (&rpm_diff_dict, "upgraded", G_VARIANT_TYPE ("a(us(ss)(ss))"));
 		if (upgraded == NULL) {
@@ -3253,6 +3252,23 @@ list_apps_for_update_sync (GsPluginRpmOstree *self,
 	return g_steal_pointer (&list);
 }
 
+static gchar *
+extract_deployment_checksum (GVariant *deployment)
+{
+	g_auto(GVariantDict) dict = G_VARIANT_DICT_INIT (deployment);
+	g_autoptr(GVariant) checksum = NULL;
+
+	if (deployment == NULL)
+		return NULL;
+
+	checksum = g_variant_dict_lookup_value (&dict, "checksum", G_VARIANT_TYPE_STRING);
+
+	if (checksum == NULL)
+		return NULL;
+
+	return g_variant_dup_string (checksum, NULL);
+}
+
 static void sanitize_update_history_text (gchar *text,
 					  guint64 *out_latest_date);
 
@@ -3267,6 +3283,15 @@ list_apps_historical_updates_sync (GsPluginRpmOstree *self,
 	g_autoptr(GSubprocess) subprocess = NULL;
 	g_autoptr(GsAppList) list = NULL;
 	g_autofree gchar *stdout_data = NULL;
+	g_autofree gchar *booted_checksum = NULL;
+	g_autofree gchar *rollback_checksum = NULL;
+
+	rollback_checksum = extract_deployment_checksum (gs_rpmostree_os_get_rollback_deployment (os_proxy));
+	/* can happen when ran after clean install of the system */
+	if (rollback_checksum == NULL)
+		return gs_app_list_new ();
+
+	booted_checksum = extract_deployment_checksum (gs_rpmostree_os_get_booted_deployment (os_proxy));
 
 	subprocess = g_subprocess_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE, error,
 				       "rpm-ostree",
@@ -3274,19 +3299,21 @@ list_apps_historical_updates_sync (GsPluginRpmOstree *self,
 				       "diff",
 				       "--changelogs",
 				       "--format=block",
+				       rollback_checksum,
+				       booted_checksum,
 				       NULL);
 	if (subprocess == NULL)
 		return NULL;
 	if (!g_subprocess_communicate_utf8 (subprocess, NULL, cancellable, &stdout_data, NULL, error))
 		return NULL;
 
+	list = gs_app_list_new ();
+
 	if (stdout_data != NULL && *stdout_data != '\0') {
 		GsPlugin *plugin = GS_PLUGIN (self);
 		g_autoptr(GsApp) app = NULL;
 		g_autoptr(GIcon) ic = NULL;
 		guint64 latest_date = 0;
-
-		list = gs_app_list_new ();
 
 		sanitize_update_history_text (stdout_data, &latest_date);
 
