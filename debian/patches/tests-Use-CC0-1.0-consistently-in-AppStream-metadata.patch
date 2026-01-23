@@ -1,0 +1,56 @@
+From: =?utf-8?q?Jeremy_B=C3=ADcha?= <jbicha@ubuntu.com>
+Date: Thu, 22 Jan 2026 15:49:46 -0500
+Subject: tests: Use CC0-1.0 consistently in AppStream metadata
+
+There is only one version of CC0.
+Use the recognized licensed identifier for it.
+
+https://freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-metadata_license
+(cherry picked from commit 071094056e064617bce005a08358d0f3dccaa032)
+
+Forwarded: https://gitlab.gnome.org/GNOME/gnome-software/-/merge_requests/2369
+---
+ .../files/share/metainfo/org.test.Chiron.Extension.metainfo.xml         | 2 +-
+ .../files/share/metainfo/org.test.Chiron.Extension.metainfo.xml         | 2 +-
+ .../org.test.Runtime/usr/share/metainfo/org.test.Runtime.metainfo.xml   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/plugins/flatpak/tests/app-extension-update/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml b/plugins/flatpak/tests/app-extension-update/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml
+index 9d55228..120c3bb 100644
+--- a/plugins/flatpak/tests/app-extension-update/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml
++++ b/plugins/flatpak/tests/app-extension-update/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml
+@@ -4,7 +4,7 @@
+ -->
+ <component type="runtime">
+   <id>org.test.Chiron.Extension</id>
+-  <metadata_license>CC0</metadata_license>
++  <metadata_license>CC0-1.0</metadata_license>
+   <project_license>GPL-2.0-or-later</project_license>
+   <name>Chiron App Extension</name>
+   <summary>Test extension for flatpak self tests</summary>
+diff --git a/plugins/flatpak/tests/app-extension/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml b/plugins/flatpak/tests/app-extension/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml
+index 9d55228..120c3bb 100644
+--- a/plugins/flatpak/tests/app-extension/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml
++++ b/plugins/flatpak/tests/app-extension/org.test.Chiron.Extension/files/share/metainfo/org.test.Chiron.Extension.metainfo.xml
+@@ -4,7 +4,7 @@
+ -->
+ <component type="runtime">
+   <id>org.test.Chiron.Extension</id>
+-  <metadata_license>CC0</metadata_license>
++  <metadata_license>CC0-1.0</metadata_license>
+   <project_license>GPL-2.0-or-later</project_license>
+   <name>Chiron App Extension</name>
+   <summary>Test extension for flatpak self tests</summary>
+diff --git a/plugins/flatpak/tests/app-with-runtime/org.test.Runtime/usr/share/metainfo/org.test.Runtime.metainfo.xml b/plugins/flatpak/tests/app-with-runtime/org.test.Runtime/usr/share/metainfo/org.test.Runtime.metainfo.xml
+index 36e0658..3e6422a 100644
+--- a/plugins/flatpak/tests/app-with-runtime/org.test.Runtime/usr/share/metainfo/org.test.Runtime.metainfo.xml
++++ b/plugins/flatpak/tests/app-with-runtime/org.test.Runtime/usr/share/metainfo/org.test.Runtime.metainfo.xml
+@@ -2,7 +2,7 @@
+ <!-- Copyright 2017 Richard Hughes <richard@hughsie.com> -->
+ <component type="runtime">
+   <id>org.test.Runtime</id>
+-  <metadata_license>CC0</metadata_license>
++  <metadata_license>CC0-1.0</metadata_license>
+   <project_license>GPL-2.0-or-later</project_license>
+   <name>Test runtime</name>
+   <summary>Test runtime for flatpak self tests</summary>
