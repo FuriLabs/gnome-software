@@ -1,8 +1,11 @@
-gnome-software (49.3-1) UNRELEASED; urgency=medium
+gnome-software (49.3-1) unstable; urgency=medium
 
   * New upstream release
+  * Add patch to fix CC0-1.0 identifier in AppStream metadata test files
+  * Remove obsolete lintian overrides
+  * Bump Standards Version to 4.7.3
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 22 Jan 2026 15:42:13 -0500
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 23 Jan 2026 10:41:37 -0500
 
 gnome-software (49.2-1) unstable; urgency=medium
 

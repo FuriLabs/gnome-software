@@ -1,8 +1,7 @@
 Source: gnome-software
 Section: gnome
 Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Amin Bandali <bandali@ubuntu.com>,
-           Jeremy Bícha <jbicha@ubuntu.com>,
+Uploaders: Jeremy Bícha <jbicha@ubuntu.com>,
            Laurent Bigonville <bigon@debian.org>,
            Matthias Klumpp <mak@debian.org>
 Build-Depends: appstream,
