@@ -1,6 +1,7 @@
 gnome-software (50~beta-1) UNRELEASED; urgency=medium
 
   * New upstream version 50.beta
+  * debian/control: Bump dependencies on gtk4 and libadwaita-1
 
  -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Thu, 19 Feb 2026 17:25:51 +0800
 
