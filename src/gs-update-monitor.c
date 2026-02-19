@@ -229,37 +229,55 @@ should_notify_about_pending_updates (GsUpdateMonitor *monitor,
 	if (apps != NULL)
 		check_updates_kind (apps, &has_important, &all_downloaded, &any_downloaded);
 
-	if (apps == NULL || !gs_app_list_length (apps)) {
-		if (!should_download &&
-		    notification_timestamp_days >= 1 &&
-		    check_if_timestamp_more_than_days_ago (monitor, "check-timestamp", 7)) {
-			*out_title = _("Updates Are Out of Date");
-			*out_body = _("Please check for available updates");
-			res = TRUE;
-		}
-	} else if (has_important) {
-		if (notification_timestamp_days >= 1) {
-			if (all_downloaded) {
-				*out_title = _("Critical Updates Ready to Install");
-				*out_body = _("Install critical updates as soon as possible");
-				res = TRUE;
-			} else if (!should_download) {
-				*out_title = _("Critical Updates Available to Download");
-				*out_body = _("Download critical updates as soon as possible");
+	if (should_download) {
+		if (apps == NULL || !gs_app_list_length (apps)) {
+			/* Nothing to do. */
+		} else if (has_important) {
+			if (notification_timestamp_days >= 1) {
+				if (all_downloaded) {
+					*out_title = _("Critical Updates Ready to Install");
+					*out_body = _("Install critical updates as soon as possible");
+					res = TRUE;
+				}
+			}
+		} else if (all_downloaded) {
+			if (notification_timestamp_days >= 3) {
+				*out_title = _("Updates Ready to Install");
+				*out_body = _("Software updates are ready and waiting");
 				res = TRUE;
 			}
 		}
-	} else if (all_downloaded) {
-		if (notification_timestamp_days >= 3) {
-			*out_title = _("Updates Ready to Install");
-			*out_body = _("Software updates are ready and waiting");
+	} else { /* !should_download */
+		if (apps == NULL || !gs_app_list_length (apps)) {
+			if (notification_timestamp_days >= 1 &&
+			    check_if_timestamp_more_than_days_ago (monitor, "check-timestamp", 7)) {
+				*out_title = _("Updates Are Out of Date");
+				*out_body = _("Please check for available updates");
+				res = TRUE;
+			}
+		} else if (has_important) {
+			if (notification_timestamp_days >= 1) {
+				if (all_downloaded) {
+					*out_title = _("Critical Updates Ready to Install");
+					*out_body = _("Install critical updates as soon as possible");
+					res = TRUE;
+				} else {
+					*out_title = _("Critical Updates Available to Download");
+					*out_body = _("Download critical updates as soon as possible");
+					res = TRUE;
+				}
+			}
+		} else if (any_downloaded) {
+			if (notification_timestamp_days >= 3) {
+				*out_title = _("Updates Ready to Install");
+				*out_body = _("Software updates are ready and waiting");
+				res = TRUE;
+			}
+		} else if (notification_timestamp_days >= 14) {
+			*out_title = _("Updates Available to Download");
+			*out_body = _("Software updates can be downloaded");
 			res = TRUE;
 		}
-	} else if (!should_download && notification_timestamp_days >= 3 &&
-		   check_if_timestamp_more_than_days_ago (monitor, "install-timestamp", 14)) {
-		*out_title = _("Updates Available to Download");
-		*out_body = _("Software updates can be downloaded");
-		res = TRUE;
 	}
 
 	g_debug ("%s: last_test_days:%" G_GINT64_FORMAT " n-apps:%u should_download:%d can_download:%d has_important:%d "
@@ -530,6 +548,11 @@ download_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 		GsApp *app = gs_app_list_index (job_apps, i);
 		if (_should_auto_update (app)) {
 			g_debug ("auto-updating %s", gs_app_get_unique_id (app));
+			gs_app_list_add (update_online, app);
+		} else if (gs_app_get_state (app) == GS_APP_STATE_INSTALLED) {
+			/* if the app state is back to INSTALLED already, keep it in the
+			 * apps list passed to the job so update_finished_cb can notify
+			 * about this update along with the others */
 			gs_app_list_add (update_online, app);
 		} else {
 			gs_app_list_add (update_offline, app);

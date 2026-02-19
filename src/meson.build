@@ -29,6 +29,7 @@ gnome_software_sources = [
   'gs-age-rating-context-dialog.c',
   'gs-app-addon-row.c',
   'gs-app-reviews-dialog.c',
+  'gs-app-update-details-dialog.c',
   'gs-app-version-history-dialog.c',
   'gs-app-version-history-row.c',
   'gs-application.c',
@@ -51,6 +52,7 @@ gnome_software_sources = [
   'gs-hardware-support-context-dialog.c',
   'gs-info-window.c',
   'gs-installed-page.c',
+  'gs-installed-updates-dialog.c',
   'gs-language.c',
   'gs-layout-manager.c',
   'gs-license-tile.c',
@@ -77,12 +79,12 @@ gnome_software_sources = [
   'gs-search-page.c',
   'gs-shell.c',
   'gs-shell-search-provider.c',
+  'gs-software-offline-updates-provider.c',
   'gs-star-image.c',
   'gs-star-widget.c',
   'gs-storage-context-dialog.c',
   'gs-summary-tile.c',
   'gs-toast.c',
-  'gs-update-dialog.c',
   'gs-update-list.c',
   'gs-update-monitor.c',
   'gs-updates-page.c',
@@ -113,30 +115,38 @@ if get_option('dkms')
   ]
 endif
 
+gnome_software_sources += [
+  'gs-dbus-helper.c',
+]
+gnome_software_sources += gnome.gdbus_codegen(
+  'gs-packagekit-generated',
+  'org.freedesktop.PackageKit.xml',
+  interface_prefix: 'org.freedesktop.',
+  namespace: 'Gs',
+  extra_args: [ '--glib-min-required=' + glib.version() ],
+)
+gnome_software_sources += gnome.gdbus_codegen(
+  'gs-packagekit-modify2-generated',
+  'org.freedesktop.PackageKit.Modify2.xml',
+  interface_prefix: 'org.freedesktop.',
+  namespace: 'Gs',
+  extra_args: [ '--glib-min-required=' + glib.version() ],
+)
 if get_option('packagekit')
-  gnome_software_sources += [
-    'gs-dbus-helper.c',
-  ]
-  gnome_software_sources += gnome.gdbus_codegen(
-    'gs-packagekit-generated',
-    'org.freedesktop.PackageKit.xml',
-    interface_prefix: 'org.freedesktop.',
-    namespace: 'Gs',
-    extra_args: [ '--glib-min-required=' + glib.version() ],
-  )
-  gnome_software_sources += gnome.gdbus_codegen(
-    'gs-packagekit-modify2-generated',
-    'org.freedesktop.PackageKit.Modify2.xml',
-    interface_prefix: 'org.freedesktop.',
-    namespace: 'Gs',
-    extra_args: [ '--glib-min-required=' + glib.version() ],
-  )
   gnome_software_dependencies += [packagekit]
 endif
 
 if get_option('mogwai')
   gnome_software_dependencies += [mogwai_schedule_client]
 endif
+
+gnome_software_sources += gnome.gdbus_codegen(
+  'gs-software-offline-updates-generated',
+  'org.gnome.Software.OfflineUpdates.xml',
+  interface_prefix : 'org.gnome',
+  namespace : 'Gs',
+  extra_args : [ '--glib-min-required=' + glib.version() ],
+)
 
 executable(
   'gnome-software',
@@ -211,6 +221,20 @@ i18n.merge_file(
   po_dir: join_paths(meson.project_source_root(), 'po'),
   install: true,
   install_dir: join_paths(get_option('datadir'), 'applications')
+)
+
+i18n.merge_file(
+  input:
+    configure_file(
+      input: 'gnome-software-local-file-metainfo.desktop.in',
+      output: 'gnome-software-local-file-metainfo.desktop.tmp',
+      configuration: cdata,
+   ),
+  output: 'gnome-software-local-file-metainfo.desktop',
+  type: 'desktop',
+  po_dir: join_paths(meson.project_source_root(), 'po'),
+  install: true,
+  install_dir: join_paths(get_option('datadir'), 'applications'),
 )
 
 if get_option('flatpak')
@@ -310,15 +334,13 @@ if get_option('man')
   )
 endif
 
-if get_option('packagekit')
-  # replace @bindir@
-  configure_file(
-    input: 'org.freedesktop.PackageKit.service.in',
-    output: 'org.freedesktop.PackageKit.service',
-    install_dir: join_paths(get_option('datadir'), 'dbus-1', 'services'),
-    configuration: cdata
-  )
-endif
+# replace @bindir@
+configure_file(
+  input: 'org.freedesktop.PackageKit.service.in',
+  output: 'org.freedesktop.PackageKit.service',
+  install_dir: join_paths(get_option('datadir'), 'dbus-1', 'services'),
+  configuration: cdata
+)
 
 if get_option('tests')
   test_env = environment()
