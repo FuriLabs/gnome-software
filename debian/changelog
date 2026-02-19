@@ -1,5 +1,6 @@
-gnome-software (50~beta-1) UNRELEASED; urgency=medium
+gnome-software (50~beta-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream version 50.beta
   * debian/control: Bump dependencies on gtk4 and libadwaita-1
   * Drop upstreamed patch:
