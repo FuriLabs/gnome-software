@@ -14,11 +14,11 @@
 
 #include "gs-app-list-private.h"
 #include "gs-app-row.h"
+#include "gs-app-update-details-dialog.h"
 #include "gs-application.h"
 #include "gs-page.h"
 #include "gs-common.h"
 #include "gs-progress-button.h"
-#include "gs-update-dialog.h"
 #include "gs-updates-section.h"
 #include "gs-utils.h"
 
@@ -434,7 +434,7 @@ _download_finished_cb (GObject *object, GAsyncResult *res, gpointer user_data)
 
 static void
 gs_updates_section_run_download (GsUpdatesSection *self,
-				 GsApp *only_app) /* (optional) */
+				 GsApp *only_app) /* (nullable) */
 {
 	g_autoptr(GCancellable) cancellable = g_cancellable_new ();
 	g_autoptr(GsPluginJob) plugin_job = NULL;
@@ -544,7 +544,7 @@ _app_row_activated_cb (GsUpdatesSection *self, GtkListBoxRow *row)
 	str = gs_app_to_string (app);
 	g_debug ("%s", str);
 
-	dialog = gs_update_dialog_new_for_app (self->plugin_loader, app);
+	dialog = gs_app_update_details_dialog_new (self->plugin_loader, app);
 	adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (gs_page_get_shell (self->page)));
 }
 

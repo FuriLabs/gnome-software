@@ -23,6 +23,7 @@
 
 #include "gs-plugin-private.h"
 #include "gs-plugin-rpm-ostree.h"
+#include "gs-rpm-ostree-utils.h"
 #include "gs-rpmostree-generated.h"
 
 /*
@@ -81,6 +82,9 @@ static gboolean gs_rpm_ostree_refine_apps (GsPlugin                    *plugin,
                                            GsPluginRefineRequireFlags   require_flags,
                                            GCancellable                *cancellable,
                                            GError                     **error);
+static void notify_cpu_priority_cb (GObject    *obj,
+                                    GParamSpec *pspec,
+                                    void       *user_data);
 
 #define assert_in_worker(self) \
 	g_assert (gs_worker_thread_is_in_worker_context (self->worker))
@@ -174,6 +178,22 @@ gs_plugin_rpm_ostree_init (GsPluginRpmOstree *self)
 
 	/* generic updates happen after rpm-ostree updates */
 	gs_plugin_add_rule (GS_PLUGIN (self), GS_PLUGIN_RULE_RUN_BEFORE, "generic-updates");
+
+	g_signal_connect (self, "notify::cpu-priority",
+			  G_CALLBACK (notify_cpu_priority_cb), NULL);
+}
+
+static void
+notify_cpu_priority_cb (GObject    *obj,
+                        GParamSpec *pspec,
+                        void       *user_data)
+{
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (obj);
+	GDBusConnection *connection = gs_plugin_get_system_bus_connection (GS_PLUGIN (self));
+
+	if (connection != NULL && self->worker != NULL)
+		gs_worker_thread_update_cpu_priority (self->worker, connection,
+						      gs_plugin_get_cpu_priority (GS_PLUGIN (self)));
 }
 
 static void
@@ -500,6 +520,7 @@ gs_plugin_rpm_ostree_setup_async (GsPlugin            *plugin,
 
 	/* Start up a worker thread to process all the plugin’s function calls. */
 	self->worker = gs_worker_thread_new ("gs-plugin-rpm-ostree");
+	notify_cpu_priority_cb (G_OBJECT (self), NULL, NULL);
 
 	/* Queue a job to set up the D-Bus proxies. While these could be set
 	 * up from the main thread asynchronously, setting them up in the worker
@@ -3269,9 +3290,6 @@ extract_deployment_checksum (GVariant *deployment)
 	return g_variant_dup_string (checksum, NULL);
 }
 
-static void sanitize_update_history_text (gchar *text,
-					  guint64 *out_latest_date);
-
 static GsAppList * /* (transfer full) */
 list_apps_historical_updates_sync (GsPluginRpmOstree *self,
 				   gboolean interactive,
@@ -3313,17 +3331,11 @@ list_apps_historical_updates_sync (GsPluginRpmOstree *self,
 		GsPlugin *plugin = GS_PLUGIN (self);
 		g_autoptr(GsApp) app = NULL;
 		g_autoptr(GIcon) ic = NULL;
-		guint64 latest_date = 0;
-
-		sanitize_update_history_text (stdout_data, &latest_date);
 
 		/* create new */
 		app = gs_app_new ("org.gnome.Software.RpmostreeUpdate");
 		gs_app_set_management_plugin (app, plugin);
-		gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
 		gs_app_set_state (app, GS_APP_STATE_INSTALLED);
-		if (latest_date != 0)
-			gs_app_set_install_date (app, latest_date);
 		gs_app_set_name (app,
 				 GS_APP_QUALITY_NORMAL,
 				 /* TRANSLATORS: this is a group of updates that are not
@@ -3337,9 +3349,13 @@ list_apps_historical_updates_sync (GsPluginRpmOstree *self,
 		gs_app_set_description (app,
 					GS_APP_QUALITY_NORMAL,
 					gs_app_get_summary (app));
-		gs_app_set_update_details_text (app, stdout_data);
 		ic = g_themed_icon_new ("system-component-os-updates");
 		gs_app_add_icon (app, ic);
+
+		gs_rpm_ostree_refine_app_from_changelogs (app, g_steal_pointer (&stdout_data));
+
+		if (gs_app_get_kind (app) == AS_COMPONENT_KIND_UNKNOWN)
+			gs_app_set_kind (app, AS_COMPONENT_KIND_DESKTOP_APP);
 
 		gs_app_list_add (list, app);
 	}
@@ -3694,133 +3710,217 @@ gs_plugin_rpm_ostree_disable_repository_finish (GsPlugin      *plugin,
 	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
-static const gchar *
-find_char_on_line (const gchar *txt,
-		   gchar chr,
-		   guint nth)
+static void cancel_offline_update_thread_cb (GTask        *task,
+					     gpointer      source_object,
+					     gpointer      task_data,
+					     GCancellable *cancellable);
+
+static void
+gs_plugin_rpm_ostree_cancel_offline_update_async (GsPlugin                         *plugin,
+                                                  GsPluginCancelOfflineUpdateFlags  flags,
+                                                  GCancellable                     *cancellable,
+                                                  GAsyncReadyCallback               callback,
+                                                  gpointer                          user_data)
 {
-	g_assert (nth >= 1);
-	while (*txt != '\n' && *txt != '\0') {
-		if (*txt == chr) {
-			nth--;
-			if (nth == 0)
-				break;
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
+	g_autoptr(GTask) task = NULL;
+	gboolean interactive = (flags & GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE);
+
+	task = gs_plugin_cancel_offline_update_data_new_task (plugin, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_rpm_ostree_cancel_offline_update_async);
+
+	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
+				cancel_offline_update_thread_cb, g_steal_pointer (&task));
+}
+
+static gboolean
+gs_rpmostree_cancel_offline_update (GsPlugin *plugin,
+				    GsRPMOSTreeOS *os_proxy,
+				    GsRPMOSTreeSysroot *sysroot_proxy,
+				    gboolean interactive,
+				    GCancellable *cancellable,
+				    GError **error)
+{
+	const gchar *elements[2] = { "pending-deploy", NULL };
+	g_autofree gchar *transaction_address = NULL;
+	g_autoptr(TransactionProgress) tp = NULL;
+	g_autoptr(GError) local_error = NULL;
+	gboolean done;
+
+	if (!gs_rpmostree_wait_for_ongoing_transaction_end (sysroot_proxy, cancellable, error))
+		return FALSE;
+
+	done = FALSE;
+	while (!done) {
+		done = TRUE;
+
+		if (!gs_rpmostree_os_call_cleanup_sync (os_proxy,
+							elements,
+							interactive ? G_DBUS_CALL_FLAGS_ALLOW_INTERACTIVE_AUTHORIZATION : G_DBUS_CALL_FLAGS_NONE,
+							-1  /* timeout */,
+							&transaction_address,
+							cancellable,
+							&local_error)) {
+			if (g_error_matches (local_error, G_IO_ERROR, G_IO_ERROR_BUSY)) {
+				g_clear_error (&local_error);
+				if (!gs_rpmostree_wait_for_ongoing_transaction_end (sysroot_proxy, cancellable, error)) {
+					return FALSE;
+				}
+				done = FALSE;
+				continue;
+			}
+			if (local_error)
+				g_propagate_error (error, g_steal_pointer (&local_error));
+			gs_rpmostree_error_convert (error);
+			return FALSE;
 		}
-		txt++;
 	}
-	return (*txt == chr && nth == 0) ? txt : NULL;
+
+	tp = transaction_progress_new ();
+	if (!gs_rpmostree_transaction_get_response_sync (sysroot_proxy,
+	                                                 transaction_address,
+	                                                 tp,
+	                                                 interactive,
+	                                                 cancellable,
+	                                                 error)) {
+		gs_rpmostree_error_convert (error);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/* Run in @worker. */
+static void
+cancel_offline_update_thread_cb (GTask        *task,
+				 gpointer      source_object,
+				 gpointer      task_data,
+				 GCancellable *cancellable)
+{
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (source_object);
+	GsPluginCancelOfflineUpdateData *data = task_data;
+	g_autoptr(GsRPMOSTreeOS) os_proxy = NULL;
+	g_autoptr(GsRPMOSTreeSysroot) sysroot_proxy = NULL;
+	gboolean interactive = (data->flags & GS_PLUGIN_CANCEL_OFFLINE_UPDATE_FLAGS_INTERACTIVE) != 0;
+	g_autoptr(GError) local_error = NULL;
+
+	assert_in_worker (self);
+
+	if (!gs_rpmostree_ref_proxies (self, interactive, &os_proxy, &sysroot_proxy, cancellable, &local_error)) {
+		g_task_return_error (task, g_steal_pointer (&local_error));
+		return;
+	}
+
+	if (gs_rpmostree_cancel_offline_update (GS_PLUGIN (self), os_proxy, sysroot_proxy, interactive, cancellable, &local_error))
+		g_task_return_boolean (task, TRUE);
+	else
+		g_task_return_error (task, g_steal_pointer (&local_error));
+}
+
+static gboolean
+gs_plugin_rpm_ostree_cancel_offline_update_finish (GsPlugin      *plugin,
+                                                   GAsyncResult  *result,
+                                                   GError       **error)
+{
+	return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+static void get_offline_update_state_thread_cb (GTask        *task,
+						gpointer      source_object,
+						gpointer      task_data,
+						GCancellable *cancellable);
+
+static void
+gs_plugin_rpm_ostree_get_offline_update_state_async (GsPlugin                          *plugin,
+                                                     GsPluginGetOfflineUpdateStateFlags flags,
+                                                     GCancellable                      *cancellable,
+                                                     GAsyncReadyCallback                callback,
+                                                     gpointer                           user_data)
+{
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
+	g_autoptr(GTask) task = NULL;
+	gboolean interactive = (flags & GS_PLUGIN_GET_OFFLINE_UPDATE_STATE_FLAGS_INTERACTIVE);
+
+	task = gs_plugin_get_offline_update_state_data_new_task (plugin, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_rpm_ostree_get_offline_update_state_async);
+
+	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
+				get_offline_update_state_thread_cb, g_steal_pointer (&task));
+}
+
+/* Run in @worker. */
+static void
+get_offline_update_state_thread_cb (GTask        *task,
+				    gpointer      source_object,
+				    gpointer      task_data,
+				    GCancellable *cancellable)
+{
+	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (source_object);
+	GsPluginGetOfflineUpdateStateData *data = task_data;
+	g_autoptr(GsRPMOSTreeOS) os_proxy = NULL;
+	gboolean interactive = (data->flags & GS_PLUGIN_GET_OFFLINE_UPDATE_STATE_FLAGS_INTERACTIVE) != 0;
+	g_autoptr(GError) local_error = NULL;
+	g_autoptr(GVariant) deployment = NULL;
+	gint state = GS_PLUGIN_OFFLINE_UPDATE_STATE_NONE;
+
+	assert_in_worker (self);
+
+	if (!gs_rpmostree_ref_proxies (self, interactive, &os_proxy, NULL, cancellable, &local_error)) {
+		g_task_return_error (task, g_steal_pointer (&local_error));
+		return;
+	}
+
+	deployment = gs_rpmostree_os_dup_default_deployment (os_proxy);
+	if (deployment != NULL) {
+		g_auto(GVariantDict) dict = G_VARIANT_DICT_INIT (deployment);
+		g_autoptr(GVariant) staged = NULL;
+
+		staged = g_variant_dict_lookup_value (&dict, "staged", G_VARIANT_TYPE_BOOLEAN);
+
+		if (staged != NULL && g_variant_get_boolean (staged))
+			state = GS_PLUGIN_OFFLINE_UPDATE_STATE_SCHEDULED;
+	}
+
+	g_task_return_int (task, state);
+}
+
+static gboolean
+gs_plugin_rpm_ostree_get_offline_update_state_finish (GsPlugin                   *plugin,
+                                                      GAsyncResult               *result,
+                                                      GsPluginOfflineUpdateState *out_state,
+                                                      GError                    **error)
+{
+	g_autoptr(GError) local_error = NULL;
+	gssize res = g_task_propagate_int (G_TASK (result), &local_error);
+	if (local_error != NULL) {
+		g_propagate_error (error, g_steal_pointer (&local_error));
+		return FALSE;
+	}
+	*out_state = (GsPluginOfflineUpdateState) res;
+	return TRUE;
 }
 
 static void
-sanitize_update_history_text (gchar *text,
-			      guint64 *out_latest_date)
+gs_plugin_rpm_ostree_set_offline_update_action_async (GsPlugin                            *plugin,
+                                                      GsPluginSetOfflineUpdateActionFlags  flags,
+                                                      GCancellable                        *cancellable,
+                                                      GAsyncReadyCallback                  callback,
+                                                      gpointer                             user_data)
 {
-	GDate latest_date, date;
-	gchar *read_pos = text, *write_pos = text;
-	gsize text_len = strlen (text);
+	g_autoptr(GTask) task = NULL;
 
-	g_date_clear (&latest_date, 1);
-	g_date_clear (&date, 1);
+	task = gs_plugin_set_offline_update_action_data_new_task (plugin, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_rpm_ostree_set_offline_update_action_async);
 
-	#define skip_after(_chr) G_STMT_START { \
-		while (*read_pos != '\0' && *read_pos != '\n' && *read_pos != (_chr)) { \
-			if (read_pos != write_pos) \
-				*write_pos = *read_pos; \
-			read_pos++; \
-			write_pos++; \
-		} \
-		if (*read_pos == (_chr)) { \
-			if (read_pos != write_pos) \
-				*write_pos = *read_pos; \
-			read_pos++; \
-			write_pos++; \
-		} \
-	} G_STMT_END
-	#define skip_whitespace() G_STMT_START { \
-		while (*read_pos != '\0' && *read_pos != '\n' && g_ascii_isspace (*read_pos)) { \
-			if (read_pos != write_pos) \
-				*write_pos = *read_pos; \
-			read_pos++; \
-			write_pos++; \
-		} \
-	} G_STMT_END
+	g_task_return_new_error_literal (task, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_NOT_SUPPORTED, "Not supported");
+}
 
-	/* The first two lines begin with "ostree diff commit from/to:" - skip them. */
-	if (g_ascii_strncasecmp (read_pos, "ostree diff", strlen ("ostree diff")) == 0)
-		skip_after ('\n');
-	if (g_ascii_strncasecmp (read_pos, "ostree diff", strlen ("ostree diff")) == 0)
-		skip_after ('\n');
-	write_pos = text;
-
-	while (*read_pos != '\0') {
-		skip_whitespace ();
-
-		if (*read_pos == '*') {
-			const gchar *start, *end;
-
-			/* Extract date, from "* Thu Aug 14 2025 ...." */
-			start = find_char_on_line (read_pos, ' ', 2);
-			if (start != NULL) {
-				start++;
-				end = find_char_on_line (start, ' ', 3);
-				if (end != NULL) {
-					g_autofree gchar *str = g_strndup (start, end - start);
-					g_date_set_parse (&date, str);
-					if (g_date_valid (&date)) {
-						if (!g_date_valid (&latest_date) || g_date_compare (&latest_date, &date) < 0) {
-							latest_date = date;
-						}
-					}
-				}
-			}
-
-			/* Hide email addresses */
-			start = find_char_on_line (read_pos, '<', 1);
-			if (start != NULL) {
-				end = find_char_on_line (start, '>', 1);
-				if (end != NULL) {
-					while (read_pos < start) {
-						if (read_pos != write_pos)
-							*write_pos = *read_pos;
-						read_pos++;
-						write_pos++;
-					}
-					read_pos += end - read_pos;
-					if (*read_pos == '>' && g_ascii_isspace (read_pos[1]))
-						read_pos += 2;
-				}
-			}
-		}
-
-		skip_after ('\n');
-	}
-
-	#undef skip_until
-	#undef skip_whitespace
-
-	if (read_pos != write_pos)
-		*write_pos = '\0';
-
-	/* The logs can have thousands kilobytes of data, which is not good for GtkLabel,
-	   which has (together with Pango) a hard time to process it and show it (high CPU
-	   use for seconds or even minutes).
-
-	   Cut the log in 4KB, which is not so big and not so small part of the log.
-	   This will be extended to parse the output and split the texts by package in the future. */
-	if (write_pos - text + strlen ("…") > 4096) {
-		write_pos = g_utf8_offset_to_pointer (text, g_utf8_strlen (text, 4096));
-		*write_pos = '\0';
-		if (write_pos - text + strlen ("…") < text_len - 1)
-			strcat (write_pos, "…");
-	}
-
-	if (g_date_valid (&latest_date)) {
-		g_autoptr(GDateTime) date_time = g_date_time_new_utc (g_date_get_year (&latest_date),
-									g_date_get_month (&latest_date),
-									g_date_get_day (&latest_date),
-									0, 0, 0.0);
-		*out_latest_date = g_date_time_to_unix (date_time);
-	}
+static gboolean
+gs_plugin_rpm_ostree_set_offline_update_action_finish (GsPlugin      *plugin,
+                                                       GAsyncResult  *result,
+                                                       GError       **error)
+{
+	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
 static void
@@ -3861,6 +3961,12 @@ gs_plugin_rpm_ostree_class_init (GsPluginRpmOstreeClass *klass)
 	plugin_class->launch_finish = gs_plugin_rpm_ostree_launch_finish;
 	plugin_class->file_to_app_async = gs_plugin_rpm_ostree_file_to_app_async;
 	plugin_class->file_to_app_finish = gs_plugin_rpm_ostree_file_to_app_finish;
+	plugin_class->cancel_offline_update_async = gs_plugin_rpm_ostree_cancel_offline_update_async;
+	plugin_class->cancel_offline_update_finish = gs_plugin_rpm_ostree_cancel_offline_update_finish;
+	plugin_class->get_offline_update_state_async = gs_plugin_rpm_ostree_get_offline_update_state_async;
+	plugin_class->get_offline_update_state_finish = gs_plugin_rpm_ostree_get_offline_update_state_finish;
+	plugin_class->set_offline_update_action_async = gs_plugin_rpm_ostree_set_offline_update_action_async;
+	plugin_class->set_offline_update_action_finish = gs_plugin_rpm_ostree_set_offline_update_action_finish;
 }
 
 GType

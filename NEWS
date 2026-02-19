@@ -1,20 +1,51 @@
-Version 49.3
-~~~~~~~~~~~~
-Released: 2026-01-12
+Version 50~beta
+~~~~~~~~~~~~~~~
+Released: 2026-01-30
 
-This is a stable release with the following changes:
+This is an unstable release with the following changes:
+ * Show install and uninstall progress of an add-on
+ * Use lower thread priority when running in background
+ * Fix possible crash on session permission change
+ * Fix possible crash after XbSilo rebuild
+
+This release also updates translations:
+ * Bulgarian (twlvnn kraftwerk)
+ * Georgian (Ekaterine Papava)
+ * Hebrew (Yaron Shahrabani)
+ * Indonesian (Andika Triwidada)
+ * Kazakh (Baurzhan Muftakhidinov)
+ * Lithuanian (Aurimas Aurimas Černius)
+ * Portuguese (Brazil) (Juliano de Souza Camargo)
+ * Romanian (Antonio Marin)
+ * Russian (Artur S0)
+ * Slovenian (Martin)
+ * Uighur (Abduqadir Abliz)
+ * Ukrainian (Yuri Chornoivan)
+
+Version 50~alpha
+~~~~~~~~~~~~~~~~
+Released: 2026-01-15
+
+This is an unstable release with the following changes:
  * Improve display of long repository names
  * Clarify warning about removing data when uninstalling an app
  * Fix minor UI issues when scrolling using gestures on a touchpad
  * Don’t show firmware warning on Installed Updates page
  * Several fixes to update history on rpm-ostree systems
+ * Improve notifying the user about newly installed trivial flatpak app updates
+ * Improve display of keyboard shortcuts
+ * Split rpm-ostree changelogs by app
+ * Display error toasts in the repositories dialog when something goes wrong
 
 This release also updates translations:
- * Bokmål, Norwegian (Kjartan Maraas)
  * Catalan (Victor Dargallo)
  * Indonesian (Andika Triwidada)
+ * Japanese (Makoto Sakaguchi)
  * Kazakh (Baurzhan Muftakhidinov)
+ * Portuguese (Hugo Carvalho)
  * Portuguese (Brazil) (Juliano de Souza Camargo)
+ * Russian (Artur S0)
+ * Slovenian (Martin)
 
 Version 49.2
 ~~~~~~~~~~~~

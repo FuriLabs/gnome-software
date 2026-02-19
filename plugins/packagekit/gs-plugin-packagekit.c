@@ -83,6 +83,7 @@ struct _GsPluginPackagekit {
 	GFileMonitor		*monitor_trigger;
 	GPermission		*permission;
 	gboolean		 is_triggered;
+	gboolean		 offline_update_cancelled; /* can be requested before reboot/shutdown, to not auto-prepare it */
 	GHashTable		*prepared_updates;  /* (element-type utf8); set of package IDs for updates which are already prepared */
 	guint			 prepare_update_timeout_id;
 
@@ -712,6 +713,7 @@ finish_install_apps_enable_repo_op (GTask  *task,
 						     "no packages to install");
 
 				event = gs_plugin_event_new ("error", local_error,
+							     "app", app,
 							     NULL);
 				if (interactive)
 					gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
@@ -867,15 +869,19 @@ install_apps_remote_cb (GObject      *source_object,
 
 	if (!gs_plugin_packagekit_results_valid (results, cancellable, &local_error)) {
 		g_autoptr(GsPluginEvent) event = NULL;
+		GsApp *first_app = NULL;
 
 		for (guint i = 0; i < gs_app_list_length (data->remote_apps_to_install); i++) {
 			GsApp *app = gs_app_list_index (data->remote_apps_to_install, i);
+			if (first_app == NULL)
+				first_app = app;
 			gs_app_set_state_recover (app);
 		}
 
 		gs_plugin_packagekit_error_convert (&local_error, cancellable);
 
 		event = gs_plugin_event_new ("error", local_error,
+					     "app", first_app,
 					     NULL);
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
@@ -918,15 +924,19 @@ install_apps_local_cb (GObject      *source_object,
 
 	if (!gs_plugin_packagekit_results_valid (results, cancellable, &local_error)) {
 		g_autoptr(GsPluginEvent) event = NULL;
+		GsApp *first_app = NULL;
 
 		for (guint i = 0; i < gs_app_list_length (data->local_apps_to_install); i++) {
 			GsApp *app = gs_app_list_index (data->local_apps_to_install, i);
+			if (first_app == NULL)
+				first_app = app;
 			gs_app_set_state_recover (app);
 		}
 
 		gs_plugin_packagekit_error_convert (&local_error, cancellable);
 
 		event = gs_plugin_event_new ("error", local_error,
+					     "app", first_app,
 					     NULL);
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
@@ -1182,15 +1192,19 @@ uninstall_apps_remove_cb (GObject      *source_object,
 
 	if (!gs_plugin_packagekit_results_valid (results, cancellable, &local_error)) {
 		g_autoptr(GsPluginEvent) event = NULL;
+		GsApp *first_app = NULL;
 
 		for (guint i = 0; i < gs_app_list_length (data->apps_to_uninstall); i++) {
 			GsApp *app = gs_app_list_index (data->apps_to_uninstall, i);
+			if (first_app == NULL)
+				first_app = app;
 			gs_app_set_state_recover (app);
 		}
 
 		gs_plugin_packagekit_error_convert (&local_error, cancellable);
 
 		event = gs_plugin_event_new ("error", local_error,
+					     "app", first_app,
 					     NULL);
 		if (interactive)
 			gs_plugin_event_add_flag (event, GS_PLUGIN_EVENT_FLAG_INTERACTIVE);
@@ -3342,7 +3356,7 @@ gs_plugin_packagekit_prepared_update_changed_cb (GFileMonitor      *monitor,
 
 	if (event_type == G_FILE_MONITOR_EVENT_DELETED) {
 		g_autoptr(GSettings) settings = g_settings_new ("org.gnome.software");
-		if (g_settings_get_boolean (settings, "download-updates")) {
+		if (!self->offline_update_cancelled && g_settings_get_boolean (settings, "download-updates")) {
 			/* The prepared-update file had been removed, but the user has set
 			   to have the updates downloaded, thus prepared, thus prepare
 			   the update again. */
@@ -5320,6 +5334,8 @@ gs_plugin_packagekit_cancel_offline_update_async (GsPlugin                      
 	task = gs_plugin_cancel_offline_update_data_new_task (plugin, flags, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_packagekit_cancel_offline_update_async);
 
+	self->offline_update_cancelled = TRUE;
+
 	/* already in correct state */
 	if (!self->is_triggered) {
 		g_task_return_boolean (task, TRUE);
@@ -5420,6 +5436,122 @@ gs_plugin_packagekit_trigger_upgrade_finish (GsPlugin      *plugin,
 	return g_task_propagate_boolean (G_TASK (result), error);
 }
 
+static void gs_packagekit_get_offline_update_state_thread (GTask        *task,
+                                                           gpointer      source_object,
+                                                           gpointer      task_data,
+                                                           GCancellable *cancellable);
+
+static void
+gs_plugin_packagekit_get_offline_update_state_async (GsPlugin                          *plugin,
+                                                     GsPluginGetOfflineUpdateStateFlags flags,
+                                                     GCancellable                      *cancellable,
+                                                     GAsyncReadyCallback                callback,
+                                                     gpointer                           user_data)
+{
+	g_autoptr(GTask) task = NULL;
+
+	task = gs_plugin_get_offline_update_state_data_new_task (plugin, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_packagekit_get_offline_update_state_async);
+
+	/* There is no async API in the pk-offline, thus run in a thread;
+	   see https://github.com/PackageKit/PackageKit/issues/605 */
+	g_task_run_in_thread (task, gs_packagekit_get_offline_update_state_thread);
+}
+
+static void
+gs_packagekit_get_offline_update_state_thread (GTask        *task,
+                                               gpointer      source_object,
+                                               gpointer      task_data,
+                                               GCancellable *cancellable)
+{
+	PkOfflineAction action;
+	gboolean has_prepared;
+
+	action = pk_offline_get_action (NULL);
+	/* it can be prepared, but not scheduled, thus check the action */
+	has_prepared = action == PK_OFFLINE_ACTION_REBOOT || action == PK_OFFLINE_ACTION_POWER_OFF;
+
+	g_task_return_int (task, has_prepared ? GS_PLUGIN_OFFLINE_UPDATE_STATE_SCHEDULED : GS_PLUGIN_OFFLINE_UPDATE_STATE_NONE);
+}
+
+static gboolean
+gs_plugin_packagekit_get_offline_update_state_finish (GsPlugin                   *plugin,
+                                                      GAsyncResult               *result,
+					              GsPluginOfflineUpdateState *out_state,
+                                                      GError                    **error)
+{
+	g_autoptr(GError) local_error = NULL;
+	gssize res = g_task_propagate_int (G_TASK (result), &local_error);
+	if (local_error != NULL) {
+		g_propagate_error (error, g_steal_pointer (&local_error));
+		return FALSE;
+	}
+	*out_state = (GsPluginOfflineUpdateState) res;
+	return TRUE;
+}
+
+static void gs_packagekit_set_offline_update_action_thread (GTask        *task,
+                                                            gpointer      source_object,
+                                                            gpointer      task_data,
+                                                            GCancellable *cancellable);
+
+static void
+gs_plugin_packagekit_set_offline_update_action_async (GsPlugin                            *plugin,
+                                                      GsPluginSetOfflineUpdateActionFlags  flags,
+                                                      GCancellable                        *cancellable,
+                                                      GAsyncReadyCallback                  callback,
+                                                      gpointer                             user_data)
+{
+	g_autoptr(GTask) task = NULL;
+
+	task = gs_plugin_set_offline_update_action_data_new_task (plugin, flags, cancellable, callback, user_data);
+	g_task_set_source_tag (task, gs_plugin_packagekit_set_offline_update_action_async);
+
+	/* There is no async API in the pk-offline, thus run in a thread */
+	g_task_run_in_thread (task, gs_packagekit_set_offline_update_action_thread);
+}
+
+static void
+gs_packagekit_set_offline_update_action_thread (GTask        *task,
+                                                gpointer      source_object,
+                                                gpointer      task_data,
+                                                GCancellable *cancellable)
+{
+	GsPluginSetOfflineUpdateActionData *data = task_data;
+	gboolean interactive = (data->flags & GS_PLUGIN_SET_OFFLINE_UPDATE_ACTION_FLAGS_INTERACTIVE) != 0;
+	gboolean is_reboot = (data->flags & GS_PLUGIN_SET_OFFLINE_UPDATE_ACTION_FLAGS_SHUTDOWN) == 0;
+	g_autofree gchar *upgrade_name = pk_offline_get_prepared_upgrade_name (NULL);
+	g_autoptr(GError) local_error = NULL;
+	PkOfflineAction action;
+	PkOfflineFlags flags;
+	gboolean success;
+
+	action = is_reboot ? PK_OFFLINE_ACTION_REBOOT : PK_OFFLINE_ACTION_POWER_OFF;
+	flags = interactive ? PK_OFFLINE_FLAGS_INTERACTIVE : PK_OFFLINE_FLAGS_NONE;
+
+	/* use the upgrade name to distinguish whether an update or an upgrade is scheduled */
+	if (upgrade_name != NULL && *upgrade_name != '\0')
+		success = pk_offline_trigger_upgrade_with_flags (action, flags, cancellable, &local_error);
+	else
+		success = pk_offline_trigger_with_flags (action, flags, cancellable, &local_error);
+
+	if (!success) {
+		gs_plugin_packagekit_error_convert (&local_error, cancellable);
+		g_task_return_error (task, g_steal_pointer (&local_error));
+		return;
+	}
+
+	g_task_return_boolean (task, TRUE);
+}
+
+static gboolean
+gs_plugin_packagekit_set_offline_update_action_finish (GsPlugin      *plugin,
+                                                       GAsyncResult  *result,
+                                                       GError       **error)
+{
+	return g_task_propagate_boolean (G_TASK (result), error);
+}
+
 static void
 gs_plugin_packagekit_class_init (GsPluginPackagekitClass *klass)
 {
@@ -5461,6 +5593,10 @@ gs_plugin_packagekit_class_init (GsPluginPackagekitClass *klass)
 	plugin_class->file_to_app_finish = gs_plugin_packagekit_file_to_app_finish;
 	plugin_class->url_to_app_async = gs_plugin_packagekit_url_to_app_async;
 	plugin_class->url_to_app_finish = gs_plugin_packagekit_url_to_app_finish;
+	plugin_class->get_offline_update_state_async = gs_plugin_packagekit_get_offline_update_state_async;
+	plugin_class->get_offline_update_state_finish = gs_plugin_packagekit_get_offline_update_state_finish;
+	plugin_class->set_offline_update_action_async = gs_plugin_packagekit_set_offline_update_action_async;
+	plugin_class->set_offline_update_action_finish = gs_plugin_packagekit_set_offline_update_action_finish;
 }
 
 GType
