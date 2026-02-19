@@ -4,6 +4,8 @@ gnome-software (50~beta-1) UNRELEASED; urgency=medium
   * debian/control: Bump dependencies on gtk4 and libadwaita-1
   * Drop upstreamed patch:
     tests-Use-CC0-1.0-consistently-in-AppStream-metadata.patch
+  * Add new file 'gnome-software-local-file-metainfo.desktop' to
+    gnome-software-dev.install
 
  -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Thu, 19 Feb 2026 17:25:51 +0800
 
