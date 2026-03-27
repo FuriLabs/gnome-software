@@ -2439,7 +2439,7 @@ gs_rpm_ostree_refine_apps (GsPlugin                    *plugin,
 	for (guint ii = 0; ii < pkglist->len; ii++) {
 		RpmOstreePackage *pkg = g_ptr_array_index (pkglist, ii);
 		if (rpm_ostree_package_get_name (pkg))
-			g_hash_table_insert (packages, (gpointer) rpm_ostree_package_get_name (pkg), pkg);
+			g_hash_table_replace (packages, (gpointer) rpm_ostree_package_get_name (pkg), pkg);
 	}
 
 	for (guint ii = 0; layered_packages_strv && layered_packages_strv[ii]; ii++) {
@@ -2458,7 +2458,7 @@ gs_rpm_ostree_refine_apps (GsPlugin                    *plugin,
 		/* first try to resolve from installed packages and
 		   if we didn't find anything, try resolving from available packages */
 		if (!resolve_installed_packages_app (plugin, packages, layered_packages, layered_local_packages, app))
-			g_hash_table_insert (lookup_apps, (gpointer) gs_app_get_default_source (app), app);
+			g_hash_table_replace (lookup_apps, (gpointer) gs_app_get_default_source (app), app);
 	}
 
 	if (g_hash_table_size (lookup_apps) > 0) {
@@ -3837,18 +3837,17 @@ gs_plugin_rpm_ostree_get_offline_update_state_async (GsPlugin                   
                                                      GAsyncReadyCallback                callback,
                                                      gpointer                           user_data)
 {
-	GsPluginRpmOstree *self = GS_PLUGIN_RPM_OSTREE (plugin);
 	g_autoptr(GTask) task = NULL;
-	gboolean interactive = (flags & GS_PLUGIN_GET_OFFLINE_UPDATE_STATE_FLAGS_INTERACTIVE);
 
 	task = gs_plugin_get_offline_update_state_data_new_task (plugin, flags, cancellable, callback, user_data);
 	g_task_set_source_tag (task, gs_plugin_rpm_ostree_get_offline_update_state_async);
-
-	gs_worker_thread_queue (self->worker, get_priority_for_interactivity (interactive),
-				get_offline_update_state_thread_cb, g_steal_pointer (&task));
+	/* Run in a dedicated thread, not the worker thread, to not be blocked by any pending operation;
+	   this is usually called by gnome-shell on Restart and Power Off, thus an explicit user action,
+	   which should not take minutes to finish due to ongoing update download. */
+	g_task_run_in_thread (task, get_offline_update_state_thread_cb);
 }
 
-/* Run in @worker. */
+/* Runs in a dedicated thread, not in @worker. */
 static void
 get_offline_update_state_thread_cb (GTask        *task,
 				    gpointer      source_object,
@@ -3862,8 +3861,6 @@ get_offline_update_state_thread_cb (GTask        *task,
 	g_autoptr(GError) local_error = NULL;
 	g_autoptr(GVariant) deployment = NULL;
 	gint state = GS_PLUGIN_OFFLINE_UPDATE_STATE_NONE;
-
-	assert_in_worker (self);
 
 	if (!gs_rpmostree_ref_proxies (self, interactive, &os_proxy, NULL, cancellable, &local_error)) {
 		g_task_return_error (task, g_steal_pointer (&local_error));
