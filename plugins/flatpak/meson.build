@@ -6,6 +6,13 @@ deps = [
   ostree,
 ]
 
+flatpak_enums = gnome.mkenums_simple('gs-flatpak-enums',
+  sources: [
+    'gs-flatpak-transaction.h',
+  ],
+  install_header: false,
+)
+
 if get_option('mogwai')
   deps += mogwai_schedule_client
 endif
@@ -18,7 +25,7 @@ shared_module(
     'gs-flatpak-transaction.c',
     'gs-flatpak-utils.c',
     'gs-plugin-flatpak.c'
-  ],
+  ] + flatpak_enums,
   install : true,
   install_dir: plugin_dir,
   c_args : cargs,
