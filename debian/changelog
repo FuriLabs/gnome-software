@@ -1,6 +1,7 @@
 gnome-software (50.0-1) UNRELEASED; urgency=medium
 
   * New upstream release 50.0
+  * Drop binary 'gnome-software-restarter', replaced by systemd now.
 
  -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Fri, 27 Mar 2026 12:44:52 +0800
 

@@ -1,6 +1,5 @@
 usr/bin/gnome-software
 usr/libexec/gnome-software-cmd
-usr/libexec/gnome-software-restarter
 usr/lib/*/gnome-software/libgnomesoftware.so*
 usr/lib/*/gnome-software/plugins-*/*.so
 usr/lib/systemd/user
