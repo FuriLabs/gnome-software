@@ -6,43 +6,6 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,-O1 -Wl,-z,defs
 # Fix the Flatpak plugin: https://launchpad.net/bugs/1650783
 export DEB_LDFLAGS_MAINT_STRIP := -Wl,-Bsymbolic-functions
 
-GS_CONFIGURE_FLAGS = \
-	-Dauto_features=enabled \
-	-Dpackagekit=true \
-	-Dpackagekit_autoremove=true \
-	-Drpm_ostree=false \
-	-Dapt=true \
-	-Ddefault_featured_apps=true
-
-# these are conditionally re-enabled later
-GS_CONFIGURE_FLAGS += \
-	-Dfwupd=false \
-	-Dflatpak=false \
-	-Dgudev=false \
-	-Dmalcontent=false \
-	-Dsysprof=disabled \
-
-ifeq ($(DEB_HOST_ARCH_OS), linux)
-	# Enable Flatpak support on supported architectures
-	ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32))
-		GS_CONFIGURE_FLAGS += -Dflatpak=true -Dmalcontent=true
-	endif
-
-	# Enable GUdev support on Linux
-	GS_CONFIGURE_FLAGS += -Dgudev=true
-	
-	# Enable fwupd support on Linux
-	GS_CONFIGURE_FLAGS += -Dfwupd=true
-
-	# Enable snap support on supported architectures
-	ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 ppc64el s390x))
-		GS_CONFIGURE_FLAGS += -Dsnap=true
-	endif
-
-	# Enable sysprof support on Linux
-	GS_CONFIGURE_FLAGS += -Dsysprof=disabled
-endif
-
 DISTRO_ID = debian
 FREE_REPOS = \'@DISTRO@-*-main\'
 FREE_URL = https:\/\/www.debian.org\/social_contract\#guidelines
@@ -60,13 +23,24 @@ endif
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(GS_CONFIGURE_FLAGS)
+	dh_auto_configure -- \
+		-Dauto_features=enabled \
+		-Dapt=true \
+		-Ddefault_featured_apps=true \
+		-Dfwupd=$(if $(filter %-fwupd,$(shell dh_listpackages)),true,false) \
+		-Dflatpak=$(if $(filter %-flatpak,$(shell dh_listpackages)),true,false) \
+		-Dgudev=$(if $(filter linux,$(DEB_HOST_ARCH_OS)),true,false) \
+		-Dmalcontent=$(if $(filter %-flatpak,$(shell dh_listpackages)),true,false) \
+		-Dpackagekit=true \
+		-Dpackagekit_autoremove=true \
+		-Drpm_ostree=false \
+		-Dsnap=$(if $(filter %-snap,$(shell dh_listpackages)),true,false) \
+		-Dsysprof=$(if $(filter linux,$(DEB_HOST_ARCH_OS)),enabled,disabled)
 
-override_dh_installgsettings:
+execute_before_dh_installgsettings:
 	sed "s#@FREE_REPOS@#$(FREE_REPOS)#g" debian/gnome-software.gsettings-override.in > debian/gnome-software.gsettings-override
 	sed -i "s/@DISTRO@/$(DISTRO_ID)/g" debian/gnome-software.gsettings-override
 	sed -i "s/@URL@/$(FREE_URL)/g" debian/gnome-software.gsettings-override
-	dh_installgsettings
 
 execute_after_dh_missing:
 	# Not useful for Debian

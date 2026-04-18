@@ -13,7 +13,7 @@ Build-Depends: debhelper-compat (= 13),
                itstool,
                libadwaita-1-dev (>= 1.8~alpha),
                libappstream-dev (>= 1.0.0),
-               libflatpak-dev [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
+               libflatpak-dev [amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32],
                libfwupd-dev [linux-any],
                libglib-testing-0-dev,
                libglib2.0-dev (>= 2.76.0),
@@ -24,7 +24,7 @@ Build-Depends: debhelper-compat (= 13),
                libostree-dev [linux-any],
                libpackagekit-glib2-dev,
                libpolkit-gobject-1-dev,
-               libsnapd-glib-dev (>= 1.64) [amd64 arm64 armel armhf i386 ppc64el s390x],
+               libsnapd-glib-dev (>= 1.64) [linux-any],
                libsoup-3.0-dev,
                libsysprof-capture-4-dev [linux-any],
                libxml2-utils,
@@ -104,7 +104,7 @@ Description: .deb support for GNOME Software
  managing .deb packages with apt.
 
 Package: gnome-software-plugin-flatpak
-Architecture: amd64 arm64 armel armhf hppa i386 loong64 mips64el mipsel powerpc ppc64 ppc64el riscv64 s390x x32
+Architecture: amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32
 Depends: flatpak,
          gnome-software (= ${binary:Version}),
          ${misc:Depends},
@@ -143,12 +143,11 @@ Description: Firmware updater support for GNOME Software
  This package contains the fwupd plugin to update firmware.
 
 Package: gnome-software-plugin-snap
-Architecture: amd64 arm64 armel armhf i386 ppc64el s390x
+Architecture: amd64 arm64 armhf i386 ppc64el riscv64 s390x
 Depends: gnome-software (= ${binary:Version}),
-         snapd [amd64 arm64 armel armhf i386 ppc64el],
+         snapd,
          ${misc:Depends},
          ${shlibs:Depends},
-Recommends: snapd [s390x],
 Breaks: gnome-software (<< 46.0-2~),
 Provides: gnome-software-plugin (= ${binary:Version}),
 Replaces: gnome-software (<< 46.0-2~),
