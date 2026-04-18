@@ -19,11 +19,8 @@ GS_CONFIGURE_FLAGS += \
 	-Dfwupd=false \
 	-Dflatpak=false \
 	-Dgudev=false \
-	-Dmalcontent=false
-
-ifeq ($(filter amd64 arm64 armel armhf i386 mips64el ppc64el loong64 riscv64 s390x powerpc ppc64,$(DEB_HOST_ARCH)),)
-GS_CONFIGURE_FLAGS += -Dsysprof=disabled
-endif
+	-Dmalcontent=false \
+	-Dsysprof=disabled \
 
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	# Enable Flatpak support on supported architectures
@@ -41,6 +38,9 @@ ifeq ($(DEB_HOST_ARCH_OS), linux)
 	ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 ppc64el s390x))
 		GS_CONFIGURE_FLAGS += -Dsnap=true
 	endif
+
+	# Enable sysprof support on Linux
+	GS_CONFIGURE_FLAGS += -Dsysprof=disabled
 endif
 
 DISTRO_ID = debian
