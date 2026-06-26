@@ -1,3 +1,9 @@
+gnome-software (50.3-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 26 Jun 2026 09:31:35 -0400
+
 gnome-software (50.2-1) unstable; urgency=medium
 
   * New upstream release
