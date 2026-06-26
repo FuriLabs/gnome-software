@@ -1,8 +1,9 @@
-gnome-software (50.3-1) UNRELEASED; urgency=medium
+gnome-software (50.3-1) unstable; urgency=medium
 
   * New upstream release
+  * Update debhelper compat to 14
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 26 Jun 2026 09:31:35 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 26 Jun 2026 09:39:15 -0400
 
 gnome-software (50.2-1) unstable; urgency=medium
 
