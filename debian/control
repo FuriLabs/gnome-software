@@ -5,7 +5,7 @@ Uploaders: Jeremy Bícha <jbicha@ubuntu.com>,
            Laurent Bigonville <bigon@debian.org>,
            Matthias Klumpp <mak@debian.org>,
 Section: gnome
-Build-Depends: debhelper-compat (= 13),
+Build-Depends: debhelper-compat (= 14),
                appstream,
                docbook-xsl,
                gsettings-desktop-schemas-dev,
@@ -47,8 +47,6 @@ Architecture: any
 Depends: gnome-software-common (= ${source:Version}),
          gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin (= ${binary:Version}),
          gsettings-desktop-schemas,
-         ${misc:Depends},
-         ${shlibs:Depends},
 Recommends: ${plugin:Recommends},
 Suggests: gnome-software-plugin-deb,
           gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
@@ -66,7 +64,6 @@ Description: Software Center for GNOME
 Package: gnome-software-common
 Architecture: all
 Multi-Arch: foreign
-Depends: ${misc:Depends},
 Description: Software Center for GNOME (common files)
  Software lets you install and update applications and system extensions.
  .
@@ -85,8 +82,6 @@ Depends: appstream,
          gnome-software (= ${binary:Version}),
          libgtk3-perl,
          packagekit,
-         ${misc:Depends},
-         ${shlibs:Depends},
 Suggests: apt-config-icons-hidpi,
 Breaks: gnome-software (<< 46.0-2~),
 Provides: gnome-software-plugin (= ${binary:Version}),
@@ -107,8 +102,6 @@ Package: gnome-software-plugin-flatpak
 Architecture: amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32
 Depends: flatpak,
          gnome-software (= ${binary:Version}),
-         ${misc:Depends},
-         ${shlibs:Depends},
 Breaks: gnome-software (<< 46.0-2~),
 Provides: gnome-software-plugin (= ${binary:Version}),
 Replaces: gnome-software (<< 46.0-2~),
@@ -127,8 +120,6 @@ Package: gnome-software-plugin-fwupd
 Architecture: linux-any
 Depends: fwupd,
          gnome-software (= ${binary:Version}),
-         ${misc:Depends},
-         ${shlibs:Depends},
 Breaks: gnome-software (<< 46.0-2~),
 Replaces: gnome-software (<< 46.0-2~),
 Description: Firmware updater support for GNOME Software
@@ -146,8 +137,6 @@ Package: gnome-software-plugin-snap
 Architecture: amd64 arm64 armhf i386 ppc64el riscv64 s390x
 Depends: gnome-software (= ${binary:Version}),
          snapd,
-         ${misc:Depends},
-         ${shlibs:Depends},
 Breaks: gnome-software (<< 46.0-2~),
 Provides: gnome-software-plugin (= ${binary:Version}),
 Replaces: gnome-software (<< 46.0-2~),
@@ -174,7 +163,6 @@ Depends: libappstream-dev,
          libsoup-3.0-dev,
          libsysprof-capture-4-dev [linux-any],
          libxmlb-dev,
-         ${misc:Depends},
 Suggests: gnome-software-doc,
 Description: Software Center for GNOME - development files
  Software lets you install and update applications and system extensions.
@@ -187,7 +175,6 @@ Architecture: all
 Build-Profiles: <!nodoc>
 Multi-Arch: foreign
 Section: doc
-Depends: ${misc:Depends},
 Description: Software Center for GNOME - documentation
  Software lets you install and update applications and system extensions.
  .
