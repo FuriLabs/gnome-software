@@ -1,57 +1,64 @@
 Source: gnome-software
 Standards-Version: 4.7.4
 Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Jeremy Bícha <jbicha@ubuntu.com>,
-           Laurent Bigonville <bigon@debian.org>,
-           Matthias Klumpp <mak@debian.org>,
+Uploaders:
+ Jeremy Bícha <jbicha@ubuntu.com>,
+ Laurent Bigonville <bigon@debian.org>,
+ Matthias Klumpp <mak@debian.org>,
 Section: gnome
-Build-Depends: debhelper-compat (= 14),
-               appstream,
-               docbook-xsl,
-               gsettings-desktop-schemas-dev,
-               gtk-doc-tools,
-               itstool,
-               libadwaita-1-dev (>= 1.8~alpha),
-               libappstream-dev (>= 1.0.0),
-               libflatpak-dev [amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32],
-               libfwupd-dev [linux-any],
-               libglib-testing-dev,
-               libglib2.0-dev (>= 2.76.0),
-               libgtk-4-dev (>= 4.17.5),
-               libgudev-1.0-dev [linux-any],
-               libjson-glib-dev,
-               libmalcontent-0-dev [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
-               libostree-dev [linux-any],
-               libpackagekit-glib2-dev,
-               libpolkit-gobject-1-dev,
-               libsnapd-glib-dev (>= 1.64) [linux-any],
-               libsoup-3.0-dev,
-               libsysprof-capture-4-dev [linux-any],
-               libxml2-utils,
-               libxmlb-dev,
-               meson,
-               pkgconf,
-               polkitd,
-               xsltproc,
-Build-Depends-Indep: libgdk-pixbuf2.0-doc <!nodoc>,
-                     libglib2.0-doc <!nodoc>,
-                     libgtk-3-doc <!nodoc>,
-                     libjson-glib-doc <!nodoc>,
-                     libsoup-3.0-doc <!nodoc>,
+Build-Depends:
+ debhelper-compat (= 14),
+ appstream,
+ docbook-xsl,
+ gsettings-desktop-schemas-dev,
+ gtk-doc-tools,
+ itstool,
+ libadwaita-1-dev (>= 1.8~alpha),
+ libappstream-dev (>= 1.0.0),
+ libflatpak-dev [amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32],
+ libfwupd-dev [linux-any],
+ libglib-testing-dev,
+ libglib2.0-dev (>= 2.76.0),
+ libgtk-4-dev (>= 4.17.5),
+ libgudev-1.0-dev [linux-any],
+ libjson-glib-dev,
+ libmalcontent-0-dev [amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32],
+ libostree-dev [linux-any],
+ libpackagekit-glib2-dev,
+ libpolkit-gobject-1-dev,
+ libsnapd-glib-dev (>= 1.64) [linux-any],
+ libsoup-3.0-dev,
+ libsysprof-capture-4-dev [linux-any],
+ libxml2-utils,
+ libxmlb-dev,
+ meson,
+ pkgconf,
+ polkitd,
+ xsltproc,
+Build-Depends-Indep:
+ libgdk-pixbuf2.0-doc <!nodoc>,
+ libglib2.0-doc <!nodoc>,
+ libgtk-3-doc <!nodoc>,
+ libjson-glib-doc <!nodoc>,
+ libsoup-3.0-doc <!nodoc>,
 Vcs-Browser: https://salsa.debian.org/gnome-team/gnome-software
 Vcs-Git: https://salsa.debian.org/gnome-team/gnome-software.git
 Homepage: https://apps.gnome.org/Software/
 
 Package: gnome-software
 Architecture: any
-Depends: gnome-software-common (= ${source:Version}),
-         gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin (= ${binary:Version}),
-         gsettings-desktop-schemas,
-Recommends: ${plugin:Recommends},
-Suggests: gnome-software-plugin-deb,
-          gnome-software-plugin-flatpak [amd64 arm64 armel armhf i386 loong64 mipsel mips64el ppc64el s390x hppa powerpc ppc64 riscv64 x32],
-          gnome-software-plugin-snap [amd64 arm64 armel armhf i386 ppc64el s390x],
-Conflicts: sessioninstaller,
+Depends:
+ gnome-software-common (= ${source:Version}),
+ gnome-software-plugin-deb (= ${binary:Version}) | gnome-software-plugin (= ${binary:Version}),
+ gsettings-desktop-schemas,
+Recommends:
+ ${plugin:Recommends},
+Suggests:
+ gnome-software-plugin-deb,
+ gnome-software-plugin-flatpak [amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32],
+ gnome-software-plugin-snap [amd64 arm64 armel armhf i386 ppc64el s390x],
+Conflicts:
+ sessioninstaller,
 Description: Software Center for GNOME
  Software lets you install and update applications and system extensions.
  .
@@ -77,15 +84,20 @@ Description: Software Center for GNOME (common files)
 
 Package: gnome-software-plugin-deb
 Architecture: any
-Depends: appstream,
-         apt-config-icons,
-         gnome-software (= ${binary:Version}),
-         libgtk3-perl,
-         packagekit,
-Suggests: apt-config-icons-hidpi,
-Breaks: gnome-software (<< 46.0-2~),
-Provides: gnome-software-plugin (= ${binary:Version}),
-Replaces: gnome-software (<< 46.0-2~),
+Depends:
+ appstream,
+ apt-config-icons,
+ gnome-software (= ${binary:Version}),
+ libgtk3-perl,
+ packagekit,
+Suggests:
+ apt-config-icons-hidpi,
+Breaks:
+ gnome-software (<< 46.0-2~),
+Provides:
+ gnome-software-plugin (= ${binary:Version}),
+Replaces:
+ gnome-software (<< 46.0-2~),
 Description: .deb support for GNOME Software
  Software lets you install and update applications and system extensions.
  .
@@ -100,11 +112,15 @@ Description: .deb support for GNOME Software
 
 Package: gnome-software-plugin-flatpak
 Architecture: amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32
-Depends: flatpak,
-         gnome-software (= ${binary:Version}),
-Breaks: gnome-software (<< 46.0-2~),
-Provides: gnome-software-plugin (= ${binary:Version}),
-Replaces: gnome-software (<< 46.0-2~),
+Depends:
+ flatpak,
+ gnome-software (= ${binary:Version}),
+Breaks:
+ gnome-software (<< 46.0-2~),
+Provides:
+ gnome-software-plugin (= ${binary:Version}),
+Replaces:
+ gnome-software (<< 46.0-2~),
 Description: Flatpak support for GNOME Software
  Software lets you install and update applications and system extensions.
  .
@@ -118,10 +134,13 @@ Description: Flatpak support for GNOME Software
 
 Package: gnome-software-plugin-fwupd
 Architecture: linux-any
-Depends: fwupd,
-         gnome-software (= ${binary:Version}),
-Breaks: gnome-software (<< 46.0-2~),
-Replaces: gnome-software (<< 46.0-2~),
+Depends:
+ fwupd,
+ gnome-software (= ${binary:Version}),
+Breaks:
+ gnome-software (<< 46.0-2~),
+Replaces:
+ gnome-software (<< 46.0-2~),
 Description: Firmware updater support for GNOME Software
  Software lets you install and update applications and system extensions.
  .
@@ -135,11 +154,15 @@ Description: Firmware updater support for GNOME Software
 
 Package: gnome-software-plugin-snap
 Architecture: amd64 arm64 armhf i386 ppc64el riscv64 s390x
-Depends: gnome-software (= ${binary:Version}),
-         snapd,
-Breaks: gnome-software (<< 46.0-2~),
-Provides: gnome-software-plugin (= ${binary:Version}),
-Replaces: gnome-software (<< 46.0-2~),
+Depends:
+ gnome-software (= ${binary:Version}),
+ snapd,
+Breaks:
+ gnome-software (<< 46.0-2~),
+Provides:
+ gnome-software-plugin (= ${binary:Version}),
+Replaces:
+ gnome-software (<< 46.0-2~),
 Description: Snap support for GNOME Software
  Software lets you install and update applications and system extensions.
  .
@@ -155,15 +178,17 @@ Package: gnome-software-dev
 Architecture: any
 Multi-Arch: same
 Section: libdevel
-Depends: libappstream-dev,
-         libglib2.0-dev (>= 2.76.0),
-         libgtk-4-dev (>= 4.13.4),
-         libjson-glib-dev,
-         libpolkit-gobject-1-dev,
-         libsoup-3.0-dev,
-         libsysprof-capture-4-dev [linux-any],
-         libxmlb-dev,
-Suggests: gnome-software-doc,
+Depends:
+ libappstream-dev,
+ libglib2.0-dev (>= 2.76.0),
+ libgtk-4-dev (>= 4.13.4),
+ libjson-glib-dev,
+ libpolkit-gobject-1-dev,
+ libsoup-3.0-dev,
+ libsysprof-capture-4-dev [linux-any],
+ libxmlb-dev,
+Suggests:
+ gnome-software-doc,
 Description: Software Center for GNOME - development files
  Software lets you install and update applications and system extensions.
  .
