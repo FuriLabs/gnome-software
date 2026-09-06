@@ -20,13 +20,6 @@
 
 #define	GS_APPSTREAM_MAX_SCREENSHOTS	5
 
-/* This requires changes for https://github.com/hughsie/libxmlb/issues/120
- * The libxmlb crashes when all nodes are marked for a removal in the fixup-s
- */
-#if LIBXMLB_CHECK_VERSION(0, 3, 9)
-#define HAVE_FIXED_LIBXMLB 1
-#endif
-
 GsApp *
 gs_appstream_create_app (GsPlugin *plugin,
 			 XbSilo *silo,
@@ -1258,7 +1251,8 @@ gs_appstream_refine_app (GsPlugin *plugin,
 			break;
 		case ELEMENT_KIND_RELEASES: {
 			g_autoptr(GPtrArray) current_version_history = gs_app_get_version_history (app);
-			gboolean needs_version_history = current_version_history == NULL || current_version_history->len == 0;
+			gboolean needs_version_history = (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_HISTORY) != 0 &&
+							 (current_version_history == NULL || current_version_history->len == 0);
 			gboolean needs_update_details = (require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_UPDATE_DETAILS) != 0 &&
 							silo != NULL && gs_app_is_updatable (app);
 			/* set the release date */
@@ -1770,7 +1764,13 @@ gs_appstream_do_search (GsPlugin *plugin,
 	if (components->len > 0)
 		gs_appstream_read_silo_info_from_component (g_ptr_array_index (components, 0), &silo_filename, &default_scope);
 
+#if LIBXMLB_CHECK_VERSION(0, 3, 27)
+	extends_query = xb_silo_lookup_query_full (silo, "extends", error);
+	if (extends_query == NULL)
+		return FALSE;
+#else
 	extends_query = xb_silo_lookup_query (silo, "extends");
+#endif
 
 	for (guint i = 0; i < components->len; i++) {
 		XbNode *component = g_ptr_array_index (components, i);
@@ -2571,7 +2571,6 @@ gs_appstream_is_merge_node (XbBuilderNode *bn)
 	return FALSE;
 }
 
-#ifdef HAVE_FIXED_LIBXMLB
 static gboolean
 gs_appstream_remove_merge_components_cb (XbBuilderFixup *self,
 					 XbBuilderNode *bn,
@@ -2595,7 +2594,6 @@ gs_appstream_remove_nonmerge_components_cb (XbBuilderFixup *self,
 		xb_builder_node_add_flag (bn, XB_BUILDER_NODE_FLAG_IGNORE);
 	return TRUE;
 }
-#endif
 
 static GInputStream *
 gs_appstream_load_dep11_cb (XbBuilderSource *self,
@@ -2678,13 +2676,11 @@ gs_appstream_load_appstream_file (XbBuilder *builder,
 	xb_builder_node_insert_text (info, "filename", filename, NULL);
 	xb_builder_source_set_info (source, info);
 
-	#ifdef HAVE_FIXED_LIBXMLB
 	fixup = xb_builder_fixup_new ("RemoveNonMergeComponents",
 				       gs_appstream_remove_nonmerge_components_cb,
 				       NULL, NULL);
 	xb_builder_fixup_set_max_depth (fixup, 2);
 	xb_builder_source_add_fixup (source, fixup);
-	#endif
 
 	xb_builder_import_source (builder, source);
 
@@ -2897,6 +2893,8 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 	if (appstream_paths != NULL) {
 		g_autoptr(GError) local_error = NULL;
 		g_autoptr(XbBuilder) builder = xb_builder_new ();
+		g_autofree gchar *cache_fn = NULL;
+		g_autoptr(GFile) cache_file = NULL;
 		gboolean any_loaded = FALSE;
 		gs_appstream_add_current_locales (builder);
 		for (guint i = 0; i < appstream_paths->len && !g_cancellable_is_cancelled (cancellable); i++) {
@@ -2917,12 +2915,19 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 			any_loaded = gs_appstream_load_appstream_dir (builder, path, cancellable) || any_loaded;
 		}
 		if (any_loaded && !g_cancellable_is_cancelled (cancellable)) {
-			md->appstream_silo = xb_builder_compile (builder,
-								 XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
-								 XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
-								 cancellable, &local_error);
+			cache_fn = gs_utils_get_cache_filename ("appstream", "merge-appstream.xmlb",
+								GS_UTILS_CACHE_FLAG_WRITEABLE |
+								GS_UTILS_CACHE_FLAG_CREATE_DIRECTORY,
+								&local_error);
+			if (cache_fn != NULL) {
+				cache_file = g_file_new_for_path (cache_fn);
+				md->appstream_silo = xb_builder_ensure (builder, cache_file,
+									XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
+									XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
+									cancellable, &local_error);
+			}
 			#ifdef __GLIBC__
-			/* https://gitlab.gnome.org/GNOME/gnome-software/-/issues/941 
+			/* https://gitlab.gnome.org/GNOME/gnome-software/-/issues/941
 			* libxmlb <= 0.3.22 makes lots of temporary heap allocations parsing large XMLs
 			* trim the heap after parsing to control RSS growth. */
 			malloc_trim (0);
@@ -2935,6 +2940,8 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 	} else {
 		g_autoptr(GError) local_error = NULL;
 		g_autoptr(XbBuilder) builder = xb_builder_new ();
+		g_autofree gchar *cache_fn = NULL;
+		g_autoptr(GFile) cache_file = NULL;
 		gboolean any_loaded = FALSE;
 		gs_appstream_add_current_locales (builder);
 		for (guint i = 0; i < common_appstream_paths->len && !g_cancellable_is_cancelled (cancellable); i++) {
@@ -2942,10 +2949,17 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 			any_loaded = gs_appstream_load_appstream_dir (builder, path, cancellable) || any_loaded;
 		}
 		if (any_loaded && !g_cancellable_is_cancelled (cancellable)) {
-			md->appstream_silo = xb_builder_compile (builder,
-								 XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
-								 XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
-								 cancellable, &local_error);
+			cache_fn = gs_utils_get_cache_filename ("appstream", "merge-appstream.xmlb",
+								GS_UTILS_CACHE_FLAG_WRITEABLE |
+								GS_UTILS_CACHE_FLAG_CREATE_DIRECTORY,
+								&local_error);
+			if (cache_fn != NULL) {
+				cache_file = g_file_new_for_path (cache_fn);
+				md->appstream_silo = xb_builder_ensure (builder, cache_file,
+									XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
+									XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
+									cancellable, &local_error);
+			}
 			if (md->appstream_silo != NULL)
 				md->appstream_index = gs_appstream_create_silo_index (md->appstream_silo, TRUE);
 			else
@@ -2955,6 +2969,8 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 	if (desktop_paths != NULL) {
 		g_autoptr(GError) local_error = NULL;
 		g_autoptr(XbBuilder) builder = xb_builder_new ();
+		g_autofree gchar *cache_fn = NULL;
+		g_autoptr(GFile) cache_file = NULL;
 		gboolean any_loaded = FALSE;
 		gs_appstream_add_current_locales (builder);
 		for (guint i = 0; i < desktop_paths->len && !g_cancellable_is_cancelled (cancellable); i++) {
@@ -2964,10 +2980,17 @@ gs_appstream_gather_merge_data (GPtrArray *appstream_paths,
 			any_loaded = any_loaded || this_loaded;
 		}
 		if (any_loaded && !g_cancellable_is_cancelled (cancellable)) {
-			md->desktop_silo = xb_builder_compile (builder,
-							       XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
-							       XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
-							       cancellable, &local_error);
+			cache_fn = gs_utils_get_cache_filename ("appstream", "merge-desktop.xmlb",
+								GS_UTILS_CACHE_FLAG_WRITEABLE |
+								GS_UTILS_CACHE_FLAG_CREATE_DIRECTORY,
+								&local_error);
+			if (cache_fn != NULL) {
+				cache_file = g_file_new_for_path (cache_fn);
+				md->desktop_silo = xb_builder_ensure (builder, cache_file,
+								      XB_BUILDER_COMPILE_FLAG_IGNORE_INVALID |
+								      XB_BUILDER_COMPILE_FLAG_SINGLE_LANG,
+								      cancellable, &local_error);
+			}
 			if (md->desktop_silo != NULL)
 				md->desktop_index = gs_appstream_create_silo_index (md->desktop_silo, FALSE);
 			else
@@ -3195,23 +3218,19 @@ gs_appstream_add_data_merge_fixup (XbBuilder *builder,
 				   GPtrArray *desktop_paths,
 				   GCancellable *cancellable)
 {
-	#ifdef HAVE_FIXED_LIBXMLB
 	g_autoptr(XbBuilderFixup) fixup1 = NULL;
-	#endif
 	g_autoptr(XbBuilderFixup) fixup2 = NULL;
 	MergeData *md;
 
 	/* First read all of the merge components and .desktop files (which will be merged as well) */
 	md = gs_appstream_gather_merge_data (appstream_paths, desktop_paths, cancellable);
 
-	#ifdef HAVE_FIXED_LIBXMLB
 	/* Then drop all the merge components from the result, because they are useless when being merged */
 	fixup1 = xb_builder_fixup_new ("RemoveMergeComponents",
 				       gs_appstream_remove_merge_components_cb,
 				       NULL, NULL);
 	xb_builder_fixup_set_max_depth (fixup1, 2);
 	xb_builder_add_fixup (builder, fixup1);
-	#endif
 
 	/* Then apply merge data to the components */
 	fixup2 = xb_builder_fixup_new ("ApplyMerges",

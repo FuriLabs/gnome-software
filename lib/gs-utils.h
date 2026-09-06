@@ -13,6 +13,8 @@
 #include <gtk/gtk.h>
 
 #include "gs-app.h"
+#include "gs-app-list.h"
+#include "gs-plugin.h"
 
 G_BEGIN_DECLS
 
@@ -75,11 +77,10 @@ gint             gs_utils_sort_strcmp		(const gchar    *str1,
 GDesktopAppInfo *gs_utils_get_desktop_app_info	(const gchar	*id);
 gboolean	 gs_utils_rmtree		(const gchar	*directory,
 						 GError		**error);
-gint		 gs_utils_get_wilson_rating	(guint64	 star1,
-						 guint64	 star2,
-						 guint64	 star3,
-						 guint64	 star4,
-						 guint64	 star5);
+unsigned int	 gs_utils_estimate_average_rating_score	(const uint64_t *score_values,
+							 size_t          n_scores,
+							 const uint64_t *votes,
+							 gboolean       *out_should_show_score);
 void		 gs_utils_error_add_app_id	(GError		**error,
 						 GsApp		*app);
 void		 gs_utils_error_add_origin_id	(GError		**error,
@@ -164,5 +165,7 @@ gint		 gs_utils_app_sort_kind		(GsApp			*app1,
 						 GsApp			*app2);
 gint		 gs_utils_compare_versions	(const gchar		*ver1,
 						 const gchar		*ver2);
+GsAppList	*gs_utils_filter_apps_for_plugin(GsAppList		*list,
+						 GsPlugin		*plugin);
 
 G_END_DECLS

@@ -1922,9 +1922,8 @@ gs_plugin_snap_install_apps_async (GsPlugin                           *plugin,
 		const gchar *name, *channel;
 		SnapdInstallFlags install_flags = SNAPD_INSTALL_FLAGS_NONE;
 
-		/* We can only install apps we know of */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/* This should be guaranteed by GsPluginJobInstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		name = gs_app_get_metadata_item (app, "snap::name");
 		channel = gs_app_get_branch (app);
@@ -2362,9 +2361,8 @@ gs_plugin_snap_uninstall_apps_async (GsPlugin                           *plugin,
 		g_autoptr(UninstallSingleAppData) app_data = NULL;
 		const gchar *name;
 
-		/* We can only install apps we know of */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/* This should be guaranteed by GsPluginJobUninstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		name = gs_app_get_metadata_item (app, "snap::name");
 
@@ -2612,9 +2610,8 @@ gs_plugin_snap_update_apps_async (GsPlugin                           *plugin,
 		const gchar *name;
 		g_autoptr(RefreshAppData) app_data = NULL;
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, plugin))
-			continue;
+		/* This should be guaranteed by GsPluginJobUpdateApps */
+		g_assert (gs_app_has_management_plugin (app, plugin));
 
 		/* Get the name of the snap to refresh */
 		name = gs_app_get_metadata_item (app, "snap::name");

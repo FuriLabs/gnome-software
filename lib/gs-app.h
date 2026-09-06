@@ -138,6 +138,7 @@ typedef enum {
  * @GS_APP_QUIRK_HIDE_EVERYWHERE:	The app should not be shown anywhere (it’s blocklisted)
  * @GS_APP_QUIRK_DO_NOT_AUTO_UPDATE:	The app should not be automatically updated
  * @GS_APP_QUIRK_FROM_DEVELOPMENT_REPOSITORY: The app is from a development/beta repository (Since: 49)
+ * @GS_APP_QUIRK_HARDWARE_MATCHED:	The app provides support for hardware attached to this system (Since: 52)
  *
  * The application attributes.
  **/
@@ -162,6 +163,7 @@ typedef enum {
 	GS_APP_QUIRK_HIDE_EVERYWHERE	= 1 << 16,	/* Since: 3.36 */
 	GS_APP_QUIRK_DO_NOT_AUTO_UPDATE	= 1 << 17,	/* Since: 3.36 */
 	GS_APP_QUIRK_FROM_DEVELOPMENT_REPOSITORY = 1 << 18,	/* Since: 49 */
+	GS_APP_QUIRK_HARDWARE_MATCHED   = 1 << 19,	/* Since: 52 */
 	GS_APP_QUIRK_LAST  /*< skip >*/
 } GsAppQuirk;
 
@@ -420,11 +422,11 @@ void		 gs_app_set_metadata_variant	(GsApp		*app,
 						 GVariant	*value);
 gboolean	 gs_app_get_show_reviews	(GsApp		*app);
 gint		 gs_app_get_rating		(GsApp		*app);
-void		 gs_app_set_rating		(GsApp		*app,
-						 gint		 rating);
-GArray		*gs_app_get_review_ratings	(GsApp		*app);
+const unsigned int *gs_app_get_review_ratings	(GsApp		*app,
+						 size_t		*out_length);
 void		 gs_app_set_review_ratings	(GsApp		*app,
-						 GArray		*review_ratings);
+						 const unsigned int *review_ratings,
+						 size_t		 review_ratings_length);
 GPtrArray	*gs_app_get_reviews		(GsApp		*app);
 void		 gs_app_add_review		(GsApp		*app,
 						 AsReview	*review);

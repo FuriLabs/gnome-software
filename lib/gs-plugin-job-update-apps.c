@@ -261,10 +261,17 @@ gs_plugin_job_update_apps_run_async (GsPluginJob         *job,
 	for (guint i = 0; i < plugins->len; i++) {
 		GsPlugin *plugin = g_ptr_array_index (plugins, i);
 		GsPluginClass *plugin_class = GS_PLUGIN_GET_CLASS (plugin);
+		g_autoptr(GsAppList) plugin_apps = NULL;
 
 		if (!gs_plugin_get_enabled (plugin))
 			continue;
 		if (plugin_class->update_apps_async == NULL)
+			continue;
+
+		plugin_apps = gs_utils_filter_apps_for_plugin (self->apps, plugin);
+
+		/* skip plugin if none of the apps belongs to it */
+		if (gs_app_list_length (plugin_apps) == 0)
 			continue;
 
 		/* at least one plugin supports this vfunc */
@@ -280,7 +287,7 @@ gs_plugin_job_update_apps_run_async (GsPluginJob         *job,
 		/* run the plugin */
 		self->n_pending_ops++;
 		plugin_class->update_apps_async (plugin,
-						 self->apps,
+						 plugin_apps,
 						 self->flags,
 						 plugin_progress_cb,
 						 task,
@@ -435,8 +442,11 @@ finish_op (GTask  *task,
 
 	/* Emit one final progress update, then stop any further ones.
 	 * Ensure the emission is in the right #GMainContext. */
-	g_assert (g_main_context_is_owner (g_task_get_context (task)));
-	progress_cb (self);
+	if (self->plugins_progress != NULL && g_hash_table_size (self->plugins_progress) > 0) {
+		g_assert (g_main_context_is_owner (g_task_get_context (task)));
+		progress_cb (self);
+	}
+
 	g_source_destroy (self->progress_source);
 	g_clear_pointer (&self->plugins_progress, g_hash_table_unref);
 

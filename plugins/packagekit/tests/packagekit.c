@@ -10,7 +10,7 @@
 
 #include "gnome-software-private.h"
 
-#include "gs-markdown.h"
+#include "../gs-markdown.h"
 #include "gs-test.h"
 
 static void
@@ -209,6 +209,17 @@ gs_markdown_func (void)
 	text = gs_markdown_parse (md, markdown);
 	g_assert_cmpstr (text, ==, markdown_expected);
 	g_free (text);
+
+	markdown = "For details about the changes, please read the upstream [announcement](https://www.gimp.org/news/2026/04/19/gimp-3-2-4-released/) "
+		   "and [release notes](https://gitlab.gnome.org/GNOME/gimp/-/blob/GIMP_3_2_4/NEWS?ref_type=tags).";
+	markdown_expected =
+		   "For details about the changes, please read the upstream "
+		   "<a href=\"https://www.gimp.org/news/2026/04/19/gimp-3-2-4-released/\">announcement</a> "
+		   "and <a href=\"https://gitlab.gnome.org/GNOME/gimp/-/blob/GIMP_3_2_4/NEWS?ref_type=tags\">release notes</a>.";
+	gs_markdown_set_autocode (md, FALSE);
+	text = gs_markdown_parse (md, markdown);
+	g_assert_cmpstr (text, ==, markdown_expected);
+	g_free (text);
 }
 
 static void
@@ -228,7 +239,7 @@ gs_plugins_packagekit_local_func (GsPluginLoader *plugin_loader)
 	}
 
 	/* load local file */
-	fn = gs_test_get_filename (TESTDATADIR, "chiron-1.1-1.fc24.x86_64.rpm");
+	fn = g_test_build_filename (G_TEST_DIST, "chiron-1.1-1.fc24.x86_64.rpm", NULL);
 	g_assert (fn != NULL);
 	file = g_file_new_for_path (fn);
 	plugin_job = gs_plugin_job_file_to_app_new (file, GS_PLUGIN_FILE_TO_APP_FLAGS_NONE,

@@ -1,45 +1,90 @@
-Version 50.3
-~~~~~~~~~~~~
-Released: 2026-06-26
+Version 51~rc
+~~~~~~~~~~~~~
+Released: 2026-08-28
 
-This is a stable release with the following change:
- * Fix a memory leak
+This is an unstable release with the following changes:
+ * Various user interface fixes
 
 This release also updates translations:
- * Norwegian Bokmål (Brage Fuglseth)
+ * Basque (Asier Saratsua Garmendia)
+ * Belarusian (Vasil Pupkin)
+ * Bulgarian (Alexander Alexandrov Shopov)
+ * Burmese (zay yar lwin)
+ * Catalan (Victor Dargallo, Xavi Ivars, Jordi Mas)
+ * Chinese (China) (luming zh)
+ * Chinese (Taiwan) (Cheng-Chia Tseng)
+ * Czech (Patrik Sivek)
+ * Dutch (Nathan Follens)
+ * Finnish (Jiri Grönroos)
+ * French (Lucien)
+ * Galician (Francisco Diéguez Souto)
+ * Georgian (Ekaterine Papava)
+ * Hebrew (Yaron Shahrabani)
+ * Indonesian (Andika Triwidada)
+ * Kazakh (Baurzhan Muftakhidinov)
+ * Korean (Seong-ho Cho)
+ * Lithuanian (Aurimas Černius)
+ * Norwegian Bokmål (Kjartan Maraas)
+ * Norwegian Nynorsk (Bjørn Mørkedal)
+ * Occitan (post 1500) (Quentin PAGÈS)
+ * Persian (Danial Behzadi)
+ * Portuguese (Brazil) (burns)
+ * Russian (Artur S0)
+ * Slovenian (Martin)
+ * Swedish (Anders Jonsson)
+ * Thai (Aefgh Threenine)
+ * Turkish (Emin Tufan Çetin)
+ * Uighur (Abduqadir Abliz)
+ * Ukrainian (Yuri Chornoivan)
+
+Version 51~beta
+~~~~~~~~~~~~~~~
+Released: 2026-07-31
+
+This is an unstable release with the following changes:
+ * Improve performance of icons loading
+ * Improve performance of PackageKit repositories refine
+ * Change statistical approach for average rating scores
+
+This release also updates translations:
+ * Chinese (China) (luming zh)
+ * Czech (Daniel Rusek)
+ * Georgian (Ekaterine Papava)
+ * Hebrew (Yaron Shahrabani)
+ * Kazakh (Baurzhan Muftakhidinov)
  * Polish (Victoria Niedzielska)
+ * Romanian (Antonio Marin)
+ * Slovenian (Martin)
+ * Ukrainian (Yuri Chornoivan)
 
-Version 50.2
-~~~~~~~~~~~~
-Released: 2026-05-22
+Version 51~alpha
+~~~~~~~~~~~~~~~~
+Released: 2026-06-26
 
-This is a stable release with the following changes:
- * Fix duplicate web apps with the same URL showing as one entry
- * Fix hiding the Incompatible Software dialog
+This is an unstable release with the following changes:
+ * Extend Flatpak file permissions list
+ * Warn before installing end-of-life apps
+ * Add tooltips to icon-only buttons in narrow mode
+ * Reuse cached AppStream data on start-up to improve performance
+ * Fixed few memory leaks
 
 This release also updates translations:
  * Belarusian (Vasil Pupkin)
  * Czech (Daniel Rusek)
  * Dutch (Nathan Follens)
- * Lao (Saikeo Kavhanxay)
- * Norwegian Bokmål (Kjartan Maraas)
- * Persian (Danial Behzadi)
- * Polish (Łukasz Horodecki)
- * Romanian (Antonio Marin)
- * Slovak (Jose Riha, Peter Vančo)
- * Thai (Aefgh Threenine)
- * Turkish (Berk Elyesa Yıldırım)
- * Ukrainian (fudjdhwj eisjdho)
-
-Version 50.1
-~~~~~~~~~~~~
-Released: 2026-04-11
-
-This is a stable release with updated translations:
  * Kabyle (BoF ButterflyOfFire)
- * Polish (Victoria Niedzielska)
+ * Lao (Saikeo Kavhanxay)
+ * Norwegian Bokmål (Brage Fuglseth, Kjartan Maraas)
+ * Persian (Danial Behzadi)
+ * Polish (Victoria Niedzielska, Łukasz Horodecki)
+ * Romanian (Antonio Marin)
+ * Russian (Artur S0)
  * Serbian (Марко Костић)
- * Slovak (Jose Riha)
+ * Slovenian (Martin)
+ * Thai (Aefgh Threenine)
+ * Turkish (Emin Tufan Çetin)
+ * Uzbek (Muhammad Ganiyev)
+ * Vietnamese (phmqXPD)
 
 Version 50.0
 ~~~~~~~~~~~~

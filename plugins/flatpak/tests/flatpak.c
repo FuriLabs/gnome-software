@@ -13,7 +13,8 @@
 
 #include "gnome-software-private.h"
 
-#include "gs-flatpak-app.h"
+#include "../gs-flatpak-app.h"
+#include "../gs-flatpak-utils.h"
 
 #include "gs-test.h"
 
@@ -42,7 +43,7 @@ gs_flatpak_test_write_repo_file (const gchar *fn, const gchar *testdir, GFile **
 	g_string_append_printf (str, "Url=%s\n", testdir_repourl);
 	g_string_append (str, "Homepage=http://foo.bar\n");
 
-	path = g_build_filename (g_getenv ("GS_SELF_TEST_FLATPAK_DATADIR"), fn, NULL);
+	path = g_build_filename (g_getenv ("GS_TEST_FLATPAK_DATADIR"), fn, NULL);
 	*file_out = g_file_new_for_path (path);
 
 	return g_file_set_contents (path, str->str, -1, error);
@@ -69,7 +70,7 @@ gs_flatpak_test_write_ref_file (const gchar *filename, const gchar *url, const g
 	g_string_append (str, "Icon=https://getfedora.org/static/images/fedora-logotext.png\n");
 	g_string_append_printf (str, "RuntimeRepo=%s\n", runtimerepo);
 
-	path = g_build_filename (g_getenv ("GS_SELF_TEST_FLATPAK_DATADIR"), filename, NULL);
+	path = g_build_filename (g_getenv ("GS_TEST_FLATPAK_DATADIR"), filename, NULL);
 	*file_out = g_file_new_for_path (path);
 
 	return g_file_set_contents (path, str->str, -1, error);
@@ -186,7 +187,7 @@ gs_plugins_flatpak_repo_func (GsPluginLoader *plugin_loader)
 	g_assert_cmpint (gs_app_get_state (app), ==, GS_APP_STATE_INSTALLED);
 
 	/* check config file was updated */
-	root = g_getenv ("GS_SELF_TEST_FLATPAK_DATADIR");
+	root = g_getenv ("GS_TEST_FLATPAK_DATADIR");
 	config_fn = g_build_filename (root, "flatpak", "repo", "config", NULL);
 	kf = g_key_file_new ();
 	ret = g_key_file_load_from_file (kf, config_fn, 0, &error);
@@ -296,7 +297,7 @@ gs_plugins_flatpak_app_with_runtime_func (GsPluginLoader *plugin_loader)
 	const gchar *keywords[2] = { NULL, };
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* no flatpak, abort */
@@ -312,7 +313,7 @@ gs_plugins_flatpak_app_with_runtime_func (GsPluginLoader *plugin_loader)
 	}
 
 	/* check changed file exists */
-	root = g_getenv ("GS_SELF_TEST_FLATPAK_DATADIR");
+	root = g_getenv ("GS_TEST_FLATPAK_DATADIR");
 	changed_fn = g_build_filename (root, "flatpak", ".changed", NULL);
 	g_assert_true (g_file_test (changed_fn, G_FILE_TEST_IS_REGULAR));
 
@@ -575,7 +576,7 @@ gs_plugins_flatpak_app_missing_runtime_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GPtrArray) events_after = NULL;
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* no flatpak, abort */
@@ -732,7 +733,7 @@ gs_plugins_flatpak_runtime_repo_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GsPluginJob) plugin_job_manage_repository = NULL;
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* write a flatpakrepo file */
@@ -873,7 +874,7 @@ gs_plugins_flatpak_runtime_repo_redundant_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GsPluginJob) plugin_job_manage_repository2 = NULL;
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* write a flatpakrepo file */
@@ -1024,7 +1025,7 @@ gs_plugins_flatpak_broken_remote_func (GsPluginLoader *plugin_loader)
 	GsPlugin *plugin;
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* no flatpak, abort */
@@ -1132,7 +1133,7 @@ flatpak_bundle_or_ref_helper (GsPluginLoader *plugin_loader,
 	const gchar *keywords[2] = { NULL, };
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* no flatpak, abort */
@@ -1446,7 +1447,7 @@ gs_plugins_flatpak_app_update_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GsAppList) update_apps_list = NULL;
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* no flatpak, abort */
@@ -1468,7 +1469,7 @@ gs_plugins_flatpak_app_update_func (GsPluginLoader *plugin_loader)
 	}
 
 	/* add indirection so we can switch this after install */
-	repo_path = g_build_filename (g_getenv ("GS_SELF_TEST_FLATPAK_DATADIR"), "repo", NULL);
+	repo_path = g_build_filename (g_getenv ("GS_TEST_FLATPAK_DATADIR"), "repo", NULL);
 	unlink (repo_path);
 	g_assert_true (symlink (repodir1_fn, repo_path) == 0);
 
@@ -1712,7 +1713,7 @@ gs_plugins_flatpak_runtime_extension_func (GsPluginLoader *plugin_loader)
 	g_autoptr(GsAppList) runtime_list = NULL;
 
 	/* drop all caches */
-	gs_utils_rmtree (g_getenv ("GS_SELF_TEST_CACHEDIR"), NULL);
+	gs_utils_rmtree (g_getenv ("GS_TEST_CACHEDIR"), NULL);
 	gs_test_reinitialise_plugin_loader (plugin_loader, allowlist, NULL);
 
 	/* no flatpak, abort */
@@ -1733,7 +1734,7 @@ gs_plugins_flatpak_runtime_extension_func (GsPluginLoader *plugin_loader)
 	}
 
 	/* add indirection so we can switch this after install */
-	repo_path = g_build_filename (g_getenv ("GS_SELF_TEST_FLATPAK_DATADIR"), "repo", NULL);
+	repo_path = g_build_filename (g_getenv ("GS_TEST_FLATPAK_DATADIR"), "repo", NULL);
 	g_assert_cmpint (symlink (repodir1_fn, repo_path), ==, 0);
 
 	/* add a remote */
@@ -1945,6 +1946,379 @@ gs_plugins_flatpak_runtime_extension_func (GsPluginLoader *plugin_loader)
 	g_assert_false (gs_app_is_installed (extension));
 }
 
+static void
+assert_compare_bus_policies (const GsBusPolicy * const *bus_policies,
+                             size_t                     n_bus_policies,
+                             const GsBusPolicy * const *expected_bus_policies,
+                             size_t                     n_expected_bus_policies)
+{
+	g_assert_true ((bus_policies == NULL) == (n_bus_policies == 0));
+	g_assert_true ((expected_bus_policies == NULL) == (n_expected_bus_policies == 0));
+	g_assert_cmpuint (n_bus_policies, ==, n_expected_bus_policies);
+
+	for (size_t i = 0; i < n_bus_policies; i++) {
+		const GsBusPolicy *a = bus_policies[i], *b = expected_bus_policies[i];
+
+		g_assert_cmpint (a->bus_type, ==, b->bus_type);
+		g_assert_cmpstr (a->bus_name, ==, b->bus_name);
+		g_assert_cmpint (a->permission, ==, b->permission);
+	}
+}
+
+#if !GLIB_CHECK_VERSION(2,89,0)
+/*
+ * Copied as a fallback from GLib. We can drop this once we depend on
+ * GLib ≥ 2.89.0.
+ * Copyright 2026 Philip Withnall
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+static inline gboolean
+g_set_str_take (char **str_pointer,
+                char  *new_str)
+{
+  /* You could pass the value of `*str_pointer` in to this function, but you
+   * really should do it using g_steal_pointer() to document the ownership
+   * transfer. */
+  if (*str_pointer == new_str)
+    return FALSE;
+
+  if (*str_pointer != NULL &&
+      new_str != NULL &&
+      strcmp (*str_pointer, new_str) == 0)
+    {
+      g_free (new_str);
+      return FALSE;
+    }
+
+  g_free (*str_pointer);
+  *str_pointer = new_str;
+  new_str = NULL;  /* stolen */
+
+  return TRUE;
+}
+#endif
+
+static void
+gs_plugins_flatpak_app_permissions (GsPluginLoader *plugin_loader)
+{
+	const struct {
+		/* Input; any of these can contain multiple lines separated by \n */
+		const char *app_metadata_context;
+		const char *app_metadata_session_bus_policy;
+		const char *app_metadata_system_bus_policy;
+
+		/* Output */
+		GsAppPermissionsFlags expected_flags;
+		const char * const *expected_filesystem_read;
+		const char * const *expected_filesystem_full;
+		const GsBusPolicy * const *expected_bus_policies;
+		size_t n_expected_bus_policies;
+	} vectors[] = {
+		{
+			.app_metadata_context = "sockets=system-bus;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SYSTEM_BUS | GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_context = "sockets=session-bus;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SESSION_BUS | GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_context = "sockets=x11;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_X11,
+		},
+		{
+			.app_metadata_context = "sockets=x11;fallback-x11",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_X11,
+		},
+		{
+			.app_metadata_context = "sockets=wayland;fallback-x11",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_context = "sockets=inherit-wayland-socket;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_context = "sockets=pulseaudio;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_AUDIO_DEVICES,
+		},
+		{
+			.app_metadata_context = "sockets=gpg-agent;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_context = "sockets=cups;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_DEVICES,
+		},
+		{
+			.app_metadata_context = "sockets=pcsc;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_DEVICES,
+		},
+		{
+			.app_metadata_context = "sockets=ssh-auth;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_context = "sockets=new-and-unknown-value;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_context = "sockets=",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_context = "devices=all;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_DEVICES,
+		},
+		{
+			.app_metadata_context = "devices=input;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_INPUT_DEVICES,
+		},
+		{
+			.app_metadata_context = "devices=shm;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SYSTEM_DEVICES,
+		},
+		{
+			.app_metadata_context = "devices=kvm;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SYSTEM_DEVICES,
+		},
+		{
+			.app_metadata_context = "devices=all;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_DEVICES,
+		},
+		{
+			.app_metadata_context = "shared=network;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NETWORK,
+		},
+		{
+			.app_metadata_context = "filesystems=home;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_HOME_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=home:rw;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_HOME_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=home:ro;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_HOME_READ,
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-config/kdeglobals:ro;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-download;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_DOWNLOADS_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=home;home:ro",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_HOME_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=~:rw;~:ro;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_HOME_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=host;host:ro",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-run/pipewire-0;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SCREEN | GS_APP_PERMISSIONS_FLAGS_AUDIO_DEVICES,
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-run/gvfsd;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL,
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-download/blobby;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_full = (const char *[]) { "Downloads subfolder blobby", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-templates/blobfish:ro;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_read = (const char *[]) { "Templates subfolder blobfish", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-videos/music:rw;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_full = (const char *[]) { "Videos subfolder music", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=xdg-run/my-app:create;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_full = (const char *[]) { "User runtime subfolder my-app", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=/some/arbitrary/blobfish/path:ro;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_read = (const char *[]) { "System folder /some/arbitrary/blobfish/path", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=/some/arbitrary/blobfish/path:rw;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_full = (const char *[]) { "System folder /some/arbitrary/blobfish/path", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=something-unexpected:ro;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_read = (const char *[]) { "Filesystem access to something-unexpected", NULL },
+		},
+		{
+			.app_metadata_context = "filesystems=something-unexpected:rw;",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER,
+			.expected_filesystem_full = (const char *[]) { "Filesystem access to something-unexpected", NULL },
+		},
+		{
+			.app_metadata_session_bus_policy = "ca.desrt.dconf=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SETTINGS,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.freedesktop.Flatpak=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.freedesktop.impl.portal.PermissionStore=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.gtk.vfs.anything=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_FULL,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.example.Test=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.example.Test.AnotherLevel=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.mpris.MediaPlayer2.org.example.Test=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.example.Test.Devel=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.freedesktop.DBus=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.freedesktop.DBus=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_BUS_POLICY_OTHER,
+			.expected_bus_policies = (const GsBusPolicy*[]) {
+				&(const GsBusPolicy) { G_BUS_TYPE_SESSION, (char *) "org.freedesktop.DBus", GS_BUS_POLICY_PERMISSION_OWN },
+			},
+			.n_expected_bus_policies = 1,
+		},
+		{
+			.app_metadata_context = "sockets=session-bus;",
+			.app_metadata_session_bus_policy = "org.freedesktop.DBus=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_SESSION_BUS | GS_APP_PERMISSIONS_FLAGS_ESCAPE_SANDBOX,
+			.n_expected_bus_policies = 0,  /* the SESSION_BUS flag overrides ‘other’ policies */
+		},
+		{
+			.app_metadata_session_bus_policy = "org.freedesktop.portal.SomePortal=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_NONE,
+		},
+		{
+			.app_metadata_session_bus_policy = "org.freedesktop.portal.SomeOtherPortal=own",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_BUS_POLICY_OTHER,
+			.expected_bus_policies = (const GsBusPolicy*[]) {
+				&(const GsBusPolicy) { G_BUS_TYPE_SESSION, (char *) "org.freedesktop.portal.SomeOtherPortal", GS_BUS_POLICY_PERMISSION_OWN },
+			},
+			.n_expected_bus_policies = 1,
+		},
+		{
+			.app_metadata_system_bus_policy = "org.freedesktop.SomeDaemon=talk",
+			.expected_flags = GS_APP_PERMISSIONS_FLAGS_BUS_POLICY_OTHER,
+			.expected_bus_policies = (const GsBusPolicy*[]) {
+				&(const GsBusPolicy) { G_BUS_TYPE_SYSTEM, (char *) "org.freedesktop.SomeDaemon", GS_BUS_POLICY_PERMISSION_TALK },
+			},
+			.n_expected_bus_policies = 1,
+		},
+	};
+
+	for (size_t i = 0; i < G_N_ELEMENTS (vectors); i++) {
+		g_autofree char *app_metadata = NULL;
+		g_autoptr(GKeyFile) key_file = NULL;
+		g_autoptr(GError) local_error = NULL;
+		g_autoptr(GsAppPermissions) permissions = NULL;
+		GsAppPermissionsFlags flags;
+		const GPtrArray *read, *full;
+		const GsBusPolicy * const *bus_policies;
+		size_t n_bus_policies;
+
+		/* Build the metadata, to save the @vectors array being really repetitive */
+		app_metadata = g_strdup_printf (
+			"# Test %" G_GSIZE_FORMAT "\n"
+			"[Application]\n"
+			"name=org.example.Test\n",
+			i);
+		if (vectors[i].app_metadata_context != NULL)
+			g_set_str_take (&app_metadata,
+					g_strconcat (app_metadata,
+						     "[Context]\n",
+						     vectors[i].app_metadata_context,
+						     "\n",
+						     NULL));
+		if (vectors[i].app_metadata_session_bus_policy != NULL)
+			g_set_str_take (&app_metadata,
+					g_strconcat (app_metadata,
+						     "[Session Bus Policy]\n",
+						     vectors[i].app_metadata_session_bus_policy,
+						     "\n",
+						     NULL));
+		if (vectors[i].app_metadata_system_bus_policy != NULL)
+			g_set_str_take (&app_metadata,
+					g_strconcat (app_metadata,
+						     "[System Bus Policy]\n",
+						     vectors[i].app_metadata_system_bus_policy,
+						     "\n",
+						     NULL));
+
+		g_test_message ("%s", app_metadata);
+
+		key_file = g_key_file_new ();
+		g_key_file_load_from_data (key_file,
+					   app_metadata, strlen (app_metadata),
+					   G_KEY_FILE_NONE, &local_error);
+		g_assert_no_error (local_error);
+
+		permissions = gs_flatpak_app_build_permissions_from_metadata (key_file);
+		g_assert_nonnull (permissions);
+		g_assert_true (gs_app_permissions_is_sealed (permissions));
+
+		flags = gs_app_permissions_get_flags (permissions);
+		g_assert_cmpint (flags, ==, vectors[i].expected_flags);
+
+		read = gs_app_permissions_get_filesystem_read (permissions);
+		full = gs_app_permissions_get_filesystem_full (permissions);
+
+		/* It’s convenient if these APIs return `NULL` iff they are empty */
+		g_assert_true (read == NULL || read->len > 0);
+		g_assert_true (full == NULL || full->len > 0);
+
+		/* If this flag is set, it needs to list at least one ‘other’ filesystem */
+		g_assert_true (((flags & GS_APP_PERMISSIONS_FLAGS_FILESYSTEM_OTHER) != 0) == (read != NULL || full != NULL));
+
+		g_assert_cmpstrv ((read != NULL) ? read->pdata : NULL, vectors[i].expected_filesystem_read);
+		g_assert_cmpstrv ((full != NULL) ? full->pdata : NULL, vectors[i].expected_filesystem_full);
+
+		/* Finally, check the bus policies */
+		bus_policies = gs_app_permissions_get_bus_policies (permissions, &n_bus_policies);
+
+		/* If this flag is set, it needs to list at least one ‘other’ bus policy */
+		g_assert_true (((flags & GS_APP_PERMISSIONS_FLAGS_BUS_POLICY_OTHER) != 0) == (n_bus_policies > 0));
+
+		assert_compare_bus_policies (bus_policies, n_bus_policies,
+					     vectors[i].expected_bus_policies, vectors[i].n_expected_bus_policies);
+	}
+}
+
 int
 main (int argc, char **argv)
 {
@@ -1966,17 +2340,17 @@ main (int argc, char **argv)
 
 	gs_test_init (&argc, &argv);
 	g_setenv ("GS_XMLB_VERBOSE", "1", TRUE);
-	g_setenv ("GS_SELF_TEST_PLUGIN_ERROR_FAIL_HARD", "1", TRUE);
+	g_setenv ("GS_TEST_PLUGIN_ERROR_FAIL_HARD", "1", TRUE);
 
 	/* Use a common cache directory for all tests, since the appstream
 	 * plugin uses it and cannot be reinitialised for each test. */
 	tmp_root = g_dir_make_tmp ("gnome-software-flatpak-test-XXXXXX", NULL);
 	g_assert_true (tmp_root != NULL);
-	g_setenv ("GS_SELF_TEST_CACHEDIR", tmp_root, TRUE);
-	g_setenv ("GS_SELF_TEST_FLATPAK_DATADIR", tmp_root, TRUE);
+	g_setenv ("GS_TEST_CACHEDIR", tmp_root, TRUE);
+	g_setenv ("GS_TEST_FLATPAK_DATADIR", tmp_root, TRUE);
 
 	/* allow dist'ing with no gnome-software installed */
-	if (g_getenv ("GS_SELF_TEST_SKIP_ALL") != NULL)
+	if (g_getenv ("GS_TEST_SKIP_ALL") != NULL)
 		return 0;
 
 	xml = g_strdup ("<?xml version=\"1.0\"?>\n"
@@ -1987,7 +2361,7 @@ main (int argc, char **argv)
 		"    <summary>A teaching application</summary>\n"
 		"  </component>\n"
 		"</components>\n");
-	g_setenv ("GS_SELF_TEST_APPSTREAM_XML", xml, TRUE);
+	g_setenv ("GS_TEST_APPSTREAM_XML", xml, TRUE);
 
 	/* we can only load this once per process */
 	plugin_loader = gs_plugin_loader_new (NULL, NULL);
@@ -2035,6 +2409,9 @@ main (int argc, char **argv)
 	g_test_add_data_func ("/gnome-software/plugins/flatpak/repo{non-ascii}",
 			      plugin_loader,
 			      (GTestDataFunc) gs_plugins_flatpak_repo_non_ascii_func);
+	g_test_add_data_func ("/gnome-software/plugins/flatpak/app-permissions",
+			      plugin_loader,
+			      (GTestDataFunc) gs_plugins_flatpak_app_permissions);
 	retval = g_test_run ();
 
 	/* Clean up. */

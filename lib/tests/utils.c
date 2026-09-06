@@ -47,13 +47,59 @@ gs_utils_url_func (void)
 }
 
 static void
-gs_utils_wilson_func (void)
+test_estimate_average_rating_score (void)
 {
-	g_assert_cmpint ((gint64) gs_utils_get_wilson_rating (0, 0, 0, 0, 0), ==, -1);
-	g_assert_cmpint ((gint64) gs_utils_get_wilson_rating (0, 0, 0, 0, 400), ==, 100);
-	g_assert_cmpint ((gint64) gs_utils_get_wilson_rating (10, 0, 0, 0, 400), ==, 98);
-	g_assert_cmpint ((gint64) gs_utils_get_wilson_rating (0, 0, 0, 0, 1), ==, 76);
-	g_assert_cmpint ((gint64) gs_utils_get_wilson_rating (5, 4, 20, 100, 400), ==, 93);
+	const struct {
+		uint64_t votes[5];
+		unsigned int expected_score;
+		gboolean expected_should_show_score;
+	} vectors[] = {
+		{ { 0, 0, 0, 0, 0 }, 45, FALSE },
+		{ { 0, 0, 0, 0, 400 }, 99, TRUE },
+		{ { 10, 0, 0, 0, 400 }, 96, TRUE },
+		{ { 0, 0, 10, 0, 0 }, 54, FALSE },
+		{ { 0, 0, 0, 0, 1 }, 52, FALSE },
+		{ { 5, 4, 20, 100, 400 }, 92, TRUE },
+		{ { 0, 0, 0, 2, 4 }, 68, FALSE },
+		{ { 0, 0, 0, 1, 1 }, 55, FALSE },
+		{ { 0, 0, 0, 10, 20 }, 84, TRUE },
+		{ { 0, 0, 0, 7, 14 }, 82, TRUE },
+		{ { 0, 0, 0, 6, 12 }, 80, FALSE },
+		{ { 29, 0, 0, 0, 58 }, 67, TRUE },
+		{ { 28, 0, 0, 0, 56 }, 67, FALSE },
+		{ { 10, 10, 10, 10, 10 }, 55, TRUE },
+		{ { 9, 9, 9, 9, 9 }, 54, FALSE },
+	};
+
+	for (size_t i = 0; i < G_N_ELEMENTS (vectors); i++) {
+		gboolean should_show_score;
+		unsigned int simple_mean, total_votes;
+
+		g_test_message ("Test %zu", i);
+		g_assert_cmpuint (gs_utils_estimate_average_rating_score ((const uint64_t[]) { 1, 2, 3, 4, 5 },
+									  G_N_ELEMENTS (vectors[i].votes),
+									  vectors[i].votes,
+									  &should_show_score), ==, vectors[i].expected_score);
+		g_assert_true (should_show_score == vectors[i].expected_should_show_score);
+
+		/* Test that the estimated average rating is similar to the simple mean,
+		 * if we’re being asked to display it. i.e. within half a star */
+		simple_mean = 0;
+		total_votes = 0;
+
+		for (size_t j = 0; j < G_N_ELEMENTS (vectors[i].votes); j++) {
+			simple_mean += (j + 1) * vectors[i].votes[j];
+			total_votes += vectors[i].votes[j];
+		}
+
+		simple_mean = simple_mean * 20 /* convert to percentage points */ / total_votes;
+
+		if (should_show_score) {
+			const unsigned int tolerance = 11;  /* half a star, in percentage points, allowing for rounding */
+			g_assert_cmpuint (vectors[i].expected_score, >=, simple_mean - tolerance);
+			g_assert_cmpuint (vectors[i].expected_score, <=, simple_mean + tolerance);
+		}
+	}
 }
 
 static void
@@ -65,7 +111,7 @@ gs_os_release_func (void)
 
 	fn = gs_test_get_filename (TESTDATADIR, "tests/os-release");
 	g_assert (fn != NULL);
-	g_setenv ("GS_SELF_TEST_OS_RELEASE_FILENAME", fn, TRUE);
+	g_setenv ("GS_TEST_OS_RELEASE_FILENAME", fn, TRUE);
 
 	os_release = gs_os_release_new (&error);
 	g_assert_no_error (error);
@@ -674,29 +720,24 @@ gs_app_list_func (void)
 	gs_app_list_add_flag (list, GS_APP_LIST_FLAG_WATCH_APPS);
 
 	g_assert_cmpint (gs_app_list_get_progress (list), ==, 0);
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_UNKNOWN);
 	gs_app_list_add (list, app1);
 	gs_app_set_progress (app1, 75);
 	gs_app_set_state (app1, GS_APP_STATE_AVAILABLE);
 	gs_app_set_state (app1, GS_APP_STATE_INSTALLING);
 	gs_test_flush_main_context ();
 	g_assert_cmpint (gs_app_list_get_progress (list), ==, 75);
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_INSTALLING);
 
 	gs_app_set_state (app1, GS_APP_STATE_UNKNOWN);
 	gs_test_flush_main_context ();
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_UNKNOWN);
 	gs_app_set_state (app1, GS_APP_STATE_AVAILABLE);
 	gs_app_set_state (app1, GS_APP_STATE_DOWNLOADING);
 	gs_app_set_progress (app1, 80);
 	gs_test_flush_main_context ();
 	g_assert_cmpint (gs_app_list_get_progress (list), ==, 80);
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_DOWNLOADING);
 	gs_app_set_progress (app1, 90);
 	gs_app_set_state (app1, GS_APP_STATE_INSTALLING);
 	gs_test_flush_main_context ();
 	g_assert_cmpint (gs_app_list_get_progress (list), ==, 90);
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_INSTALLING);
 
 	/* return back the progress expected by the below code */
 	gs_app_set_progress (app1, 75);
@@ -705,11 +746,9 @@ gs_app_list_func (void)
 	gs_app_set_progress (app2, 25);
 	gs_test_flush_main_context ();
 	g_assert_cmpint (gs_app_list_get_progress (list), ==, 50);
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_INSTALLING);
 
 	gs_app_list_remove (list, app1);
 	g_assert_cmpint (gs_app_list_get_progress (list), ==, 25);
-	g_assert_cmpint (gs_app_list_get_state (list), ==, GS_APP_STATE_UNKNOWN);
 }
 
 static void
@@ -718,6 +757,7 @@ gs_app_list_performance_func (void)
 	g_autoptr(GPtrArray) apps = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	g_autoptr(GsAppList) list = gs_app_list_new ();
 	g_autoptr(GTimer) timer = NULL;
+	double elapsed_time_ms;
 
 	/* create a few apps */
 	for (guint i = 0; i < 500; i++) {
@@ -731,7 +771,9 @@ gs_app_list_performance_func (void)
 		GsApp *app = g_ptr_array_index (apps, i);
 		gs_app_list_add (list, app);
 	}
-	g_print ("%.2fms ", g_timer_elapsed (timer, NULL) * 1000);
+	elapsed_time_ms = g_timer_elapsed (timer, NULL) * 1000;
+
+	g_test_minimized_result (elapsed_time_ms, "Adding apps to list took %.2fms", elapsed_time_ms);
 }
 
 static void
@@ -763,7 +805,7 @@ main (int argc, char **argv)
 
 	/* tests go here */
 	g_test_add_func ("/gnome-software/lib/utils{url}", gs_utils_url_func);
-	g_test_add_func ("/gnome-software/lib/utils{wilson}", gs_utils_wilson_func);
+	g_test_add_func ("/gnome-software/lib/utils/estimate-average-rating-score", test_estimate_average_rating_score);
 	g_test_add_func ("/gnome-software/lib/utils{error}", gs_utils_error_func);
 	g_test_add_func ("/gnome-software/lib/utils{cache}", gs_utils_cache_func);
 	g_test_add_func ("/gnome-software/lib/utils{append-kv}", gs_utils_append_kv_func);
