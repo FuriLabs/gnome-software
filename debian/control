@@ -17,7 +17,7 @@ Build-Depends:
  libappstream-dev (>= 1.0.0),
  libflatpak-dev [amd64 arm64 armhf i386 loong64 ppc64el riscv64 s390x hppa m68k powerpc ppc64 sh4 sparc64 x32],
  libfwupd-dev [linux-any],
- libglib-testing-dev,
+ libglib-testing-dev (>= 0.2),
  libglib2.0-dev (>= 2.76.0),
  libgtk-4-dev (>= 4.17.5),
  libgudev-1.0-dev [linux-any],
