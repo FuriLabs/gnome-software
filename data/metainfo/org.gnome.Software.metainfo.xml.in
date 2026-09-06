@@ -66,51 +66,97 @@
    Validate with `appstreamcli validate *.metainfo.xml`
   -->
   <releases>
-    <release date="2026-06-26" version="50.3" type="stable">
+    <release date="2026-08-28" version="51~rc" type="development">
       <description>
-        <p>This is a stable release with the following change:</p>
+        <p>This is an unstable release with the following changes:</p>
         <ul>
-          <li>Fix a memory leak</li>
+          <li>Various user interface fixes</li>
         </ul>
         <p>This release also updates translations:</p>
         <ul>
-          <li>Norwegian Bokmål (Brage Fuglseth)</li>
-          <li>Polish (Victoria Niedzielska)</li>
+          <li>Basque (Asier Saratsua Garmendia)</li>
+          <li>Belarusian (Vasil Pupkin)</li>
+          <li>Bulgarian (Alexander Alexandrov Shopov)</li>
+          <li>Burmese (zay yar lwin)</li>
+          <li>Catalan (Victor Dargallo, Xavi Ivars, Jordi Mas)</li>
+          <li>Chinese (China) (luming zh)</li>
+          <li>Chinese (Taiwan) (Cheng-Chia Tseng)</li>
+          <li>Czech (Patrik Sivek)</li>
+          <li>Dutch (Nathan Follens)</li>
+          <li>Finnish (Jiri Grönroos)</li>
+          <li>French (Lucien)</li>
+          <li>Galician (Francisco Diéguez Souto)</li>
+          <li>Georgian (Ekaterine Papava)</li>
+          <li>Hebrew (Yaron Shahrabani)</li>
+          <li>Indonesian (Andika Triwidada)</li>
+          <li>Kazakh (Baurzhan Muftakhidinov)</li>
+          <li>Korean (Seong-ho Cho)</li>
+          <li>Lithuanian (Aurimas Černius)</li>
+          <li>Norwegian Bokmål (Kjartan Maraas)</li>
+          <li>Norwegian Nynorsk (Bjørn Mørkedal)</li>
+          <li>Occitan (post 1500) (Quentin PAGÈS)</li>
+          <li>Persian (Danial Behzadi)</li>
+          <li>Portuguese (Brazil) (burns)</li>
+          <li>Russian (Artur S0)</li>
+          <li>Slovenian (Martin)</li>
+          <li>Swedish (Anders Jonsson)</li>
+          <li>Thai (Aefgh Threenine)</li>
+          <li>Turkish (Emin Tufan Çetin)</li>
+          <li>Uighur (Abduqadir Abliz)</li>
+          <li>Ukrainian (Yuri Chornoivan)</li>
         </ul>
       </description>
     </release>
-    <release date="2026-05-22" version="50.2" type="stable">
+    <release date="2026-07-31" version="51~beta" type="development">
       <description>
-        <p>This is a stable release with the following changes:</p>
+        <p>This is an unstable release with the following changes:</p>
         <ul>
-          <li>Fix duplicate web apps with the same URL showing as one entry</li>
-          <li>Fix hiding the Incompatible Software dialog</li>
+          <li>Improve performance of icons loading</li>
+          <li>Improve performance of PackageKit repositories refine</li>
+          <li>Change statistical approach for average rating scores</li>
+        </ul>
+        <p>This release also updates translations:</p>
+        <ul>
+          <li>Chinese (China) (luming zh)</li>
+          <li>Czech (Daniel Rusek)</li>
+          <li>Georgian (Ekaterine Papava)</li>
+          <li>Hebrew (Yaron Shahrabani)</li>
+          <li>Kazakh (Baurzhan Muftakhidinov)</li>
+          <li>Polish (Victoria Niedzielska)</li>
+          <li>Romanian (Antonio Marin)</li>
+          <li>Slovenian (Martin)</li>
+          <li>Ukrainian (Yuri Chornoivan)</li>
+        </ul>
+      </description>
+    </release>
+    <release date="2026-06-26" version="51~alpha" type="development">
+      <description>
+        <p>This is an unstable release with the following changes:</p>
+        <ul>
+          <li>Extend Flatpak file permissions list</li>
+          <li>Warn before installing end-of-life apps</li>
+          <li>Add tooltips to icon-only buttons in narrow mode</li>
+          <li>Reuse cached AppStream data on start-up to improve performance</li>
+          <li>Fixed few memory leaks</li>
         </ul>
         <p>This release also updates translations:</p>
         <ul>
           <li>Belarusian (Vasil Pupkin)</li>
           <li>Czech (Daniel Rusek)</li>
           <li>Dutch (Nathan Follens)</li>
-          <li>Lao (Saikeo Kavhanxay)</li>
-          <li>Norwegian Bokmål (Kjartan Maraas)</li>
-          <li>Persian (Danial Behzadi)</li>
-          <li>Polish (Łukasz Horodecki)</li>
-          <li>Romanian (Antonio Marin)</li>
-          <li>Slovak (Jose Riha, Peter Vančo)</li>
-          <li>Thai (Aefgh Threenine)</li>
-          <li>Turkish (Berk Elyesa Yıldırım)</li>
-          <li>Ukrainian (fudjdhwj eisjdho)</li>
-        </ul>
-      </description>
-    </release>
-    <release date="2026-04-11" version="50.1" type="stable">
-      <description>
-        <p>This is a stable release with updated translations:</p>
-        <ul>
           <li>Kabyle (BoF ButterflyOfFire)</li>
-          <li>Polish (Victoria Niedzielska)</li>
+          <li>Lao (Saikeo Kavhanxay)</li>
+          <li>Norwegian Bokmål (Brage Fuglseth, Kjartan Maraas)</li>
+          <li>Persian (Danial Behzadi)</li>
+          <li>Polish (Victoria Niedzielska, Łukasz Horodecki)</li>
+          <li>Romanian (Antonio Marin)</li>
+          <li>Russian (Artur S0)</li>
           <li>Serbian (Марко Костић)</li>
-          <li>Slovak (Jose Riha)</li>
+          <li>Slovenian (Martin)</li>
+          <li>Thai (Aefgh Threenine)</li>
+          <li>Turkish (Emin Tufan Çetin)</li>
+          <li>Uzbek (Muhammad Ganiyev)</li>
+          <li>Vietnamese (phmqXPD)</li>
         </ul>
       </description>
     </release>

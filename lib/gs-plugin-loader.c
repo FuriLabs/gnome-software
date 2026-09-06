@@ -25,6 +25,7 @@
 #include "gs-category-manager.h"
 #include "gs-category-private.h"
 #include "gs-external-appstream-utils.h"
+#include "gs-icon-downloader.h"
 #include "gs-ioprio.h"
 #include "gs-os-release.h"
 #include "gs-plugin-loader.h"
@@ -81,6 +82,8 @@ struct _GsPluginLoader
 	GsJobManager		*job_manager;  /* (owned) (not nullable) */
 	GsCategoryManager	*category_manager;
 	GsOdrsProvider		*odrs_provider;  /* (owned) (nullable) */
+	SoupSession		*icon_downloader_soup_session; /* (owned) (not nullable) */
+	GsIconDownloader	*icon_downloader; /* (owned) (nullable) */
 
 	GDBusConnection		*session_bus_connection;  /* (owned); (not nullable) after setup */
 	GDBusConnection		*system_bus_connection;  /* (owned); (not nullable) after setup */
@@ -471,8 +474,13 @@ gs_plugin_loader_app_is_valid (GsApp               *app,
 		return FALSE;
 	}
 
-	/* don't show sources */
+	/* don't show sources, unless the caller explicitly allows them */
 	if (gs_app_get_kind (app) == AS_COMPONENT_KIND_REPOSITORY) {
+		if ((refine_flags & GS_PLUGIN_REFINE_FLAGS_ALLOW_REPOSITORIES) != 0) {
+			g_debug ("app allowed as source by flag %s",
+				 gs_plugin_loader_get_app_str (app));
+			return TRUE;
+		}
 		g_debug ("app invalid as source %s",
 			 gs_plugin_loader_get_app_str (app));
 		return FALSE;
@@ -999,7 +1007,7 @@ gs_plugin_loader_get_event_default (GsPluginLoader *plugin_loader)
  * @plugin_loader: A #GsPluginLoader
  *
  * Removes all plugin events from the loader. This function should only be
- * called from the self tests.
+ * called from the tests.
  **/
 void
 gs_plugin_loader_remove_events (GsPluginLoader *plugin_loader)
@@ -1147,8 +1155,8 @@ gs_plugin_loader_updates_changed (GsPluginLoader *plugin_loader)
 		g_timeout_add_seconds_full (G_PRIORITY_DEFAULT,
 					    GS_PLUGIN_LOADER_UPDATES_CHANGED_DELAY,
 					    gs_plugin_loader_job_updates_changed_delay_cb,
-					    g_object_ref (plugin_loader),
-					    g_object_unref);
+					    plugin_loader,
+					    NULL);
 }
 
 static void
@@ -1175,7 +1183,6 @@ gs_plugin_loader_reload_delay_cb (gpointer user_data)
 	g_signal_emit (plugin_loader, signals[SIGNAL_RELOAD], 0);
 	plugin_loader->reload_id = 0;
 
-	g_object_unref (plugin_loader);
 	return FALSE;
 }
 
@@ -1200,7 +1207,7 @@ gs_plugin_loader_reload_cb (GsPlugin *in_plugin,
 	plugin_loader->reload_id =
 		g_timeout_add_seconds (GS_PLUGIN_LOADER_RELOAD_DELAY,
 				       gs_plugin_loader_reload_delay_cb,
-				       g_object_ref (plugin_loader));
+				       plugin_loader);
 }
 
 static void
@@ -1210,7 +1217,7 @@ gs_plugin_loader_repository_changed_cb (GsPlugin *plugin,
 {
 	GApplication *application = g_application_get_default ();
 
-	/* Can be NULL when running the self tests */
+	/* Can be NULL when running the tests */
 	if (application) {
 		g_signal_emit_by_name (application,
 			"repository-changed",
@@ -1288,6 +1295,9 @@ gs_plugin_loader_set_scale (GsPluginLoader *plugin_loader, guint scale)
 		GsPlugin *plugin = g_ptr_array_index (plugin_loader->plugins, i);
 		gs_plugin_set_scale (plugin, scale);
 	}
+
+	if (plugin_loader->icon_downloader != NULL)
+		g_object_set (G_OBJECT (plugin_loader->icon_downloader), "scale", scale, NULL);
 }
 
 guint
@@ -1392,6 +1402,9 @@ typedef struct {
 static void plugin_shutdown_cb (GObject      *source_object,
                                 GAsyncResult *result,
                                 gpointer      user_data);
+static void icon_downloader_shutdown_cb (GObject      *source_object,
+                                         GAsyncResult *result,
+                                         gpointer      user_data);
 
 /**
  * gs_plugin_loader_shutdown:
@@ -1423,11 +1436,13 @@ gs_plugin_loader_shutdown (GsPluginLoader *plugin_loader,
 		if (!gs_plugin_get_enabled (plugin))
 			continue;
 
-		if (GS_PLUGIN_GET_CLASS (plugin)->shutdown_async != NULL) {
-			GS_PLUGIN_GET_CLASS (plugin)->shutdown_async (plugin, cancellable,
-								      plugin_shutdown_cb, &shutdown_data);
-			shutdown_data.n_pending++;
-		}
+		gs_plugin_shutdown_async (plugin, cancellable, plugin_shutdown_cb, &shutdown_data);
+		shutdown_data.n_pending++;
+	}
+
+	if (plugin_loader->icon_downloader != NULL) {
+		shutdown_data.n_pending++;
+		gs_icon_downloader_shutdown_async (plugin_loader->icon_downloader, cancellable, icon_downloader_shutdown_cb, &shutdown_data);
 	}
 
 	/* Wait for shutdown to complete in all plugins. */
@@ -1445,6 +1460,7 @@ gs_plugin_loader_shutdown (GsPluginLoader *plugin_loader,
 	plugin_loader->setup_complete = FALSE;
 	g_clear_object (&plugin_loader->setup_complete_cancellable);
 	plugin_loader->setup_complete_cancellable = g_cancellable_new ();
+	g_clear_object (&plugin_loader->icon_downloader);
 }
 
 static void
@@ -1456,9 +1472,7 @@ plugin_shutdown_cb (GObject      *source_object,
 	ShutdownData *data = user_data;
 	g_autoptr(GError) local_error = NULL;
 
-	g_assert (GS_PLUGIN_GET_CLASS (plugin)->shutdown_finish != NULL);
-
-	if (!GS_PLUGIN_GET_CLASS (plugin)->shutdown_finish (plugin, result, &local_error)) {
+	if (!gs_plugin_shutdown_finish (plugin, result, &local_error)) {
 		g_debug ("disabling %s as shutdown failed: %s",
 			 gs_plugin_get_name (plugin),
 			 local_error->message);
@@ -1466,6 +1480,23 @@ plugin_shutdown_cb (GObject      *source_object,
 	}
 
 	/* Indicate this plugin has finished shutting down. */
+	data->n_pending--;
+	g_main_context_wakeup (data->context);
+}
+
+static void
+icon_downloader_shutdown_cb (GObject      *source_object,
+                             GAsyncResult *result,
+                             gpointer      user_data)
+{
+	GsIconDownloader *icon_downloader = GS_ICON_DOWNLOADER (source_object);
+	ShutdownData *data = user_data;
+	g_autoptr(GError) local_error = NULL;
+
+	if (!gs_icon_downloader_shutdown_finish (icon_downloader, result, &local_error))
+		g_debug ("Failed to shutdown icon downloader: %s", local_error->message);
+
+	/* Indicate this has finished shutting down. */
 	data->n_pending--;
 	g_main_context_wakeup (data->context);
 }
@@ -1539,6 +1570,11 @@ notify_setup_complete (GsPluginLoader *plugin_loader)
 	plugin_loader->setup_complete = TRUE;
 	g_cancellable_cancel (plugin_loader->setup_complete_cancellable);
 	g_clear_object (&plugin_loader->setup_complete_cancellable);
+
+	g_assert (plugin_loader->icon_downloader == NULL);
+	/* Currently a 160px icon is needed for #GsFeatureTile, at most.
+	   Scaling is applied inside the downloader. */
+	plugin_loader->icon_downloader = gs_icon_downloader_new (plugin_loader->icon_downloader_soup_session, 160);
 }
 
 /**
@@ -2149,9 +2185,15 @@ gs_plugin_loader_dispose (GObject *object)
 
 		g_clear_pointer (&plugin_loader->plugins, g_ptr_array_unref);
 	}
+
 	if (plugin_loader->updates_changed_id != 0) {
 		g_source_remove (plugin_loader->updates_changed_id);
 		plugin_loader->updates_changed_id = 0;
+	}
+
+	if (plugin_loader->reload_id != 0) {
+		g_source_remove (plugin_loader->reload_id);
+		plugin_loader->reload_id = 0;
 	}
 
 	/* Cancel any pending idle callbacks */
@@ -2178,6 +2220,7 @@ gs_plugin_loader_dispose (GObject *object)
 					     plugin_loader->network_metered_notify_handler);
 		plugin_loader->network_metered_notify_handler = 0;
 	}
+
 	g_clear_object (&plugin_loader->network_monitor);
 	g_clear_object (&plugin_loader->power_profile_monitor);
 	g_clear_object (&plugin_loader->settings);
@@ -2185,6 +2228,8 @@ gs_plugin_loader_dispose (GObject *object)
 	g_clear_object (&plugin_loader->job_manager);
 	g_clear_object (&plugin_loader->category_manager);
 	g_clear_object (&plugin_loader->odrs_provider);
+	g_clear_object (&plugin_loader->icon_downloader);
+	g_clear_object (&plugin_loader->icon_downloader_soup_session);
 	g_clear_object (&plugin_loader->setup_complete_cancellable);
 	g_clear_object (&plugin_loader->pending_apps_cancellable);
 
@@ -2474,6 +2519,8 @@ gs_plugin_loader_init (GsPluginLoader *plugin_loader)
 	gs_plugin_loader_monitor_network (plugin_loader);
 
 	plugin_loader->power_profile_monitor = g_power_profile_monitor_dup_default ();
+
+	plugin_loader->icon_downloader_soup_session = gs_build_soup_session ();
 
 	/* by default we only show project-less apps or compatible projects */
 	tmp = g_getenv ("GNOME_SOFTWARE_COMPATIBLE_PROJECTS");
@@ -3362,5 +3409,26 @@ gs_plugin_loader_set_cpu_priority (GsPluginLoader *self,
 	if (self->cpu_priority != cpu_priority) {
 		self->cpu_priority = cpu_priority;
 		g_object_notify_by_pspec (G_OBJECT (self), obj_props[PROP_CPU_PRIORITY]);
+
+		gs_icon_downloader_update_priority (self->icon_downloader, self->system_bus_connection, cpu_priority);
 	}
+}
+
+/**
+ * gs_plugin_loader_get_icon_downloader:
+ * @self: a plugin loader
+ *
+ * Returns an internal #GsIconDownloader. It can be %NULL, like
+ * before setup() and after shutdown().
+ *
+ * Returns: (transfer none) (nullable): a #GsIconDownloader, or %NULL
+ *
+ * Since: 51
+ **/
+GsIconDownloader *
+gs_plugin_loader_get_icon_downloader (GsPluginLoader *self)
+{
+	g_return_val_if_fail (GS_IS_PLUGIN_LOADER (self), NULL);
+
+	return self->icon_downloader;
 }

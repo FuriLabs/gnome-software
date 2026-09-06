@@ -1130,9 +1130,8 @@ gs_plugin_epiphany_install_apps_async (GsPlugin                           *plugi
 		const int icon_sizes[] = {512, 192, 128, 1};
 		const char *missing_element = NULL;
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/* This should be guaranteed by GsPluginJobInstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		/* This is a required flag for Epiphany. */
 		if (flags & GS_PLUGIN_INSTALL_APPS_FLAGS_NO_APPLY)
@@ -1463,9 +1462,8 @@ gs_plugin_epiphany_uninstall_apps_async (GsPlugin                           *plu
 		g_autoptr(UninstallSingleAppData) app_data = NULL;
 		const char *installed_app_id;
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/* This should be guaranteed by GsPluginJobUninstallApps */
+		g_assert (gs_app_has_management_plugin (app, plugin));
 
 		installed_app_id = gs_app_get_launchable (app, AS_LAUNCHABLE_KIND_DESKTOP_ID);
 		if (installed_app_id == NULL) {

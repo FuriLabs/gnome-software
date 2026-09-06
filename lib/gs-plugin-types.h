@@ -63,6 +63,7 @@ typedef enum {
  * @GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING: Normally the results of a refine are
  *   filtered to remove non-valid apps; if this flag is set, that won’t happen.
  *   This is intended to be used by internal #GsPluginLoader code.
+ * @GS_PLUGIN_REFINE_FLAGS_ALLOW_REPOSITORIES: Allow repositories to be returned (Since: 51)
  *
  * Flags for an operation to refine apps.
  *
@@ -76,6 +77,7 @@ typedef enum {
 	GS_PLUGIN_REFINE_FLAGS_INTERACTIVE		= 1 << 0,
 	GS_PLUGIN_REFINE_FLAGS_ALLOW_PACKAGES		= 1 << 1,
 	GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING	= 1 << 2,
+	GS_PLUGIN_REFINE_FLAGS_ALLOW_REPOSITORIES	= 1 << 3,
 } GsPluginRefineFlags;
 
 /**
@@ -99,7 +101,8 @@ typedef enum {
  * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE:		Require the provenance
  * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEWS:		Require user-reviews
  * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS:	Require user-ratings
- * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON:		Require the icon to be loaded
+ * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_METADATA:	Require the icon metadata (information about what icons are available, and their sizes) to be loaded (Since: 51)
+ * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_CONTENT:	Require the icon content (pixel data) to be loaded (Since: 51)
  * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS:		Require the needed permissions
  * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME:	Require the origin hostname
  * @GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_UI:		Require the origin for UI
@@ -140,7 +143,7 @@ typedef enum {
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROVENANCE	= 1U << 16,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEWS		= 1U << 17,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS	= 1U << 18,
-	GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON		= 1U << 19,
+	GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_CONTENT	= 1U << 19,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_PERMISSIONS	= 1U << 20,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_HOSTNAME	= 1U << 21,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_ORIGIN_UI	= 1U << 22,
@@ -150,8 +153,23 @@ typedef enum {
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_PROJECT_GROUP	= 1U << 26,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_DEVELOPER_NAME	= 1U << 27,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_KUDOS		= 1U << 28,
+	GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_METADATA	= 1U << 29,
 	GS_PLUGIN_REFINE_REQUIRE_FLAGS_MASK		= ~0U,
 } GsPluginRefineRequireFlags;
+
+/**
+ * GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON:
+ *
+ * Compatibility fallback which loads all icon data (metadata and content).
+ *
+ * Note: It’s preferred to explicitly use
+ * %GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_METADATA and/or
+ * %GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_CONTENT to make it clear what needs to
+ * be loaded.
+ *
+ * Since: 49
+ */
+#define GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON (GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_METADATA | GS_PLUGIN_REFINE_REQUIRE_FLAGS_ICON_CONTENT)
 
 /**
  * GsPluginListAppsFlags:

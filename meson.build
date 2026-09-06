@@ -1,5 +1,5 @@
 project('gnome-software', 'c',
-  version : '50.3',
+  version : '51.rc',
   license : 'GPL-2.0-or-later',
   default_options : ['warning_level=2', 'c_std=c11'],
   meson_version : '>=1.6.0'
@@ -130,7 +130,7 @@ appstream = dependency('appstream',
 )
 
 gdk_pixbuf = dependency('gdk-pixbuf-2.0', version : '>= 2.32.0')
-libxmlb = dependency('xmlb', version : '>= 0.3.4', fallback : ['libxmlb', 'libxmlb_dep'])
+libxmlb = dependency('xmlb', version : '>= 0.3.22', fallback : ['libxmlb', 'libxmlb_dep'])
 gio_unix = dependency('gio-unix-2.0', version : '>= 2.56.0')
 gmodule = dependency('gmodule-2.0')
 gtk = dependency('gtk4',
@@ -159,6 +159,11 @@ libadwaita = dependency('libadwaita-1',
     'tests=false',
     'vapi=false',
   ]
+)
+libglib_testing = dependency('glib-testing-0',
+  version: '>= 0.2.0',
+  fallback: ['libglib-testing', 'libglib_testing_dep'],
+  required: get_option('webapps') or get_option('systemd-sysupdate'),
 )
 
 # This should be available in GLib 2.74
@@ -332,8 +337,8 @@ add_test_setup('default',
 
 subdir('data')
 subdir('lib')
-subdir('plugins')
 subdir('src')
+subdir('plugins')
 if get_option('external_appstream')
   subdir('gs-install-appstream')
 endif

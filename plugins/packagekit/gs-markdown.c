@@ -264,16 +264,43 @@ gs_markdown_replace (const gchar *haystack,
 }
 
 static gchar *
-gs_markdown_strstr_spaces (const gchar *haystack, const gchar *needle)
+gs_markdown_strstr_spaces (gchar *haystack, const gchar *needle)
 {
 	gchar *found;
-	const gchar *haystack_new = haystack;
+	gchar *haystack_new = haystack;
+	gboolean is_inside_anchor;
 
 retry:
-	/* don't find if surrounded by spaces */
-	found = strstr (haystack_new, needle);
-	if (found == NULL)
-		return NULL;
+	do {
+		gchar *anchor_end;
+
+		/* don't find if surrounded by spaces */
+		found = strstr (haystack_new, needle);
+		if (found == NULL)
+			return NULL;
+
+		is_inside_anchor = FALSE;
+
+		for (anchor_end = haystack; *anchor_end != '\0' && anchor_end < found;  anchor_end++) {
+			if (!is_inside_anchor && *anchor_end == '<' && anchor_end[1] == 'a' && anchor_end[2] == ' ') {
+				gboolean in_quotes = FALSE;
+
+				while (*anchor_end != '\0') {
+					if (*anchor_end == '\"')
+						in_quotes = !in_quotes;
+					else if (!in_quotes && *anchor_end == '>')
+						break;
+
+					anchor_end++;
+				}
+
+				is_inside_anchor = anchor_end >= found;
+			}
+		}
+
+		if (is_inside_anchor)
+			haystack_new = anchor_end + 1;
+	} while (is_inside_anchor);
 
 	/* start of the string, always valid */
 	if (found == haystack)
@@ -390,7 +417,7 @@ gs_markdown_to_text_line_format (GsMarkdown *self, const gchar *line)
 {
 	GString *string;
 	gboolean mode = FALSE;
-	gchar *text;
+	const gchar *text;
 	guint i;
 	g_auto(GStrv) codes = NULL;
 
@@ -404,9 +431,8 @@ gs_markdown_to_text_line_format (GsMarkdown *self, const gchar *line)
 	string = g_string_new ("");
 	for (i = 0; codes[i] != NULL; i++) {
 		if (!mode) {
-			text = gs_markdown_to_text_line_format_sections (self, codes[i]);
-			g_string_append (string, text);
-			g_free (text);
+			g_autofree gchar *tmp = gs_markdown_to_text_line_format_sections (self, codes[i]);
+			g_string_append (string, tmp);
 			mode = TRUE;
 		} else {
 			/* just append without formatting */

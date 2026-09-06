@@ -55,8 +55,8 @@ gs_plugin_dummy_init (GsPluginDummy *self)
 {
 	GsPlugin *plugin = GS_PLUGIN (self);
 
-	if (g_getenv ("GS_SELF_TEST_DUMMY_ENABLE") == NULL) {
-		g_debug ("disabling itself as not in self test");
+	if (g_getenv ("GS_TEST_DUMMY_ENABLE") == NULL) {
+		g_debug ("disabling itself as not in test");
 		gs_plugin_set_enabled (plugin, FALSE);
 		return;
 	}
@@ -92,7 +92,7 @@ gs_plugin_dummy_setup_async (GsPlugin            *plugin,
 	g_task_set_source_tag (task, gs_plugin_dummy_setup_async);
 
 	/* toggle this */
-	if (g_getenv ("GS_SELF_TEST_TOGGLE_ALLOW_UPDATES") != NULL) {
+	if (g_getenv ("GS_TEST_TOGGLE_ALLOW_UPDATES") != NULL) {
 		self->allow_updates_id = g_timeout_add_seconds (10,
 			gs_plugin_dummy_allow_updates_cb, plugin);
 	}
@@ -438,9 +438,8 @@ gs_plugin_dummy_uninstall_apps_async (GsPlugin                           *plugin
 		GsApp *app = gs_app_list_index (apps, i);
 		g_autoptr(UninstallSingleAppData) app_data = NULL;
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/* This should be guaranteed by GsPluginJobUninstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		if (!g_str_equal (gs_app_get_id (app), "chiron.desktop"))
 			continue;
@@ -631,9 +630,8 @@ gs_plugin_dummy_install_apps_async (GsPlugin                           *plugin,
 		GsApp *app = gs_app_list_index (apps, i);
 		g_autoptr(InstallSingleAppData) app_data = NULL;
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/*  This should be guaranteed by GsPluginJobInstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		if (!g_str_equal (gs_app_get_id (app), "chiron.desktop") &&
 		    !g_str_equal (gs_app_get_id (app), "zeus.desktop"))
@@ -830,16 +828,8 @@ refine_app (GsPluginDummy               *self,
 
 	/* add fake ratings */
 	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_REVIEW_RATINGS) != 0) {
-		g_autoptr(GArray) ratings = NULL;
-		const gint data[] = { 0, 10, 20, 30, 15, 2 };
-		ratings = g_array_sized_new (FALSE, FALSE, sizeof (gint), 6);
-		g_array_append_vals (ratings, data, 6);
-		gs_app_set_review_ratings (app, ratings);
-	}
-
-	/* add a rating */
-	if ((require_flags & GS_PLUGIN_REFINE_REQUIRE_FLAGS_RATING) != 0) {
-		gs_app_set_rating (app, 66);
+		const unsigned int data[] = { 0, 10, 20, 30, 15, 2 };
+		gs_app_set_review_ratings (app, data, G_N_ELEMENTS (data));
 	}
 
 	return TRUE;
@@ -1328,9 +1318,8 @@ update_apps_cb (GObject      *source_object,
 		for (guint i = 0; i < gs_app_list_length (data->apps); i++) {
 			GsApp *app = gs_app_list_index (data->apps, i);
 
-			/* only process this app if was created by this plugin */
-			if (!gs_app_has_management_plugin (app, plugin))
-				continue;
+			/* This should be guaranteed by GsPluginJobUpdateApps */
+			g_assert (gs_app_has_management_plugin (app, plugin));
 
 			if (!g_str_has_prefix (gs_app_get_id (app), "proxy")) {
 				g_autoptr(GsPluginEvent) event = NULL;

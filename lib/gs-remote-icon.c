@@ -23,8 +23,6 @@
  * #GsRemoteIcon is immutable after construction and hence is entirely thread
  * safe.
  *
- * FIXME: Currently does no cache invalidation.
- *
  * Since: 40
  */
 
@@ -246,26 +244,46 @@ gs_icon_download (SoupSession   *session,
                   GError       **error)
 {
 	guint status_code;
+	g_autoptr(GFile) destination_file = NULL;
+	g_autofree gchar *last_etag = NULL;
+	g_autoptr(GDateTime) last_modified_date = NULL;
 	g_autoptr(SoupMessage) msg = NULL;
 	g_autoptr(GInputStream) stream = NULL;
 	g_autoptr(GdkPixbuf) pixbuf = NULL;
 	g_autoptr(GdkPixbuf) scaled_pixbuf = NULL;
+	const char *new_etag;
+
+	destination_file = g_file_new_for_path (destination_path);
+	last_etag = gs_utils_get_file_etag (destination_file, &last_modified_date, cancellable);
 
 	/* Create the request */
 	msg = soup_message_new (SOUP_METHOD_GET, uri);
 	if (msg == NULL) {
-		g_set_error_literal (error,
-				     G_IO_ERROR,
-				     G_IO_ERROR_INVALID_DATA,
-				     "Icon has an invalid URL");
+		g_set_error (error,
+			     G_IO_ERROR,
+			     G_IO_ERROR_INVALID_DATA,
+			     "Icon has an invalid URL '%s'", uri);
 		return NULL;
+	}
+
+	if (last_etag != NULL && *last_etag == '\0')
+		g_clear_pointer (&last_etag, g_free);
+
+	if (last_etag != NULL) {
+		soup_message_headers_append (soup_message_get_request_headers (msg), "If-None-Match", last_etag);
+	} else if (last_modified_date != NULL) {
+		g_autofree gchar *last_modified_date_str = soup_date_time_to_string (last_modified_date, SOUP_DATE_HTTP);
+		soup_message_headers_append (soup_message_get_request_headers (msg), "If-Modified-Since", last_modified_date_str);
 	}
 
 	/* Send request synchronously and start reading the response. */
 	stream = soup_session_send (session, msg, cancellable, error);
 
 	status_code = soup_message_get_status (msg);
-	if (stream == NULL) {
+	if (status_code == SOUP_STATUS_NOT_MODIFIED) {
+		return gdk_pixbuf_new_from_file (destination_path, error);
+	} else if (stream == NULL) {
+		g_prefix_error (error, "Failed to download icon '%s': ", uri);
 		return NULL;
 	} else if (status_code != SOUP_STATUS_OK) {
 		g_set_error (error,
@@ -294,6 +312,11 @@ gs_icon_download (SoupSession   *session,
 	/* write file */
 	if (!gdk_pixbuf_save (scaled_pixbuf, destination_path, "png", error, NULL))
 		return NULL;
+
+	new_etag = soup_message_headers_get_one (soup_message_get_response_headers (msg), "ETag");
+	if (new_etag != NULL && *new_etag == '\0')
+		new_etag = NULL;
+	gs_utils_set_file_etag (destination_file, new_etag, cancellable);
 
 	return g_steal_pointer (&scaled_pixbuf);
 }
@@ -361,10 +384,25 @@ gs_remote_icon_ensure_cached (GsRemoteIcon  *self,
 		gdk_pixbuf_get_file_info (cache_filename, &pixbuf_width, &pixbuf_height);
 	} else {
 		g_autoptr(GdkPixbuf) cached_pixbuf = NULL;
+		g_autofree gchar *failed_filename = g_strconcat (cache_filename, ".failed", NULL);
+
+		/* re-try max once per day for failed downloads */
+		if (g_stat (failed_filename, &stat_buf) != -1 &&
+		    S_ISREG (stat_buf.st_mode) &&
+		    (g_get_real_time () / G_USEC_PER_SEC) - stat_buf.st_mtim.tv_sec < (60 * 60 * 24)) {
+			g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "Previously failed to download '%s'", uri);
+			return FALSE;
+		}
 
 		cached_pixbuf = gs_icon_download (soup_session, uri, cache_filename, maximum_icon_size * gs_icon_get_scale (icon), cancellable, error);
-		if (cached_pixbuf == NULL)
+		if (cached_pixbuf == NULL) {
+			g_autoptr(GError) local_error = NULL;
+			if (!g_file_set_contents_full (failed_filename, "", 0, G_FILE_SET_CONTENTS_NONE, 0600, &local_error))
+				g_debug ("%s: Failed to save '%s' for uri '%s': %s", G_STRFUNC, failed_filename, uri, local_error->message);
 			return FALSE;
+		}
+
+		(void) g_unlink (failed_filename);
 
 		pixbuf_width = gdk_pixbuf_get_width (cached_pixbuf);
 		pixbuf_height = gdk_pixbuf_get_height (cached_pixbuf);

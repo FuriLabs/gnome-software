@@ -14,6 +14,7 @@
 #include "gs-app.h"
 #include "gs-category.h"
 #include "gs-category-manager.h"
+#include "gs-icon-downloader.h"
 #include "gs-odrs-provider.h"
 #include "gs-plugin-event.h"
 #include "gs-plugin.h"
@@ -94,7 +95,7 @@ GsApp		*gs_plugin_loader_get_system_app_finish	(GsPluginLoader	*plugin_loader,
 							 GError		**error);
 GsOdrsProvider	*gs_plugin_loader_get_odrs_provider	(GsPluginLoader	*plugin_loader);
 
-/* only useful from the self tests */
+/* only useful from the tests */
 void		 gs_plugin_loader_clear_caches		(GsPluginLoader	*plugin_loader);
 GsPlugin	*gs_plugin_loader_find_plugin		(GsPluginLoader	*plugin_loader,
 							 const gchar	*plugin_name);
@@ -123,5 +124,7 @@ void		 gs_plugin_loader_emit_updates_changed	(GsPluginLoader *self);
 int		 gs_plugin_loader_get_cpu_priority	(GsPluginLoader *self);
 void		 gs_plugin_loader_set_cpu_priority	(GsPluginLoader *self,
 							 int             cpu_priority);
+GsIconDownloader *
+		 gs_plugin_loader_get_icon_downloader	(GsPluginLoader *self);
 
 G_END_DECLS

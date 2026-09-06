@@ -532,9 +532,8 @@ gs_plugin_packagekit_install_apps_async (GsPlugin                           *plu
 	for (guint i = 0; i < gs_app_list_length (apps); i++) {
 		GsApp *app = gs_app_list_index (apps, i);
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+		/* This should be guaranteed by GsPluginJobInstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		/* enable repo, handled by dedicated function */
 		g_assert (gs_app_get_kind (app) != AS_COMPONENT_KIND_REPOSITORY);
@@ -1076,9 +1075,8 @@ gs_plugin_packagekit_uninstall_apps_async (GsPlugin                           *p
 		GPtrArray *source_ids;
 		g_autoptr(GPtrArray) array_package_ids = NULL;
 
-		/* only process this app if was created by this plugin */
-		if (!gs_app_has_management_plugin (app, GS_PLUGIN (self)))
-			continue;
+	        /* This should be guaranteed by GsPluginJobUninstallApps */
+		g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
 
 		/* disable repo, handled by dedicated function */
 		g_assert (gs_app_get_kind (app) != AS_COMPONENT_KIND_REPOSITORY);
@@ -1288,7 +1286,8 @@ gs_plugin_packagekit_set_update_app_state (GsApp *app,
 	    pk_package_get_info (package) == PK_INFO_ENUM_OBSOLETING) {
 		gs_app_set_state (app, GS_APP_STATE_INSTALLED);
 	} else if (pk_package_get_info (package) == PK_INFO_ENUM_INSTALL ||
-		   pk_package_get_info (package) == PK_INFO_ENUM_INSTALLING) {
+		   pk_package_get_info (package) == PK_INFO_ENUM_INSTALLING ||
+		   pk_package_get_info (package) == PK_INFO_ENUM_ENHANCEMENT) {
 		gs_app_set_state (app, GS_APP_STATE_AVAILABLE);
 	} else {
 		gs_app_set_state (app, GS_APP_STATE_UPDATABLE);
@@ -2323,7 +2322,6 @@ gs_plugin_packagekit_refine_async (GsPlugin                   *plugin,
 	for (guint i = 0; i < gs_app_list_length (list); i++) {
 		GsApp *app = gs_app_list_index (list, i);
 		GPtrArray *sources;
-		const gchar *filename;
 
 		if (gs_app_has_quirk (app, GS_APP_QUIRK_IS_WILDCARD))
 			continue;
@@ -2335,10 +2333,7 @@ gs_plugin_packagekit_refine_async (GsPlugin                   *plugin,
 		n_considered++;
 
 		/* Repositories */
-		filename = gs_app_get_metadata_item (app, "repos::repo-filename");
-
-		if (gs_app_get_kind (app) == AS_COMPONENT_KIND_REPOSITORY &&
-		    filename != NULL) {
+		if (gs_app_get_kind (app) == AS_COMPONENT_KIND_REPOSITORY) {
 			gs_app_list_add (repos_list, app);
 		}
 
@@ -2565,6 +2560,8 @@ gs_plugin_packagekit_refine_async (GsPlugin                   *plugin,
 				continue;
 
 			filename = gs_app_get_metadata_item (app, "repos::repo-filename");
+			if (filename == NULL)
+				continue;
 
 			sources = gs_app_get_sources (app);
 			if (!is_pk_apt_backend_broken && sources->len > 0) {
@@ -5122,10 +5119,12 @@ update_apps_download_cb (GObject      *source_object,
 			GsApp *app = gs_app_list_index (data->apps, i);
 			GsAppList *related = gs_app_get_related (app);
 
+			/* This should be guaranteed by GsPluginJobUpdateApps */
+			g_assert (gs_app_has_management_plugin (app, GS_PLUGIN (self)));
+
 			/* try to trigger this app */
 			if (!gs_app_has_quirk (app, GS_APP_QUIRK_IS_PROXY) &&
-			    gs_app_get_state (app) == GS_APP_STATE_UPDATABLE &&
-			    gs_app_has_management_plugin (app, GS_PLUGIN (self))) {
+			    gs_app_get_state (app) == GS_APP_STATE_UPDATABLE ) {
 				trigger_update = TRUE;
 				break;
 			}
@@ -5146,17 +5145,7 @@ update_apps_download_cb (GObject      *source_object,
 			GDBusConnection *connection;
 
 			/* trigger offline update if it’s not already been triggered */
-
-			/* Assume we can use the singleton system bus connection
-			 * due to prior PackageKit calls having created it. This
-			 * avoids an async callback. */
-			connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM,
-						     cancellable,
-						     &local_error);
-			if (connection == NULL) {
-				g_task_return_error (task, g_steal_pointer (&local_error));
-				return;
-			}
+			connection = gs_plugin_get_system_bus_connection (GS_PLUGIN (self));
 
 			/* FIXME: This can be simplified down to a call to
 			 * pk_offline_trigger_with_flags_async() when it exists.
