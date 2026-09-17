@@ -1,23 +1,26 @@
-# Basque translation for gnome-software.
-# Copyright (C) 2025 gnome-software's COPYRIGHT HOLDER
+# Esperanto translation for gnome-software.
+# Copyright (C) 2026 gnome-software's COPYRIGHT HOLDER
 # This file is distributed under the same license as the gnome-software package.
-# Asier Saratsua Garmendia <asiersarasua@ni.eus>,  2025.
+# Kristjan SCHMIDT <kristjan.schmidt@googlemail.com>, 2026.
 #
 msgid ""
-msgstr "Project-Id-Version: gnome-software main\n"
-"POT-Creation-Date: 2026-08-22 23:45+0000\n"
-"PO-Revision-Date: 2026-08-27 20:58+0000\n"
-"Last-Translator: Asier Saratsua Garmendia <asiersarasua@ni.eus>\n"
-"Language-Team: Basque <eu@li.org>\n"
-"Language: eu\n"
+msgstr ""
+"Project-Id-Version: gnome-software main\n"
+"POT-Creation-Date: 2026-09-07 17:07+0000\n"
+"PO-Revision-Date: 2026-09-08 00:02+0200\n"
+"Last-Translator: Kristjan SCHMIDT <kristjan.schmidt@googlemail.com>\n"
+"Language-Team: Esperanto <gnome-eo-list@gnome.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: eo\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Gtranslator 50.0\n"
 
 #. Put one translator per line, in the form NAME <EMAIL>, YEAR1, YEAR2
 msgctxt "_"
 msgid "translator-credits"
-msgstr "Asier Saratsua Garmendia <asiersarasua@ni.eus>"
+msgstr "Kristjan SCHMIDT"
 
 #. (itstool) path: credit/name
 #: C/how-to-reinstall-a-web-app.page:15
@@ -28,12 +31,13 @@ msgstr "Phaedrus Leeds"
 #. (itstool) path: page/title
 #: C/how-to-reinstall-a-web-app.page:21 C/how-to-reinstall-a-web-app.page:24
 msgid "How to reinstall a Webapp"
-msgstr "Nola instalatu web-aplikazio bat"
+msgstr "Kiel reinstali retaparaĵon"
 
 #. (itstool) path: page/p
 #: C/how-to-reinstall-a-web-app.page:26
 msgid "<app>Software</app> supports managing two types of web apps:"
-msgstr "<app>Softwarea</app> aplikazioak bi motatako web-aplikazioak kudeatzea onartzen du:"
+msgstr ""
+"<app>Programaro</app> subtenas administradon de du specoj de retaparaĵoj:"
 
 #. (itstool) path: item/p
 #: C/how-to-reinstall-a-web-app.page:28
@@ -41,14 +45,19 @@ msgid ""
 "Web apps for which AppStream metainfo has been shipped with <app>Software</"
 "app>. See <link href=\"https://gitlab.gnome.org/mwleeds/gnome-pwa-list/-/"
 "blob/main/README.md\">README.md</link>."
-msgstr "<app>Softwarea</app> aplikazioarekin AppStream motako metainformazioa instalatuta duten web-aplikazioak. Ikusi <link href=\"https://gitlab.gnome.org/mwleeds/gnome-pwa-list/-/blob/main/README.md\">README.md</link>."
+msgstr ""
+"Retaparaĵoj por kiuj AppStream-metainfo estas envoyita kun <app>Programaro</"
+"app>. Vidu <link href=\"https://gitlab.gnome.org/mwleeds/gnome-pwa-list/-/"
+"blob/main/README.md\">README.md</link>."
 
 #. (itstool) path: item/p
 #: C/how-to-reinstall-a-web-app.page:29
 msgid ""
 "Web apps which have been installed using <link href=\"https://apps.gnome.org/"
 "Epiphany/\">GNOME Web</link>."
-msgstr "<link href=\"https://apps.gnome.org/Epiphany/\">GNOME Weba</link> erabiliz instalatu diren web-aplikazioak."
+msgstr ""
+"Retaparaĵoj, kiuj estas instalita per <link href=\"https://apps.gnome.org/"
+"Epiphany/\">GNOME Web</link>."
 
 #. (itstool) path: page/p
 #: C/how-to-reinstall-a-web-app.page:31
@@ -58,75 +67,88 @@ msgid ""
 "second type only show up in <app>Software</app> after they have been "
 "installed via GNOME Web. If you uninstall such an app and want to reinstall "
 "it, you must do so using GNOME Web."
-msgstr "Lehen motatakoak instalatzeko moduan erakusten dira <app>Softwarea</app> aplikazioan (banaketak funtzionaltasun hori gaitu badu), eta bigarren motatakoak <app>Softwarean</app> erakusten dira GNOME Weba bidez instalatu badira soilik. Horrelako aplikazio bat desinstalatzen baduzu eta berriro instalatu nahi baduzu, GNOME Webaren bidez egin behar duzu."
+msgstr ""
+"La unua tipo estas montrita kiel disponebla por instali en <app>Programaro</"
+"app> (kiam ĉi tiu funkcio estas ŝaltita de la distribuo), dum la dua tipo "
+"apeŕas nur en <app>Programaro</app> post kiam ĝi estas instalita per GNOME "
+"Web. Se vi malinstalas tian aplikaĵon kaj volas reinstali ĝin, vi devas fari "
+"tion uzante GNOME Web."
 
 #. (itstool) path: page/p
 #: C/how-to-reinstall-a-web-app.page:33
 msgid "Here are the steps to install a web app using GNOME Web:"
-msgstr "Honakoak dira GNOME Weba erabiliz web-aplikazio bat instalatzeko urratsak:"
+msgstr "Jen la paŝoj por instali retaparaĵon uzante GNOME Web:"
 
 #. (itstool) path: item/p
 #: C/how-to-reinstall-a-web-app.page:35
 msgid ""
 "Click the app <gui style=\"button\">Menu</gui> button in the top right as "
 "shown in the image below."
-msgstr "Egin klik aplikazioaren goiko eskuineko <gui style=\"button\">Menua</gui> botoian, beheko irudian agertzen den moduan."
+msgstr ""
+"Klaku la aplikaĵan <gui style=\"button\">Menuan</gui> butonon ĉe la supra "
+"dekstro, kiel montrite en la bildo ĉi-sube."
 
 #. (itstool) path: item/p
 #: C/how-to-reinstall-a-web-app.page:36
 msgid ""
 "Click on <gui style=\"menuitem\">Install as Web App…</gui> menu item. This "
 "should open the web app creation dialog."
-msgstr "Egin klik <gui style=\"menuitem\">Instalatu web-aplikazio gisa…</gui> menu-elementuan. Horrek web-aplikazioak sortzeko elkarrizketa-koadroa irekiko du."
+msgstr ""
+"Klaku <gui style=\"menuitem\">Instali kiel Retaparaĵon…</gui> menueron. Ĉi "
+"tio devus malfermi la dialogon de retaparaĵa kreo."
 
 #. (itstool) path: item/p
 #: C/how-to-reinstall-a-web-app.page:37
 msgid ""
 "Click the <gui style=\"button\">Create</gui> button to create and install "
 "the web app."
-msgstr "Egin klik <gui style=\"button\">Sortu</gui> botoian web-aplikazioa sortu eta instalatzeko."
+msgstr ""
+"Klaku la <gui style=\"button\">Krei</gui> butonon por krei kaj instali la "
+"retaparaĵon."
 
 #. (itstool) path: page/p
 #: C/how-to-reinstall-a-web-app.page:40
 msgid ""
 "The web app should now show up in <app>Software</app>’s <gui "
 "style=\"tab\">Installed</gui> tab."
-msgstr "Web-aplikazioa <app>Softwarea</app> aplikazioaren <gui style=\"tab\">Instalatua</gui> fitxan agertuko da."
+msgstr ""
+"La retaplikaĵo nun devus aperi en la langeto <app>Programaro</app>’<gui "
+"style=\"tab\">Instalitaj</gui>."
 
 #. (itstool) path: page/title
 #: C/index.page:13
 msgid "<app>Software</app>"
-msgstr "<app>Softwarea</app>"
+msgstr "<app>Programaro</app>"
 
 #. (itstool) path: p/link
 #: C/legal.xml:8
 msgid "Creative Commons Attribution-ShareAlike 3.0 Unported License"
-msgstr "Creative Commons Attribution-ShareAlike 3.0 Unported lizentzia"
+msgstr "Creative Commons Atribuo-Samkondiĉo 3.0 Neportita Permeso"
 
 #. (itstool) path: license/p
 #: C/legal.xml:8
 msgid "This work is licensed under a <_:link-1/>."
-msgstr "This work is licensed under a <_:link-1/>."
+msgstr "Ĉi tiu verko estas licencita sub <_:link-1/>."
 
 #. (itstool) path: credit/name
 #: C/software-licensing.page:15 C/software-metadata.page:17
 msgid "Philip Withnall"
-msgstr "Philip Withnall"
+msgstr "Philip WITHNALL"
 
 #. (itstool) path: info/desc
 #: C/software-licensing.page:21
 msgid "Introduction on Software Licensing"
-msgstr "Software-lizentziei buruzko sarrera"
+msgstr "Enkonduko pri Programara Permesado"
 
 #. (itstool) path: page/title
 #: C/software-licensing.page:24
 msgid "Software Licensing"
-msgstr "Software-lizentziak"
+msgstr "Programara Permesado"
 
 #. (itstool) path: section/title
 #: C/software-licensing.page:27
 msgid "Introduction"
-msgstr "Sarrera"
+msgstr "Enkonduko"
 
 #. (itstool) path: section/p
 #: C/software-licensing.page:28
@@ -138,7 +160,14 @@ msgid ""
 "change its source code. Proprietary software does not provide you with those "
 "freedoms. FOSS software is often available for no charge, but this is not "
 "always true."
-msgstr "Aplikazioek 'libreak/kode irekikoak' edo 'jabedunak' izan daitezke. Horrek erabiltzaile gisa duzun askatasunean du eragina. Aplikazio bat  <link href=\"https://eu.wikipedia.org/wiki/Software_libre\">software librea</link> bada, hura erabili, kopiatu, aztertu eta aldatzeko eskubidea duzu. Software jabedunak ez dizkizu askatasun horiek ematen. Software libre eta kode irekikoa sarritan doanekoa da, baina ez du zertan beti horrela izan behar."
+msgstr ""
+"Aplikaĵoj povas esti ‘libera/malfermfonta programaro’ aŭ ‘proprieta’. Tio "
+"influas la liberecojn, kiujn vi havas kiel uzanto. Se aplikaĵo estas <link "
+"href=\"https://en.wikipedia.org/wiki/Free_and_open-source_software\">libera/"
+"malfermfonta programaro (FOSS)</link>, vi rajtas uzi ĝin, kopii ĝin, studi "
+"kaj ŝanĝi ĝian fontkodon. Proprieta programaro ne donas al vi tiujn "
+"liberecojn. FOSS-programaro ofte estas senpage disponebla, sed tio ne ĉiam "
+"veras."
 
 #. (itstool) path: section/p
 #: C/software-licensing.page:29
@@ -148,14 +177,21 @@ msgid ""
 "language and fixing bugs which affect them. They can audit the code and "
 "check that changes to the software are not malicious. They can learn from "
 "the source code and use it as the basis for their own FOSS applications."
-msgstr "Iturburu-kodea eskuragarri dagoenez, erabiltzaileek garapenean parte hartu dezakete, eginbide berriak gehitu eta itzulpenak egin bere hizkuntzarako, eta akatsak konpondu ditzakete. Kodea ikuskatu dezakete eta softwareari egindako aldaketak kaltegarriak ez direla egiaztatu. Iturburu-kodetik ikasi dezakete eta beren software libreko aplikazio propioetarako oinarri gisa erabili."
+msgstr ""
+"Ĉar la fontkodo estas disponebla por FOSS-programaro, uzantoj povas "
+"partopreni en ĝia evoluado, kontribuante funkciojn aŭ tradukojn al sia "
+"lingvo kaj riparon de cimoj kiuj influas ilin. Ili povas auditi la kodon kaj "
+"kontroli, ke ŝanĝoj al la programaro ne estas malicaj. Ili povas lerni de la "
+"fontkodo kaj uzi ĝin kiel bazo por siaj propraj FOSS-aplikaĵoj."
 
 #. (itstool) path: section/p
 #: C/software-licensing.page:30
 msgid ""
 "FOSS apps are <link href=\"https://www.unesco.org/en/open-solutions\">a "
 "public good</link>."
-msgstr "FOSS aplikazioak <link href=\"https://www.unesco.org/en/open-solutions\">ondasun publikoa</link> dira."
+msgstr ""
+"FOSS-aplikaĵoj estas <link href=\"https://www.unesco.org/en/open-"
+"solutions\">publika bono</link>."
 
 #. (itstool) path: section/p
 #: C/software-licensing.page:31
@@ -163,7 +199,10 @@ msgid ""
 "Proprietary apps cannot be audited by their users, so you must trust that "
 "the developers of the app have your best interests in mind, and no conflicts "
 "of interest."
-msgstr "Aplikazio jabedunak ezin dira ikuskatu, eta garatzaileez fidatu behar duzu."
+msgstr ""
+"Proprietaj aplikaĵoj ne povas esti auditita de siaj uzantoj, do vi devas "
+"fidi, ke la programistoj de la aplikaĵo havas vian plej bonan interesostan "
+"mentem, kaj neniujn konfliktojn de intereso."
 
 #. (itstool) path: section/p
 #: C/software-licensing.page:32
@@ -171,32 +210,35 @@ msgid ""
 "Read more about <link href=\"https://en.wikipedia.org/wiki/Free_and_open-"
 "source_software#Benefits_over_proprietary_software\">the benefits of FOSS "
 "over proprietary software</link>."
-msgstr "Software libre eta kode irekikoak software jabedunaren aurrean dituen abantailei buruzko <link href=\"https://eu.wikipedia.org/wiki/Software_libre#Software_librearen_abantailak\">informazio gehiago</link>."
+msgstr ""
+"Legu pli pri <link href=\"https://en.wikipedia.org/wiki/Free_and_open-"
+"source_software#Benefits_over_proprietary_software\">la avantaĝoj de FOSS "
+"super proprieta programaro</link>."
 
 #. (itstool) path: credit/name
 #: C/software-metadata.page:21
 msgid "Will Thompson"
-msgstr "Will Thompson"
+msgstr "Will THOMPSON"
 
 #. (itstool) path: credit/name
 #: C/software-metadata.page:25
 msgid "Milan Crha"
-msgstr "Milan Crha"
+msgstr "Milan CRHA"
 
 #. (itstool) path: info/desc
 #: C/software-metadata.page:31
 msgid "How <app>Software</app> uses metadata"
-msgstr "<app>Softwareak</app> nola erabiltzen dituen metadatuak"
+msgstr "Kiel <app>Programaro</app> uzas metadatenojn"
 
 #. (itstool) path: page/title
 #: C/software-metadata.page:34
 msgid "Software Metadata"
-msgstr "Software-metadatuak"
+msgstr "Programara Metadatenoj"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:38
 msgid "Screenshots"
-msgstr "Pantaila-argazkiak"
+msgstr "Ekrankopioj"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:40
@@ -205,14 +247,20 @@ msgid ""
 "application. This typically should include screenshots of various windows / "
 "dialogs of the application, so the user would get a quick grasp of the "
 "application’s features, look and feel etc."
-msgstr "<app>Softwareak</app> aplikazioen xehetasun-orrietan erakusten ditu pantaila-argazkiak. Gehienetan aplikazioaren leiho eta elkarrizketa-koadroen pantaila-argazkiak dira, erabiltzaileak aplikazioaren eginbideen, itxuraren eta beste antzeko kontu batzuen ikuspegi azkarra eduki dezan."
+msgstr ""
+"<app>Programaro</app> montras ekrankopiojn en la detalpaĝo de aplikaĵo. Tio "
+"kutime devus inkluzivi ekrankopiojn de diversaj fenestroj/dialogoj de la "
+"aplikaĵo, por ke la uzanto rapide ekkomprenu ĝiajn funkciojn, aspekton kaj "
+"konduton."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:41
 msgid ""
 "When more than one screenshot is present in the application’s metainfo file, "
 "<app>Software</app> will show the screenshots in a carousel."
-msgstr "Aplikazioaren metainformazio-fitxategian pantaila-argazki bat baino gehiago badago, <app>Softwareak</app> ikuspegi birakari gisa erakutsiko ditu."
+msgstr ""
+"Kiam en la metainformdosiero de aplikaĵo estas pli ol unu ekrankopio, "
+"<app>Programaro</app> montras ilin en karuselo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:42
@@ -220,13 +268,17 @@ msgid ""
 "In cases when the application’s metainfo file doesn’t contain any "
 "screenshot, then a placeholder icon as below with <code>No Screenshots</"
 "code> will be displayed:"
-msgstr "Aplikazioaren metainformazio-fitxategiak ez duenean pantaila-argazkirk, leku-marka gisa funtzionatzen duen ikono bat bistaratuko da, <code>Pantaila-argazkirik ez</code>dioena:"
+msgstr ""
+"Se la metainformdosiero de aplikaĵo ne enhavas ekrankopion, montriĝos "
+"anstataŭiga piktogramo kun <code>Neniuj ekrankopioj</code> kiel sube:"
 
 #. (itstool) path: note/p
 #: C/software-metadata.page:45
 msgid ""
 "Placeholder icon might look different if you're using a custom icon theme."
-msgstr "Leku-markako ikonoak beste itxura bat izan dezake ikono-gai pertsonalizatua erabiltzen baduzu."
+msgstr ""
+"Anstataŭila piktogramo povus aspekti malsama se vi uzas propra piktogramo-"
+"temo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:47
@@ -234,51 +286,58 @@ msgid ""
 "Screenshots might become outdated as the application’s UI changes. So, even "
 "if <app>Software</app> shows screenshots for an app, it’s important to check "
 "if these screenshots are up-to-date or outdated."
-msgstr "Pantaila-argazkiak zaharkituta geratu daitezke aplikazioak interfazea aldatzen badu. Beraz, <app>Softwareak</app> aplikazio baten pantaila-argazkiak erakutsi arren, beti egiaztatu behar da pantaila-argazki horiek eguneratuta dauden."
+msgstr ""
+"Ekrankopioj povas malaktualiĝi kiam ŝanĝiĝas la uzantinterfaco de aplikaĵo. "
+"Do, eĉ se <app>Programaro</app> montras ekrankopiojn, gravas kontroli ĉu ili "
+"estas aktualaj aŭ malaktualaj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:48
 msgid "You can improve app screenshot information:"
-msgstr "Pantaila-argazkiaren informazioa hobetzeko:"
+msgstr "Vi povas plibonigi aplikaĵan ekrankopjan informon:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:51
 msgid ""
 "<link xref=\"#how-to-add-missing-app-screenshots\">How to add missing app "
 "screenshots</link>"
-msgstr "<link xref=\"#how-to-add-missing-app-screenshots\">Nola gehitu falta diren pantaila-argazkiak</link>"
+msgstr ""
+"<link xref=\"#how-to-add-missing-app-screenshots\">Kiel aldoni mankantajn "
+"aplikaĵajn ekrankopiojn</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:57
 msgid "App context bar"
-msgstr "Aplikazioaren testuinguru-barra"
+msgstr "Aplikaĵa Konteksta Strio"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:58
 msgid ""
 "The app context bar in <app>Software</app> is a collection of tiles on the "
 "details page for an application, which display the following details."
-msgstr "Aplikazioen testuinguru-barra, <app>Softwarean</app>, aplikazio bakoitzaren xehetasun-orrian erakusten diren lauzen bilduma bat da. Honako xehetasunak erakusten ditu:"
+msgstr ""
+"La aplikaĵa konteksta strio en <app>Programaro</app> estas kolekto de ŝancoj "
+"sur la detalos-paĝo por aplikaĵo, kiu montras la sekvajn detalojn."
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:61
 msgid "<link xref=\"#storage\">Storage</link>"
-msgstr "<link xref=\"#storage\">Tamaina</link>"
+msgstr "<link xref=\"#storage\">Stokado</link>"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:64
 msgid "<link xref=\"#safety\">Safety</link>"
-msgstr "<link xref=\"#safety\">Segurtasuna</link>"
+msgstr "<link xref=\"#safety\">Sekureco</link>"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:67
 msgid "<link xref=\"#hardware-support\">Hardware support</link>"
-msgstr "<link xref=\"#hardware-support\">Hardware-euskarria</link>"
+msgstr "<link xref=\"#hardware-support\">Makinara Subteno</link>"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:70
 msgid "<link xref=\"#age-rating\">Age rating</link>"
-msgstr "<link xref=\"#age-rating\">Adinaren araberako balorazioa</link>"
+msgstr "<link xref=\"#age-rating\">Aĝa Raitingo</link>"
 
 #. (itstool) path: section/p
 #. Translators: Refer
@@ -286,7 +345,9 @@ msgstr "<link xref=\"#age-rating\">Adinaren araberako balorazioa</link>"
 #. for steps to localize 'figures/app-context-bar.png' image.
 #: C/software-metadata.page:74
 msgid "This shows the app context bar for the <app>Software</app> app:"
-msgstr "Honek <app>Softwarea</app> aplikazioaren testuinguru-barra erakusten du:"
+msgstr ""
+"Ĉi tio montras la aplikaĵan kontekstan strio por la <app>Programaro</app>-"
+"aplikaĵo:"
 
 #. (itstool) path: p/media
 #. This is a reference to an external file such as an image or video. When
@@ -298,7 +359,9 @@ msgctxt "_"
 msgid ""
 "external ref='figures/app-context-bar.png' "
 "md5='3badcd9309bde27a650b25eb5d89a4c6'"
-msgstr "external ref='figures/app-context-bar.png' md5='3badcd9309bde27a650b25eb5d89a4c6'"
+msgstr ""
+"external ref='figures/app-context-bar.png' "
+"md5='3badcd9309bde27a650b25eb5d89a4c6'"
 
 #. (itstool) path: section/p
 #. Translators: This text needs to be adjusted for RTL languages as the
@@ -307,17 +370,19 @@ msgstr "external ref='figures/app-context-bar.png' md5='3badcd9309bde27a650b25eb
 msgid ""
 "The tiles are displayed in the order listed above (starting with "
 "<code>Storage</code> tile on the left)."
-msgstr "Lauzak goian zerrendatutako ordenan bistaratzen dira (ezkerretik hasita, lehenengo <code>Tamaina</code>)."
+msgstr ""
+"La ŝancoj estas montrita en la ordo listigita ĉi-supe (komencante kun "
+"<code>Stokado</code>-ŝanco maldekstre)."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:79
 msgid "Each tile is covered in detail below."
-msgstr "Lauza bakoitza xeheago azaltzen da behean."
+msgstr "Ĉiu ŝanco estas kovrita detale ĉi-sube."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:83
 msgid "Storage"
-msgstr "Tamaina"
+msgstr "Stokado"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:84
@@ -326,7 +391,11 @@ msgid ""
 "application. If the application is not installed, this displays the "
 "estimated download size needed to install it. If the application is "
 "installed, it displays the storage space used by the application."
-msgstr "<app>Softwareak</app> tamaina erakusten du lauza batean, aplikazioen xehetasunen orrian. Aplikazioa ez badago instalatuta, hura instalatzeko gutxi gorabehera zein tamainako fitxategia deskargatu behar den erakusten du. Aplikazioa instalatuta badago, hurak erabiltzen duen biltegiratze-espazioa erakusten du."
+msgstr ""
+"<app>Programaro</app> montras stokadan ŝancon sur la detalos-paĝo por "
+"aplikaĵo. Se la aplikaĵo ne estas instalita, ĉi tio montras la taksitan "
+"elŝutgrandon bezonan por instali ĝin. Se la aplikaĵo estas instalita, ĝi "
+"montras la stokad-spacon uzita de la aplikaĵo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:85
@@ -335,12 +404,17 @@ msgid ""
 "backend (such as flatpak or an RPM), and are not specified in the metadata "
 "provided by the application. There is nothing you can do to affect this tile "
 "by editing an application’s metainfo file. It’s listed here for completeness."
-msgstr "Tamainak kalkulatzeko, <app>Softwarea</app> aplikazioaren motorrak (adibidez flatpak edo RPM) ematen dituen datuak erabiltzeko dira, eta ez daude zehaztuta aplikazioak eskainitako metadatuetan. Ezin da ezer egin lauza hori moldatzeko, ezta aplikazioaren metainformazio-fitxategia aldatu ere."
+msgstr ""
+"La grandoj estas kalkulataj laŭ datumoj liveritaj de la malantaŭaĵo de "
+"<app>Programaro</app> (kiel Flatpak aŭ RPM), kaj ne estas specifitaj en la "
+"metadatumoj de la aplikaĵo. Redaktante la metainformdosieron de aplikaĵo, "
+"oni povas neniel influi ĉi tiun kahelon. Ĝi estas listigita ĉi tie por "
+"kompleteco."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:89
 msgid "Safety"
-msgstr "Segurtasuna"
+msgstr "Sekureco"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:90
@@ -349,7 +423,11 @@ msgid ""
 "application. This summarizes information about whether the app can be "
 "considered safe to install and run, or whether caution may be required "
 "before trusting it."
-msgstr "<app>Softwareak</app> segurtasuna erakusten du lauza batean, aplikazioen xehetasunen orrian. Aplikazioa instalatzeko eta exekutatzeko segurua den ala kontuz aritu behar den adierazten da lauza horretan."
+msgstr ""
+"<app>Programaro</app> montras sekurec-ŝancon sur la detalos-paĝo por "
+"aplikaĵo. Ĉi tio resumadas informon pri ĉu la aplikaĵo povas esti "
+"konsiderata sekura por instali kaj flegi, aŭ ĉu zorgo povus esti postulita "
+"antaŭ fidi ĝin."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:91
@@ -359,7 +437,12 @@ msgid ""
 "how the app was developed. Free software applications, where the source code "
 "is publicly readable, can be more secure than proprietary ones, as they can "
 "be audited."
-msgstr "Lauza horrek aplikazioak exekutatzeko eskatzen dituen baimenei buruzko informazioa ematen da (adibidez, fitxategiak irakurtzeko baimena). Horrez gain, aplikazioa nola garatu den ere adierazten da. Software libreko aplikazioak, iturburu-kodea irakurgarria izanik, jabedun aplikazioak baino seguruagoak izan daitezke."
+msgstr ""
+"Ĉi tiu ŝanco kombinas informon pri la permesoj, kiujn la aplikaĵo petas kiam "
+"ĝi flegi (kiel permeso legi viajn dosierojn), kun informon pri kiel la "
+"aplikaĵo estis evoluata. Libera-programaraj aplikaĵoj, kie la fontkodo estas "
+"publika-legopova, povas esti pli sekura ol proprietoj, ĉar ĝi povas esti "
+"auditita."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:92
@@ -367,24 +450,29 @@ msgid ""
 "The dialog which appears when the tile is clicked lists the different "
 "permissions the app requests, plus some information about its license and "
 "runtime."
-msgstr "Lauzan klik egitean agertzen den elkarrizketa-koadroan aplikazioak eskatu dituen baimenak zerrendatzen dira, gehi bere lizentziari eta exekuzio-denborari buruzko informazioa."
+msgstr ""
+"La dialogo kiu aperas kiam la ŝanco estas klakita listasas la malsamajn "
+"permesojn petetajn de la aplikaĵo, plus iaj informoj pri ĝia permeso kaj "
+"rultempo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:93
 msgid "You can improve the safety information:"
-msgstr "Segurtasun-informazioa hobetzeko:"
+msgstr "Vi povas plibonigi la sekurec-informon:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:96
 msgid ""
 "<link xref=\"#how-to-fix-incorrect-safety-and-permissions-information\">How "
 "to fix incorrect safety and permissions information</link>"
-msgstr "<link xref=\"#how-to-fix-incorrect-safety-and-permissions-information\">Nola konpondu segurtasun- eta baimen-informazio okerra</link>"
+msgstr ""
+"<link xref=\"#how-to-fix-incorrect-safety-and-permissions-information\">Kiel "
+"ĝustigi malĝustan sekurecon kaj permesojn</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:102
 msgid "Hardware support"
-msgstr "Hardware-euskarria"
+msgstr "Makinara Subteno"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:103
@@ -394,28 +482,36 @@ msgid ""
 "the application, and the hardware capabilities of the computer, with the aim "
 "of highlighting incompatibilities or missing requirements — or to indicate "
 "that the application should work correctly with no incompatibilities."
-msgstr "<app>Softwareak</app> hardware-euskarriaren informazioa erakusten du lauza batean, aplikazioen xehetasunen orrian. Aplikazioak dituen hardware-eskakizunei buruzko informazioa eta ordenagailuaren hardware-kapazitateei buruzkoa ematen da bertan, horrela bateraezintasunak edo falta diren eskakizunak nabarmen geratu daitezen - edo aplikazioak bateraezintasunik gabe eta ongi funtzionatuko duela adierazteko."
+msgstr ""
+"<app>Programaro</app> montras makinaran subtenen-ŝancon sur la detalos-paĝo "
+"por aplikaĵo. Ĉi tio kombinas informon pri la makinara postuloj de la "
+"aplikaĵo, kaj la makinara kapablecoj de la komputilo, ĉe la celo de emfazado "
+"de nekonformecoj aŭ mankantataj postuloj — aŭ por indiki, ke la aplikaĵo "
+"devus labori ĝuste sen nekonformecoj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:112
 msgid ""
 "The code looks at the following hardware. More may be supported in future."
-msgstr "Kodeak ondoren adierazitako hardwarea begiratzen du. Etorkizunean informazio gehiago emango da."
+msgstr ""
+"La kodo rigardas la sekvantan makinaron. Pli povus esti subtenita en la "
+"estonteco."
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:114
 msgid "Whether a touchpad, mouse or keyboard is present/needed"
-msgstr "Ukipen-panel bat, sagu bat edo teklatu bat dagoen edo beharrezkoa den"
+msgstr "Ĉu tuŝ-pado, muso aŭ klavaro estas ĉeesta/bezonata"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:115
 msgid "Whether a gamepad is needed"
-msgstr "Joko-aginte bat beharrezkoa den"
+msgstr "Ĉu lud-kontrolilo estas bezonata"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:116
 msgid "The minimum and recommended display size that the app can scale to"
-msgstr "Aplikazioaren gutxieneko eta gomendatutako pantaila-tamainak"
+msgstr ""
+"La minimuma kaj rekomendita ekran-grandeco al kiu la aplikaĵo povas skalumi"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:119
@@ -423,31 +519,38 @@ msgid ""
 "It’s not possible to reliably detect whether a gamepad is <em>present</em>, "
 "as they are often left disconnected due to not being needed for normal "
 "computer use."
-msgstr "Ezin da joko-aginte bat <em>badagoela</em> modu fidagarrian detektatu, sarritan deskonektatuta uzten baita, normalean ez baita beharrezkoa ordenagailua erabiltzeko."
+msgstr ""
+"Ne eblas fidinde detekti ĉu ludplato estas <em>ĉeesta</em>, ĉar ĝi ofte "
+"restas malkonektita pro tio, ke ĝi ne estas bezonata por ordinara komputila "
+"uzo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:120
 msgid ""
 "The dialog which appears when the tile is clicked lists the different "
 "hardware requirements of the app, and whether any of them are not met."
-msgstr "Lauzan klik egitean agertzen den elkarrizketa-koadroan aplikazioak dituen hardware-eskakizunak zerrendatzen dira, eta haietako guztiak betetzen diren ala ez."
+msgstr ""
+"La dialogo kiu aperas kiam la ŝanco estas klakita listasas la malsamajn "
+"makinara postulojn de la aplikaĵo, kaj ĉu iuj el ili ne estas plenumita."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:121
 msgid "You can improve the hardware information:"
-msgstr "Hardware-informazioa hobetzeko:"
+msgstr "Vi povas plibonigi la makinaran informon:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:124
 msgid ""
 "<link xref=\"#how-to-add-missing-hardware-information\">How to add missing "
 "hardware information</link>"
-msgstr "<link xref=\"#how-to-add-missing-hardware-information\">Nola gehitu falta den hardware-informazioa</link>"
+msgstr ""
+"<link xref=\"#how-to-add-missing-hardware-information\">Kiel aldoni "
+"mankantan makinaran informon</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:130
 msgid "Age rating"
-msgstr "Adinaren araberako balorazioa"
+msgstr "Aĝa Raitingo"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:131
@@ -457,38 +560,49 @@ msgid ""
 "for, based on different kinds of content which the application has declared "
 "it contains. This information is summarized in a format similar to the game "
 "or film rating certificates for your country."
-msgstr "<app>Softwareak</app> adinaren araberako balorazioaren informazioa erakusten du lauza batean, aplikazioen xehetasunen orrian. Aplikazioa zein adinetarako den egokia adierazten du horrek, aplikazioak berak daukala adierazi duen edukiaren arabera. Informazio hori zure herrialdean jokoak edo filmak baloratzeko erabiltzen den modu berean ematen da."
+msgstr ""
+"<app>Programaro</app> montras aĝan-raitingan ŝancon sur la detalos-paĝo por "
+"aplikaĵo. Ĉi tio montras kiun aĝ-amplekson la aplikaĵo devus esti konvena "
+"por, bazita sur malsamaj specoj de enhavo kiujn la aplikaĵo deklaris ke ĝi "
+"enhavas. Ĉi tiu informo estas resumada en formato simila al la lud aŭ filma "
+"raitinga sertifikoj por via lando."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:132
 msgid ""
 "For example, this will highlight whether a game contains violence, or "
 "whether an application contains in-app advertising."
-msgstr "Adibidez, joko batek indarkeria duen ala ez nabarmenduko da, edo iragarkiak dituen ala ez."
+msgstr ""
+"Ekzemple, ĉi tio emfazos ĉu ludo enhavas perforton, aŭ ĉu aplikaĵo enhavas "
+"en-aplikaĵan reklamojn."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:133
 msgid ""
 "The dialog which appears when the tile is clicked lists the different types "
 "of content in the application and how severe that content is."
-msgstr "Lauzan klik egitean agertzen den elkarrizketa-koadroan aplikazioak dituen eduki mota desberdinak zerrendatzen dira eta zein gogortasun-mailakoak diren."
+msgstr ""
+"La dialogo kiu aperas kiam la ŝanco estas klakita listasas la malsamajn "
+"specojn de enhavo en la aplikaĵo kaj kiom severoj estas tiu enhavo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:134
 msgid "You can improve the age rating information:"
-msgstr "Adinaren araberako balorazioa hobetzeko:"
+msgstr "Vi povas plibonigi la aĝ-raitingan informon:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:137
 msgid ""
 "<link xref=\"#how-to-add-missing-content-rating-information\">How to add "
 "missing content rating information</link>"
-msgstr "<link xref=\"#how-to-add-missing-content-rating-information\">Nola gehitu adinaren araberako balorazioan falta den informazioa</link>"
+msgstr ""
+"<link xref=\"#how-to-add-missing-content-rating-information\">Kiel aldoni "
+"mankantan enhavan raitingan informon</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:143
 msgid "License"
-msgstr "Lizentzia"
+msgstr "Permeso"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:146
@@ -500,7 +614,13 @@ msgid ""
 "information about the project’s license. This tile also lists some of the "
 "benefits of free software. <link xref=\"software-"
 "licensing#introduction\">Learn more</link>"
-msgstr "<app>Softwareak</app> aplikazio bat <link href=\"https://eu.wikipedia.org/wiki/Software_libre\">software librea</link> den ala jabeduna, berezia edo ezezaguna den adierazten duen izenburu bat erakusten du. Izenburu horrek proiektuaren lizentziari buruzko informazio xehea eskaintzen du. Software librearen onuretako batzuk ere zerrendatzen ditu. <link xref=\"software-licensing#introduction\">Ikasi gehiago</link>"
+msgstr ""
+"<app>Programaro</app> montras kahelon indikantan ĉu aplikaĵo estas <link "
+"href=\"https://en.wikipedia.org/wiki/Free_and_open-source_software\">libera "
+"programaro</link>, aŭ ĉu ĝia permesilo estas proprieta, speciala aŭ "
+"nekonata. La kahelo enhavas pli detalajn informojn pri la permesilo de la "
+"projekto kaj listigas kelkajn avantaĝojn de libera programaro. <link "
+"xref=\"software-licensing#introduction\">Lerni pli</link>"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:147
@@ -508,7 +628,10 @@ msgid ""
 "Sometimes the license information isn’t correct for an application, and "
 "hence an application which is actually free software will be shown as "
 "‘proprietary’. Similarly, sometimes the license information is unknown."
-msgstr "Batzuetan lizentziaren informazioa ez da zuzena aplikazio baterako, eta software librea den aplikazioa bat jabedun gisa agertzen da. Beste batzuetan, gerta daiteke lizentziaren informazioa ezezaguna izatea."
+msgstr ""
+"Foje la permesilaj informoj de aplikaĵo estas malĝustaj, kaj tial aplikaĵo, "
+"kiu fakte estas libera programaro, aperas kiel ‘proprieta’. Simile, foje la "
+"permesilaj informoj estas nekonataj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:148
@@ -516,91 +639,104 @@ msgid ""
 "<app>Software</app> highlights free and open-source licenses in green, "
 "proprietary and special licenses in yellow as shown here. Unknown licenses "
 "are highlighted in grey."
-msgstr "<app>Softwarea</app> aplikazioak lizentzia libre eta kode irekikoak berdez margotzen ditu, jabedunak eta bereziak horiz. Lizentzia ezezagunak grisez nabarmenduta agertzen dira."
+msgstr ""
+"<app>Programaro</app> emfazas libera kaj malfermita-fonta permesojn en "
+"verdo, proprietaj kaj specialaj permesoj en flava kiel montrite ĉi tie. "
+"Nekonataj permesoj estas emfazitaj en grizo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:149
 msgid "You can add or improve the license information:"
-msgstr "Lizentzia-informazioa hobetzeko:"
+msgstr "Vi povas aldoni aŭ plibonigi la permeso-informon:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:152
 msgid ""
 "<link xref=\"#how-to-fix-incorrect-licensing-information\">How to fix "
 "incorrect licensing information</link>"
-msgstr "<link xref=\"#how-to-fix-incorrect-licensing-information\">Nola konpondu lizentzia-informazio okerra</link>"
+msgstr ""
+"<link xref=\"#how-to-fix-incorrect-licensing-information\">Kiel ĝustigi "
+"malĝustan permesajn informojn</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:158
 msgid "Links"
-msgstr "Estekak"
+msgstr "Ligiloj"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:160
 msgid ""
 "<app>Software</app> displays a list of application resource links in the "
 "link tile. They are as follows:"
-msgstr "<app>Softwareak</app> aplikazioaren baliabideen esteken zerrenda bat erakusten du esteen lauzan. Honakoak dirasof:"
+msgstr ""
+"<app>Programaro</app> montras liston de aplikaĵan risorcan ligilojn en la "
+"ligila ŝanco. Ili estas jenaj:"
 
 #. (itstool) path: td/p
 #: C/software-metadata.page:164
 msgid "Website link"
-msgstr "Webgunearen esteka"
+msgstr "Reteja ligilo"
 
 #. (itstool) path: td/p
 #: C/software-metadata.page:168
 msgid "Donation link"
-msgstr "Diruz laguntzeko esteka"
+msgstr "Donaco-ligilo"
 
 #. (itstool) path: td/p
 #: C/software-metadata.page:172
 msgid "Translation contribution link"
-msgstr "Itzulpenetan laguntzeko esteka"
+msgstr "Traduko-kontribuo-ligilo"
 
 #. (itstool) path: td/p
 #: C/software-metadata.page:176
 msgid "Bug reporting link"
-msgstr "Akatsak jakinarazteko esteka"
+msgstr "Cim-raporto-ligilo"
 
 #. (itstool) path: td/p
 #: C/software-metadata.page:180
 msgid "Help link"
-msgstr "Laguntzarako esteka"
+msgstr "Helpo-ligilo"
 
 #. (itstool) path: td/p
 #: C/software-metadata.page:184
 msgid "Contact link"
-msgstr "Harremanetarako esteka"
+msgstr "Kontakto-ligilo"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:187
 msgid ""
 "Some or all of these links may be present depending on whether they are "
 "listed in the application’s metainfo file."
-msgstr "Esteka horietako batzuk soilik edo den-denak agertu daitezke, aplikazioaren metainformazio-fitxategian adierazitakoaren arabera."
+msgstr ""
+"Iuj aŭ ĉiuj el ĉi tiuj ligiloj povas ekzisti depende de tio, ĉu ili estas "
+"listigitaj en la metainformdosiero de la aplikaĵo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:188
 msgid ""
 "In cases when the application’s metainfo file doesn’t contain any link, the "
 "following tile with a question mark will be displayed."
-msgstr "Aplikazioaren metainformazio-fitxategiak ez badu inolako estekarik, galdera-ikurra duen lauza bat bistaratuko da."
+msgstr ""
+"Se la metainformdosiero de aplikaĵo ne enhavas ekrankopion, montriĝos "
+"anstataŭiga piktogramo kun <code>Neniuj ekrankopioj</code> kiel sube:"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:190
 msgid "You can improve the links:"
-msgstr "Estekak hobetzeko:"
+msgstr "Vi povas plibonigi la ligilojn:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:193
 msgid ""
 "<link xref=\"#how-to-add-missing-links\">How to add missing links</link>"
-msgstr "<link xref=\"#how-to-add-missing-links\">Nola gehitu falta diren estekak</link>"
+msgstr ""
+"<link xref=\"#how-to-add-missing-links\">Kiel aldoni mankantajn ligilojn</"
+"link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:199
 msgid "Carousel tile"
-msgstr "Ikuspegi birakariaren izenburua"
+msgstr "Ĉarĉela ŝanco"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:201
@@ -610,31 +746,40 @@ msgid ""
 "a background color which is automatically extracted from the application’s "
 "icon. Sometimes this background color is not quite right for the application "
 "and needs to be specified explicitly by the application developer."
-msgstr "<app>Softwaren</app> nabarmentzen diren aplikazioak leiho nagusiaren goiko aldean agertzen den ikuspegi birakari batean bistaratzen dira. Ikuspegiaren lauza bakoitzak atzeko planoko kolore desberdin bat du. Kolore hori automatikoki erauzten da aplikazioaren ikonotik. Zenbaitetan, kolore hori ez da oso egokia aplikaziorako; kasu horietan, garatzaileak zehaztu beharko luke kolore hori."
+msgstr ""
+"Aplikaĵoj prezentataj de <app>Programaro</app> aperas en karuselo ĉe la "
+"supro de la ĉefa fenestro, kiel montrite ĉi tie. Ĉiu karusela kahelo havas "
+"fonkoloron aŭtomate ĉerpitan el la piktogramo de la aplikaĵo. Foje tiu "
+"koloro ne taŭgas por la aplikaĵo kaj devas esti eksplicite specifita de ĝia "
+"programisto."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:202
 msgid ""
 "The set of applications which are featured is decided by the Linux "
 "distribution maintainers."
-msgstr "Nabarmenduta ageri diren aplikazioen multzoa Linux banaketa bakoitzaren garatzaileek erabakitzen dute."
+msgstr ""
+"La aro de aplikaĵoj kiuj estas menciitaj estas decidita de la Linux-"
+"distribuo-prizorgantoj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:203
 msgid "You can improve the carousel tile:"
-msgstr "Ikuspegi birakariaren lauza hobetzeko:"
+msgstr "Vi povas plibonigi la ĉarĉelan ŝancon:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:206
 msgid ""
 "<link xref=\"#how-to-set-the-carousel-tile-background-colour\">How to set "
 "the carousel tile background color</link>"
-msgstr "<link xref=\"#how-to-set-the-carousel-tile-background-colour\">Nola ezarri ikuspegi birakariaren lauzaren atzeko planoa</link>"
+msgstr ""
+"<link xref=\"#how-to-set-the-carousel-tile-background-colour\">Kiel fiksadi "
+"la fonkoloran de ĉarĉela ŝanco</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:212
 msgid "Where metadata comes from"
-msgstr "Metadatuak nondik datozen"
+msgstr "De kie metadatenoj venas"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:213
@@ -643,7 +788,11 @@ msgid ""
 "what ages of user it is suitable for, and factors which contribute to how "
 "safe it might be to install, all come from the metainfo file for that "
 "software."
-msgstr "Software batek zein harware behar duen, zein adinetarako den egokia, eta zein segurua den zehazteko erabiltzen diren metadatuak software horren metainformazio-fitxategian daude."
+msgstr ""
+"La metadatenoj uzitaj por specifi kiun makinaron peco de programaro "
+"postulas, kiujn aĝojn de uzanto ĝi estas konvena por, kaj faktoroj kiu "
+"kontribuas al kiom sekura ĝi povus esti por instali, ĉiuj venas de la "
+"metainfo-dosiero por tiu programaro."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:214
@@ -651,7 +800,10 @@ msgid ""
 "The metainfo file is an XML file. Its file format is specified in the <link "
 "href=\"https://www.freedesktop.org/software/appstream/docs/\">AppStream "
 "specification</link>."
-msgstr "Metainformazioa XML fitxategi bat da. Bere fitxategi-formatua <link href=\"https://www.freedesktop.org/software/appstream/docs/\">AppStream espezifikazioan</link> dago zehaztuta."
+msgstr ""
+"La metainfo-dosiero estas XML-dosiero. Ĝia dosiero-formato estas specifita "
+"en la <link href=\"https://www.freedesktop.org/software/appstream/docs/"
+"\">AppStream-specifilo</link>."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:215
@@ -659,17 +811,20 @@ msgid ""
 "See the <link href=\"https://gitlab.gnome.org/GNOME/nautilus/-/blob/main/"
 "data/org.gnome.Nautilus.metainfo.xml.in.in\">metainfo file for GNOME Files "
 "app</link>."
-msgstr "Ikusi <link href=\"https://gitlab.gnome.org/GNOME/nautilus/-/blob/main/data/org.gnome.Nautilus.metainfo.xml.in.in\">GNOME Fitxategiak aplikazioaren metainformazio-fitxategia</link>."
+msgstr ""
+"Vidu la <link href=\"https://gitlab.gnome.org/GNOME/nautilus/-/blob/main/"
+"data/org.gnome.Nautilus.metainfo.xml.in.in\">metainfo-dosieron por GNOME-"
+"Dosieroj-aplikaĵo</link>."
 
 #. (itstool) path: note/p
 #: C/software-metadata.page:217
 msgid "<em>appdata</em> is the older term for <em>metainfo</em>."
-msgstr "Lehen <em>metainfo</em> elementuari <em>appdata</em> esaten zitzaion."
+msgstr "<em>appdata</em> estas la malpli nova termo por <em>metainfo</em>."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:222
 msgid "What happens if metadata is missing"
-msgstr "Zer gertatzen da metadatuak falta badira"
+msgstr "Kio okazas se metadatenoj mankas"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:223
@@ -678,40 +833,52 @@ msgid ""
 "guess what it might be, and hence can’t present much information in its "
 "interfaces. The guesses <app>Software</app> makes are based on the fact that "
 "most software is designed for desktop computers."
-msgstr "Aplikazio batek ez baditu metadatuetako batzuk, <app>Softwareak</app> horiek asmatzen saiatu daiteke, baina ezin izango du informazio askorik eman bere interfazeetan. <app>Softwareak</app> ulertuko du software gehiena mahaigaineko ordenagailuetarako sortu dela."
+msgstr ""
+"Se mankas metadatumoj por aplikaĵo, <app>Programaro</app> povas nur diveni, "
+"kiaj ili eble estas, kaj tial ne povas prezenti multajn informojn en siaj "
+"interfacoj. La divenoj baziĝas sur tio, ke plej multe da programaro estas "
+"destinita al labortablaj komputiloj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:224
 msgid ""
 "<em style=\"strong\">You can help improve the metadata for an application!</"
 "em>"
-msgstr "<em style=\"strong\">Aplikazio baten metadatuak hobetzen lagundu dezakezu.</em>"
+msgstr ""
+"<em style=\"strong\">Vi povas helpi plibonigi la metadatenojn por aplikaĵo!</"
+"em>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:228
 msgid "How to contribute missing information"
-msgstr "Nola lagundu falta den informazioa osatzen"
+msgstr "Kiel kontribui mankantan informon"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:229
 msgid ""
 "If you find that an app’s page is missing information or has incorrect "
 "information, you can contribute in one of the two ways:"
-msgstr "Aplikazio baten orrian informazioa falta dela edo informazioa okerra dela ikusten baduzu, honela lagundu dezakezu:"
+msgstr ""
+"Se vi trovas ke mankas informoj en la paĝo de aplikaĵo aŭ ke ili estas "
+"malĝustaj, vi povas kontribui per unu el du manieroj:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:232
 msgid ""
 "You can report the missing / incorrect metadata to the respective app’s bug "
 "tracker, so the app developer can fix it."
-msgstr "Falta den edo okerra den metadatua aplikazioak akatsak jakinarazteko duen aztarnarian argitaratu dezakezu, garatzaileak hutsunea konpondu dezan."
+msgstr ""
+"Vi povas raporti la mankantajn aŭ malĝustajn metadatumojn al la cimspurilo "
+"de la koncerna aplikaĵo, por ke ĝia programisto povu ripari ilin."
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:235
 msgid ""
 "You can fix the missing / incorrect metadata yourself. See the <em "
 "style=\"strong\">How to</em> guide below on how to do that."
-msgstr "Falta den edo okerra den metadatua zuk zeuk konpondu dezakezu. Ikusi <em style=\"strong\">Nola egin</em> gida hori nola egiten den ikasteko."
+msgstr ""
+"Vi povas ĝustigi la mankantan / malĝustan metadatenojn mem. Vidu la <em "
+"style=\"strong\">Kiel</em> gvidi ĉi-sube pri kiel fari ĉi tion."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:239
@@ -720,7 +887,11 @@ msgid ""
 "project page should typically be available in the app’s page <link "
 "xref=\"#links\">as shown here</link>. If not, you will need to find it with "
 "a simple search on Google."
-msgstr "Bi kasuetan, lehenengo aplikazioaren proiektu-orria aurkitu behar duzu. Proiektu-orriaren esteka normalean aplikazioaren orrian agertuko da, <link xref=\"#links\">hemen erakusten den moduan</link>. Ez badago, bilatzaile baten bidez bilatu beharko duzu interneten."
+msgstr ""
+"Por ambaŭ manieroj, vi unue devas trovi la projektpaĝon de la aplikaĵo. La "
+"ligilo al ĝi kutime estas disponebla en la paĝo de la aplikaĵo <link "
+"xref=\"#links\">kiel montrite ĉi tie</link>. Alie, vi devos trovi ĝin per "
+"simpla serĉo en Google."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:241
@@ -730,12 +901,17 @@ msgid ""
 "explore\">GitHub</link>. For example, GNOME apps are hosted in <link "
 "href=\"https://gitlab.gnome.org/GNOME?sort=stars_desc\">gitlab.gnome.org</"
 "link>."
-msgstr "Aplikazioak normalean <link href=\"https://gitlab.com/explore?sort=stars_desc\">GitLab</link> edo <link href=\"https://github.com/explore\">GitHub</link> gune batean daude. Adibidez, GNOMEren aplikazioak <link href=\"https://gitlab.gnome.org/GNOME?sort=stars_desc\">gitlab.gnome.org</link> gunean daude."
+msgstr ""
+"Aplikaĵoj estas tipe gastita en <link href=\"https://gitlab.com/explore?"
+"sort=stars_desc\">GitLab</link> aŭ <link href=\"https://github.com/"
+"explore\">GitHub</link>. Ekzemple, GNOME-aplikaĵoj estas gastita en <link "
+"href=\"https://gitlab.gnome.org/GNOME?sort=stars_desc\">gitlab.gnome.org</"
+"link>."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:245
 msgid "How to add missing app screenshots"
-msgstr "Nola gehitu falta diren pantaila-argazkiak"
+msgstr "Kiel aldoni mankantajn aplikaĵajn ekrankopiojn"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:246
@@ -745,7 +921,12 @@ msgid ""
 "Application.html#tag-dapp-screenshots\"><code>&lt;screenshots&gt;</code></"
 "link> element within the application’s <code>&lt;component&gt;</code> in its "
 "metainfo file."
-msgstr "Aplikazioen pantaila-argazkiak <link href=\"https://www.freedesktop.org/software/appstream/docs/sect-Metadata-Application.html#tag-dapp-screenshots\"><code>&lt;screenshots&gt;</code></link> elementuan gordetzen dira, aplikazioaren metainformazio-fitxategiko <code>&lt;component&gt;</code> osagaian."
+msgstr ""
+"La ekrankopiaj informoj de aplikaĵo estas konservataj en la elemento <link "
+"href=\"https://www.freedesktop.org/software/appstream/docs/sect-Metadata-"
+"Application.html#tag-dapp-screenshots\"><code>&lt;screenshots&gt;</code></"
+"link> ene de la <code>&lt;component&gt;</code> de la aplikaĵo en ĝia "
+"metainformdosiero."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:247
@@ -753,18 +934,23 @@ msgid ""
 "Recommended number of screenshots for an app is between 5 to 10. Screenshots "
 "should ideally be in the PNG format with 16:9 aspect ratio and minimum width "
 "of 620 pixels."
-msgstr "Aplikazioek 5 eta 10 pantaila-argazki artean eduki ditzaten gomendatzen dugu. Hobe da PNG formatua erabiltzea, 16:9 aspektu-erlazioa eta gutxienez 620 pixeleko zabalera."
+msgstr ""
+"Rekomendita nombro de ekrankopioj por aplikaĵo estas inter 5 ĝis 10. "
+"Ekrankopioj devus ideale esti en PNG-formato kun 16:9 aspekto-raporto kaj "
+"minimuma larĝo de 620 pikseloj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:248
 msgid ""
 "For example, here are the screenshot entries for the <app>Software</app> app:"
-msgstr "Adibidez, hona hemen <app>Softwarea</app> aplikazioaren beraren pantaila-argazkiak:"
+msgstr ""
+"Ekzemple, jen estas la ekrankopjaj enigoj por la <app>Programaro</app>-"
+"aplikaĵo:"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:263
 msgid "How to fix incorrect safety and permissions information"
-msgstr "Nola konpondu segurtasun- eta baimen-informazio okerra"
+msgstr "Kiel ĝustigi malĝustan sekurecon kaj permesojn"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:264
@@ -774,7 +960,11 @@ msgid ""
 "traditionally packaged applications, for example in RPM or DEB format, there "
 "is no safety or permissions information available and nothing can be done to "
 "add it to an application."
-msgstr "Aplikazio baten segurtasuneko eta baimenetako informazioa iturburu desberdinetatik ateratzen da, aplikazio modu batean paketatuta egon edo beste modu batean. Pakete tradizionalak (adibidez RPM edo DEB) darabiltzaten aplikazioetan, ez dago segurtasuneko edo baimenetako informaziorik eta ezin da ezer egin horrelako informazioa aplikazioari gehitzeko."
+msgstr ""
+"La sekurec- kaj permeso-informo por aplikaĵo venas de malsamaj fontoj "
+"depende ĉu kiel la aplikaĵo estas pakita. Por tradice pakitaj aplikaĵoj, "
+"ekzemple en RPM aŭ DEB-formato, estas neniuj sekurec- aŭ permeso-informo "
+"disponebla kaj nenio povas esti farita por aldoni ĝin al aplikaĵo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:265
@@ -785,7 +975,12 @@ msgid ""
 "of these holes typically contributes to lowering the displayed safety level "
 "of the application in <app>Software</app> — moving it from ‘safe’ to "
 "‘potentially unsafe’ to ‘unsafe’."
-msgstr "Flatpak aplikazioetan, informazioa aplikazioaren <link href=\"https://docs.flatpak.org/en/latest/manifests.html\">flatpak manifestutik</link> dator, hor zehazten baita aplikazioak zein zulo behar dituen kutxa isolatuan. Zulo horietako bakoitzak normalean murriztu egiten du aplikazioaren segurtasun-maila <app>Softwaren</app>, eta‘segurua’ izatetik ‘arriskutsua izan daiteke’ egoerara edo ‘arriskutsua’ egoerara igaro daiteke."
+msgstr ""
+"Ĉe Flatpak-aplikaĵoj, la informoj venas el la <link href=\"https://"
+"docs.flatpak.org/en/latest/manifests.html\">Flatpak-manifesto</link> de la "
+"aplikaĵo, kiu specifas kiujn truojn en la sablokesto ĝi bezonas. Ĉiu tia "
+"truo kutime malaltigas la montratan sekurecnivelon en <app>Programaro</app>, "
+"movante ĝin de ‘sekura’ al ‘eble nesekura’ kaj al ‘nesekura’."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:266
@@ -797,7 +992,13 @@ msgid ""
 "docs.flatpak.org/en/latest/desktop-integration.html#portals\">portals</link> "
 "instead of sandbox permissions where possible. Use of portals does not lower "
 "the displayed safety level of an application in <app>Software</app>."
-msgstr "Aplikazio baten segurtasun-maila hobetzeko, bere isolamendua ahalik eta handiena izan behar du. Horretarako, kendu <link href=\"https://docs.flatpak.org/en/latest/sandbox-permissions.html\">kutxa isolatuko baimenak</link> halakorik behar ez denean, eta erabili <link href=\"https://docs.flatpak.org/en/latest/desktop-integration.html#portals\">atariak</link> isolamendu-baimenen ordez, posible denean. Atariak erabiltzen badira, aplikazioaren segurtasun-maila ez da jaitsiko <app>Software</app> aplikazioan."
+msgstr ""
+"Por plibonigi la sekurecnivelon de aplikaĵo, ĝia sablokesto devas esti kiel "
+"eble plej strikta: forigu <link href=\"https://docs.flatpak.org/en/latest/"
+"sandbox-permissions.html\">sablokestajn permesojn</link> kie ili ne necesas, "
+"kaj uzu <link href=\"https://docs.flatpak.org/en/latest/desktop-"
+"integration.html#portals\">portalojn</link> anstataŭ ili kie eblas. Portalo-"
+"uzo ne malaltigas la montratan sekurecnivelon en <app>Programaro</app>."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:267
@@ -810,7 +1011,15 @@ msgid ""
 "specific <link href=\"https://docs.flatpak.org/en/latest/sandbox-"
 "permissions.html#filesystem-access\">file system permissions</link> could be "
 "specified."
-msgstr "Adibidez, aplikazioak fitxategi-sistema osoan idatzi/irakurtzeko eskaria egiten badu (<code>--filesystem=host</code>), benetan behar al du, ala kokaleku jakin batzuetan soilik sartu behar al du? Horrela bada, <link href=\"https://docs.flatpak.org/en/latest/desktop-integration.html#portals\">fitxategien ataria</link> erabili daiteke, edo zehatzago izateko, <link href=\"https://docs.flatpak.org/en/latest/sandbox-permissions.html#filesystem-access\">fitxategi-sistemako baimenak</link> zehaztu daitezke."
+msgstr ""
+"Ekzemple, se la aplikaĵo petas leg/skribaĵo-aliron al la plena dosiero-"
+"sistemo (<code>--filesystem=host</code>), ĉu ĝi fakte postulas ĉi tion, aŭ "
+"ĉu ĝi bezonas akiri dosierojn en malmultaj specifaj lokaj? Se jes, la <link "
+"href=\"https://docs.flatpak.org/en/latest/desktop-"
+"integration.html#portals\">dosiero-pordego</link> povus esti uzita, aŭ pli "
+"specifaj <link href=\"https://docs.flatpak.org/en/latest/sandbox-"
+"permissions.html#filesystem-access\">dosiero-sistemo-permesoj</link> povus "
+"esti specifita."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:268
@@ -818,24 +1027,29 @@ msgid ""
 "If the application works on Wayland, and only needs to work on X11 as a "
 "fallback, without using special X11 features, could it use <code>--"
 "socket=fallback-x11</code> rather than <code>--socket=x11</code>?"
-msgstr "Aplikazioak Wayland ingurunean funtzionatzen badu eta X11 soilik arazoak daudenean behar badu, eta X11 eginbide bereziak behar ez baditu, <code>--socket=fallback-x11</code> erabili al dezake, <code>--socket=x11</code> erabili ordez?"
+msgstr ""
+"Se la aplikaĵo funkcias sur Wayland, kaj nur devas labori sur X11 kiel "
+"falbacko, sen uzado de specialaj X11-funkcioj, ĉu ĝi povus uzi <code>--"
+"socket=fallback-x11</code> anstataŭ <code>--socket=x11</code>?"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:269
 msgid ""
 "Guidance about specific permissions, or other packaging formats, may be "
 "added here in future."
-msgstr "Baimen bereziei edo beste paketatze-formatu batzuei buruzko gidalerroak eman daitezke hemen etorkizunean."
+msgstr ""
+"Gvidoj pri specifaj permesoj, aŭ aliaj pakaj formatoj, povus esti aldonitaj "
+"ĉi tie en la estonteco."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:270 C/software-metadata.page:308
 msgid "Further reading:"
-msgstr "Informazio gehiago:"
+msgstr "Pli da legado:"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:285
 msgid "How to add missing hardware information"
-msgstr "Nola gehitu falta den harware-informazioa"
+msgstr "Kiel aldoni mankantan makinaran informon"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:286
@@ -846,7 +1060,12 @@ msgid ""
 "<code>&lt;recommends&gt;</code> and <code>&lt;supports&gt;</code></link> "
 "elements within the application’s <code>&lt;component&gt;</code> in its "
 "metainfo file."
-msgstr "Hardawarearen lizentzia-informazioa <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-relations\"><code>&lt;requires&gt;</code></link>, <code>&lt;recommends&gt;</code> eta <code>&lt;supports&gt;</code></link> elementuetan gordetzen da, aplikazioaren metainformazio-fitxategiko <code>&lt;component&gt;</code> elementuaren barruan."
+msgstr ""
+"La aparataraj informoj de aplikaĵo estas konservataj en la elementoj <link "
+"href=\"https://www.freedesktop.org/software/appstream/docs/chap-"
+"Metadata.html#tag-relations\"><code>&lt;requires&gt;</code>, "
+"<code>&lt;recommends&gt;</code> kaj <code>&lt;supports&gt;</code></link> ene "
+"de la <code>&lt;component&gt;</code> de la aplikaĵo en ĝia metainformdosiero."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:287
@@ -856,7 +1075,12 @@ msgid ""
 "control\"><code>&lt;control&gt;</code></link> and <link href=\"https://"
 "www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-relations-"
 "display_length\"><code>&lt;display_length&gt;</code></link> elements."
-msgstr "<app>Softwarea</app> aplikazioak <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-relations-control\"><code>&lt;control&gt;</code></link> eta <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-relations-display_length\"><code>&lt;display_length&gt;</code></link> elementuak ulertzen ditu."
+msgstr ""
+"<app>Programaro</app> komprenas la <link href=\"https://www.freedesktop.org/"
+"software/appstream/docs/chap-Metadata.html#tag-relations-"
+"control\"><code>&lt;control&gt;</code></link> kaj <link href=\"https://"
+"www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-relations-"
+"display_length\"><code>&lt;display_length&gt;</code></link> elementoj."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:288
@@ -865,12 +1089,17 @@ msgid ""
 "to-say-what-inputs-and-display-sizes-it-supports/\">this blog post</link> or "
 "<link href=\"https://blogs.gnome.org/tbernard/2021/09/07/ready-for-"
 "software-41/#device-support\">this blog post</link> for examples of metadata."
-msgstr "Ikus <link href=\"https://tecnocode.co.uk/2021/07/12/add-metadata-to-your-app-to-say-what-inputs-and-display-sizes-it-supports/\">blog-bidalketa hau</link> edo <link href=\"https://blogs.gnome.org/tbernard/2021/09/07/ready-for-software-41/#device-support\">beste hau</link> metadatuen adibideak ezagutzeko."
+msgstr ""
+"Vidu <link href=\"https://tecnocode.co.uk/2021/07/12/add-metadata-to-your-"
+"app-to-say-what-inputs-and-display-sizes-it-supports/\">ĉi tiun blogo-"
+"postion</link> aŭ <link href=\"https://blogs.gnome.org/tbernard/2021/09/07/"
+"ready-for-software-41/#device-support\">ĉi tiun blogo-postion</link> por "
+"ekzemploj de metadatenoj."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:292
 msgid "How to add missing content rating information"
-msgstr "Nola gehitu eduki-balorazioari buruz falta den informazioa"
+msgstr "Kiel aldoni mankantan enhavan raitingan informon"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:293
@@ -880,7 +1109,12 @@ msgid ""
 "Metadata.html#tag-content_rating\"><code>&lt;content_rating&gt;</code></"
 "link> element within the application’s <code>&lt;component&gt;</code> in its "
 "metainfo file."
-msgstr "Aplikazioen eduki-balorazioari buruzko informazioa <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-content_rating\"><code>&lt;project_license&gt;</code></link> elementuan gordetzen da, aplikazioaren metainformazio-fitxategiko <code>&lt;component&gt;</code> elementuaren barruan."
+msgstr ""
+"La enhavtaksa informo de aplikaĵo estas konservata en la elemento <link "
+"href=\"https://www.freedesktop.org/software/appstream/docs/chap-"
+"Metadata.html#tag-content_rating\"><code>&lt;content_rating&gt;</code></"
+"link> ene de la <code>&lt;component&gt;</code> de la aplikaĵo en ĝia "
+"metainformdosiero."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:294
@@ -889,19 +1123,25 @@ msgid ""
 "the <code>&lt;content_rating&gt;</code> element is not specified, the "
 "application’s content rating is unknown. If it’s specified but empty, the "
 "application has no content which might be unsuitable for any audience."
-msgstr "Aplikazioek OARS 1.1 estandarra erabili behar dute elementu hori betetzeko. <code>&lt;content_rating&gt;</code> elementua zehazten ez bada, aplikazioaren eduki-balorazioa ezezaguna izango da. Zehaztu bada baina hutsik badago, aplikazioak ez du edozein pertsonarentzako desegokia izan daitekeen edukirik."
+msgstr ""
+"Aplikaĵoj uzu la normon OARS 1.1 por plenigi ĉi tiun elementon. Se "
+"<code>&lt;content_rating&gt;</code> ne estas specifita, la enhavtakso de la "
+"aplikaĵo estas nekonata. Se ĝi estas specifita sed malplena, la aplikaĵo ne "
+"enhavas ion netaŭgan por iu ajn publiko."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:295
 msgid ""
 "Use <link href=\"https://hughsie.github.io/oars/\">the OARS generator</link> "
 "to produce suitable content rating information for an application."
-msgstr "Erabili <link href=\"https://hughsie.github.io/oars/\">OARS sortzailea</link> aplikazioaren balorazio-informazio egokia sortzeko."
+msgstr ""
+"Uzu <link href=\"https://hughsie.github.io/oars/\">la OARS-generatoron</"
+"link> por produkti konvenan enhavan-raitingan informon por aplikaĵo."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:299
 msgid "How to fix incorrect licensing information"
-msgstr "Nola konpondu lizentzia-informazio okerra"
+msgstr "Kiel ĝustigi malĝustan permesajn informojn"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:300
@@ -911,7 +1151,12 @@ msgid ""
 "Metadata.html#tag-project_license\"><code>&lt;project_license&gt;</code></"
 "link> element within the application’s <code>&lt;component&gt;</code> in its "
 "metainfo file."
-msgstr "Aplikazioen lizentzia-informazioa <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-project_license\"><code>&lt;project_license&gt;</code></link> elementuan gordetzen da, aplikazioaren metainformazio-fitxategiko <code>&lt;component&gt;</code> elementuan."
+msgstr ""
+"La permesilaj informoj de aplikaĵo estas konservataj en la elemento <link "
+"href=\"https://www.freedesktop.org/software/appstream/docs/chap-"
+"Metadata.html#tag-project_license\"><code>&lt;project_license&gt;</code></"
+"link> ene de la <code>&lt;component&gt;</code> de la aplikaĵo en ĝia "
+"metainformdosiero."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:301
@@ -920,7 +1165,11 @@ msgid ""
 "specifications\">SPDX expression</link> which describes the ‘main’ license "
 "for the project. This should typically be the license of the code, and not "
 "include the license of the documentation or ancillary content."
-msgstr "Elementu honen edukiak <link href=\"https://spdx.org/specifications\">SPDX adierazpen</link> bat izan behar du. Proiektuaren lizentzia 'nagusia' deskribatzen da horretan. Normalean kodearen lizentzia da, eta ez du dokumentazioaren edo eduki osagarriaren lizentzia barne hartzen."
+msgstr ""
+"La enhavo de ĉi tiu elemento estu <link href=\"https://spdx.org/"
+"specifications\">SPDX-esprimo</link> priskribanta la ‘ĉefan’ permesilon de "
+"la projekto. Tipe ĝi estu la permesilo de la kodo, ne tiu de la dokumentaro "
+"aŭ aldona enhavo."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:302
@@ -929,7 +1178,12 @@ msgid ""
 "multiple licenses, which are all <link href=\"https://spdx.org/licenses/"
 "\">FSF or OSI approved</link>, the application is considered ‘free software’ "
 "and the license tile says so. Otherwise, it’s considered ‘proprietary’."
-msgstr "SPDX adierazpena lizentzia bakarra bada edo lizentzia anitzen ‘or’ konbinazio bat bada (denak <link href=\"https://spdx.org/licenses/\">FSFk edo OSIk onartuak</link>), aplikazioa ‘software librea’ dela kontsideratzen da eta lizentziaren izenburuak horrela dio. Bestela, ‘jabedun’ dela esango da."
+msgstr ""
+"Se la SPDX-esprimo estas unu permesilo aŭ kombinaĵo per ‘aŭ’ de pluraj "
+"permesiloj, kaj ĉiuj estas <link href=\"https://spdx.org/licenses/"
+"\">aprobita de FSF aŭ OSI</link>, la aplikaĵo estas konsiderata ‘libera "
+"programaro’ kaj la permesila kahelo tion indikas. Alie ĝi estas konsiderata "
+"‘proprieta’."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:303
@@ -937,31 +1191,38 @@ msgid ""
 "If an application is being displayed as ‘proprietary’ when you think it "
 "shouldn’t be, it’s likely that the <code>&lt;project_license&gt;</code> "
 "element includes the documentation license for the project. Remove it."
-msgstr "Aplikazioa ‘jabedun’ gisa bistaratzen bada eta horrela ez dela uste baduzu, agian <code>&lt;project_license&gt;</code> elementuak proiektuaren dokumentazio-lizentzia du barnean. Kendu ezazu hortik."
+msgstr ""
+"Se aplikaĵo aperas kiel ‘proprieta’ kvankam laŭ vi ĝi ne devus, verŝajne la "
+"elemento <code>&lt;project_license&gt;</code> enhavas la dokumentaran "
+"permesilon de la projekto. Forigu ĝin."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:304
 msgid ""
 "<link href=\"https://gitlab.gnome.org/GNOME/meld/-/issues/579\">For example</"
 "link>, change the license metadata from:"
-msgstr "<link href=\"https://gitlab.gnome.org/GNOME/meld/-/issues/579\">Adibidez</link>, aldatu hemengo lizentzia-metadatuak:"
+msgstr ""
+"<link href=\"https://gitlab.gnome.org/GNOME/meld/-/issues/579\">Ekzemple</"
+"link>, ŝanĝi la permeso-metadatenojn de:"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:306
 msgid "to"
-msgstr "-"
+msgstr "al"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:311
 msgid ""
 "<link href=\"https://tecnocode.co.uk/2021/07/05/dont-generally-put-cc-by-sa-"
 "in-appdata/\">Don’t (generally) put documentation license in appdata</link>"
-msgstr "<link href=\"https://tecnocode.co.uk/2021/07/05/dont-generally-put-cc-by-sa-in-appdata/\">Ez jarri (orokorrean) dokumentazioaren lizentzia appdata-n</link>"
+msgstr ""
+"<link href=\"https://tecnocode.co.uk/2021/07/05/dont-generally-put-cc-by-sa-"
+"in-appdata/\">Ne (ĝenerale) metu dokumentaran permesilon en appdata</link>"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:320
 msgid "How to add missing links"
-msgstr "Nola gehitu falta diren estekak"
+msgstr "Kiel aldoni mankantajn ligilojn"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:321
@@ -970,7 +1231,11 @@ msgid ""
 "www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-"
 "url\"><code>&lt;url&gt;</code></link> elements within the application’s "
 "<code>&lt;component&gt;</code> in its metainfo file."
-msgstr "Aplikazioen estekak <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-url\"><code>&lt;url&gt;</code></link> elementuan gordetzen da, aplikazioaren metainformazio-fitxategiko <code>&lt;component&gt;</code> elementuan."
+msgstr ""
+"La ligiloj de aplikaĵo estas konservataj kiel <link href=\"https://"
+"www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-"
+"url\"><code>&lt;url&gt;</code></link>-elementoj ene de la "
+"<code>&lt;component&gt;</code> de la aplikaĵo en ĝia metainformdosiero."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:322
@@ -980,18 +1245,25 @@ msgid ""
 "url\">appstream specification</link> as are available for the application. "
 "If no suitable page exists for a given link type, it doesn’t have to be "
 "included."
-msgstr "Gehitu <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-url\">appstream espezifikazioan</link> aplikaziorako erabilgarri daudela dokumentatu diren esteka mota guztiak. Esteka mota baterako ez badago orri egokirik, ez da sartu behar."
+msgstr ""
+"Aldonu kiel eble plej multajn el la ligiltipoj dokumentitaj en la <link "
+"href=\"https://www.freedesktop.org/software/appstream/docs/chap-"
+"Metadata.html#tag-url\">AppStream-specifo</link>, kiuj disponeblas por la "
+"aplikaĵo. Se ne ekzistas taŭga paĝo por iu ligiltipo, ĝi ne devas esti "
+"inkluzivita."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:323
 msgid ""
 "For example, here are the resource links for the <app>Software</app> app:"
-msgstr "Adibidez, hona hemen <app>Softwarea</app> aplikazioaren baliabide-estekak:"
+msgstr ""
+"Ekzemple, jen estas la risorcaj ligiloj por la <app>Programaro</app>-"
+"aplikaĵo:"
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:335
 msgid "How to set the carousel tile background color"
-msgstr "Nola ezarri ikuspegi birakariaren lauzaren atzeko planoaren kolorea"
+msgstr "Kiel fiksadi la fonkoloran de ĉarĉela ŝanco"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:336
@@ -1002,19 +1274,27 @@ msgid ""
 "appstream/docs/chap-Metadata.html#tag-branding\">appstream’s "
 "<code>&lt;branding/&gt;</code> element</link> with declared colors (since "
 "47.x series). The advantage is that more clients can use the colors."
-msgstr "Menu birakariko lauzen atzeko planoko kolorea normalean automatikoki erauzten da aplikazioaren ikonotik. Kolore hori gustuko ez baduzu, indargabetu egin dezakezu <link href=\"https://www.freedesktop.org/software/appstream/docs/chap-Metadata.html#tag-branding\">appstream’s <code>&lt;branding/&gt;</code> elementua</link> erabiliz, hor deklaratzen baitira koloreak (47.x serietik hasita). Abantaila da bezero gehiagok erabili dezaketela kolorea."
+msgstr ""
+"La fonkoloro de karusela kahelo estas kutime aŭtomate ĉerpata el la "
+"piktogramo de la aplikaĵo. Se tiu koloro ne taŭgas, ĝi povas esti "
+"anstataŭigita per la <link href=\"https://www.freedesktop.org/software/"
+"appstream/docs/chap-Metadata.html#tag-branding\">AppStream-"
+"<code>&lt;branding/&gt;</code>-elemento</link> kun deklaritaj koloroj (ekde "
+"la serio 47.x). Tiel pli da klientoj povas uzi la kolorojn."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:337
 msgid "For example, here are some branding entries:"
-msgstr "Adibidez, hona hemen marka ezartzeko sarrera batzuk:"
+msgstr "Ekzemple, jen estas iaj marca-enigoj:"
 
 #. (itstool) path: note/p
 #: C/software-metadata.page:344
 msgid ""
 "Note the <code>scheme_preference</code> attribute is ignored, <app>Software</"
 "app> chooses the better color for the theme on its own."
-msgstr "Ikusi nola <code>scheme_preference</code> atributuari ez ikusiarena egiten zaiola, <app>Softwarea</app> aplikazioak berak aukeratzen du gairako kolorerik onena."
+msgstr ""
+"Notu ke la <code>scheme_preference</code>-atributo estas ignora, "
+"<app>Programaro</app> elektas la pli bonan koloron por la temo mem."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:346
@@ -1022,12 +1302,15 @@ msgid ""
 "There is left, for backward compatibility, the possibility to add the "
 "following XML to the application’s metainfo <code>&lt;component&gt;</code> "
 "element:"
-msgstr "Atzerko bateragarritasunari eusteko, aplikazioaren metainformazioaren <code>&lt;component&gt;</code> elementuan honako XMLa gehitu daiteke:"
+msgstr ""
+"Por malantaŭen kongruo restas la ebleco aldoni la jenan XML-on al la "
+"<code>&lt;component&gt;</code>-elemento de la metainformdosiero de la "
+"aplikaĵo:"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:351
 msgid "but the <code>&lt;branding/&gt;</code> element has a precedence."
-msgstr "baina <code>&lt;branding/&gt;</code> elementuak lehentasuna du."
+msgstr "sed la <code>&lt;branding/&gt;</code> elemento havas precencecon."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:352
@@ -1036,26 +1319,34 @@ msgid ""
 "GVariant with type <code>a(yyy)</code>, and represents an unordered set of "
 "key colors for the application. Each element of the set is a color in RGB "
 "form ranging from <code>(0, 0, 0)</code> to <code>(255, 255, 255)</code>."
-msgstr "<code>GnomeSoftware::key-colors</code> elementuaren balioa testu-formatuko GVariant bat da, <code>a(yyy)</code> mota duena, eta aplikaziorako gako-koloreen multzo ordenatu gabea ordezkatzen du. Multzoaren kolore bakoitza RGB formatuko balio bat da, <code>(0, 0, 0)</code> eta <code>(255, 255, 255)</code> artekoa."
+msgstr ""
+"La valoro de <code>GnomeSoftware::key-colors</code> estas teksta-formato "
+"GVariant kun tipo <code>a(yyy)</code>, kaj reprezentas neordigitan aron de "
+"ĉefaj koloroj por la aplikaĵo. Ĉiu elemento de la aro estas koloro en RGB-"
+"formo varianta de <code>(0, 0, 0)</code> al <code>(255, 255, 255)</code>."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:353
 msgid "Colors should be chosen so that they:"
-msgstr "Koloreak hautatzeko, kontuan izan:"
+msgstr "Koloroj devus esti elektitaj por ke ĝi:"
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:356
 msgid ""
 "Are identifiable to the application, matching the application’s branding in "
 "some way, if possible."
-msgstr "Aplikazioa ongi identifikatzen dutela eta aplikazioaren markarekin bat datozela, posible bada."
+msgstr ""
+"Ili estu identigeblaj por la aplikaĵo, laŭeble iel kongruante kun ĝia "
+"markostilo."
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:359
 msgid ""
 "Contrast with the edge of the application’s icon, so that when they are used "
 "as a background behind it, the icon can be distinguished."
-msgstr "Aplikazioaren ikonoaren ertzarekin kontraste egokia duela, haren atzeko plano gisa erabiltzen denean ikonoa ongi bereiztu dadin."
+msgstr ""
+"Ili kontrastu kun la rando de la piktogramo de la aplikaĵo, por ke la "
+"piktogramo estu distingebla kiam ili estas uzataj kiel fono malantaŭ ĝi."
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:362
@@ -1063,14 +1354,19 @@ msgid ""
 "Contrast with the foreground text color in the Adwaita theme (<code>#2e3436</"
 "code>) and in its dark variant (<code>#eeeeec</code>). This generally means "
 "choosing a color with a medium level of brightness."
-msgstr "Adwaita gaiaren aurreko planoko testuen kolorearekin (<code>#2e3436</code>) kontraste egokia duela, baita aldaera ilunean ere (<code>#eeeeec</code>). Horrek esan nahi du oro har argitasun-maila ertaina duen kolore bat aukeratu behar dela."
+msgstr ""
+"Kontrastas kun la antaŭa-teksta koloro en la Adwaita-temo (<code>#2e3436</"
+"code>) kaj en ĝia malhelaj variano (<code>#eeeeec</code>). Ĉi tio ĝenerale "
+"signifas elekti koloron kun meza nivelo de lumeco."
 
 #. (itstool) path: item/p
 #: C/software-metadata.page:365
 msgid ""
 "Contrast can be checked using the <link href=\"https://flathub.org/apps/"
 "org.gnome.design.Contrast/\">Contrast app</link>."
-msgstr "Kontrastea egiaztatzeko, erabili <link href=\"https://flathub.org/apps/org.gnome.design.Contrast/\">Kontrastea izeneko aplikazioa</link>."
+msgstr ""
+"Kontrastas povas esti kontrolita uzante la <link href=\"https://flathub.org/"
+"apps/org.gnome.design.Contrast/\">Kontrasta aplikaĵo</link>."
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:368
@@ -1082,26 +1378,37 @@ msgid ""
 "contrast with the foreground color. If more than one color is specified, the "
 "one with the best contrast with the foreground color will be chosen, and its "
 "brightness and saturation will not be modified."
-msgstr "Gutxienez kolore bat zehaztu behar da. Gehiago ere zehaztu daitezke kolore bakar batek ez baditu goiko eskakizun guztiak betetzen, eta <app>Softwareak</app> aukeratuko du menu birakarian erabiltzeko egokiena. Kolore bakar bat zehaztu bada, bere distira eta saturazioa aldatuak izan daitezke aurreko planoko kolorearekin duen kontrastea hobetzeko. Kolore bat baino gehiago zehaztu bada, aurreko planoko kolorearekin kontraste onena duena aukeratuko da eta bere distira eta saturazioa ez dira aldatuko."
+msgstr ""
+"Oni specifu almenaŭ unu koloron. Oni povas specifi pli, se unu koloro ne "
+"povas plenumi ĉiujn suprajn postulojn; <app>Programaro</app> elektos la plej "
+"taŭgan por la karusela kahelo. Se estas specifita ekzakte unu koloro, ĝia "
+"heleco kaj satureco povas esti modifitaj por plibonigi kontraston kun la "
+"malfonkoloro. Se estas specifitaj pluraj koloroj, elektiĝos tiu kun la plej "
+"bona kontrasto kun la malfonkoloro, kaj ĝia heleco kaj satureco ne estos "
+"modifitaj."
 
 #. (itstool) path: section/title
 #: C/software-metadata.page:372
 msgid "How to test carousel tile background color changes"
-msgstr "Nola probatu ikuspegi birakariaren lauzaren atzeko planoaren kolore-aldaketak"
+msgstr "Kiel testi ĉarĉelaj ŝancaj fonkoloraj ŝanĝoj"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:373
 msgid ""
 "Modify the metainfo file for your application, and then run <app>Software</"
 "app> with:"
-msgstr "Aldatu zure aplikazioaren metainformazio-fitxategia eta, ondoren, exekutatu <app>Softwarea</app> aplikazioa honela:"
+msgstr ""
+"Modifi la metainfo-dosieron por via aplikaĵo, kaj tiam flegi "
+"<app>Programaro</app> kun:"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:374
 msgid ""
 "<cmd>gnome-software --show-metainfo=<var>/path/to/app.metainfo.xml</"
 "var>,icon=<var>/path/to/app/icon.png</var></cmd>"
-msgstr "<cmd>gnome-software --show-metainfo=<var>/path/to/app.metainfo.xml</var>,icon=<var>/path/to/app/icon.png</var></cmd>"
+msgstr ""
+"<cmd>gnome-software --show-metainfo=<var>/path/to/app.metainfo.xml</"
+"var>,icon=<var>/path/to/app/icon.png</var></cmd>"
 
 #. (itstool) path: section/p
 #: C/software-metadata.page:375
@@ -1109,84 +1416,7 @@ msgid ""
 "The details page for your application will be shown. If you navigate back to "
 "the overview page of <app>Software</app>, your application will be the only "
 "one in the ‘featured’ carousel."
-msgstr "Zure aplikazioaren xehetasun-orria erakutsiko da. <app>Softwareko</app> ikuspegi orokorreko orrira itzultzen bazara, zure aplikazioa ikuspegi birakariko aplikazio 'nabarmendu' bakarra izango da."
-
-#, no-wrap
-#~ msgid ""
-#~ "\n"
-#~ "&lt;screenshots&gt;\n"
-#~ "  &lt;screenshot type=\"default\"&gt;\n"
-#~ "    &lt;image&gt;https://gitlab.gnome.org/GNOME/gnome-software/raw/HEAD/data/metainfo/ss-overview.png&lt;/image&gt;\n"
-#~ "    &lt;caption&gt;Overview panel&lt;/caption&gt;\n"
-#~ "  &lt;/screenshot&gt;\n"
-#~ "  &lt;screenshot&gt;\n"
-#~ "    &lt;image&gt;https://gitlab.gnome.org/GNOME/gnome-software/raw/HEAD/data/metainfo/ss-details.png&lt;/image&gt;\n"
-#~ "    &lt;caption&gt;Details panel&lt;/caption&gt;\n"
-#~ "  &lt;/screenshot&gt;\n"
-#~ "&lt;/screenshots&gt;"
-#~ msgstr ""
-#~ "\n"
-#~ "&lt;screenshots&gt;\n"
-#~ "  &lt;screenshot type=\"default\"&gt;\n"
-#~ "    &lt;image&gt;https://gitlab.gnome.org/GNOME/gnome-software/raw/HEAD/data/metainfo/ss-overview.png&lt;/image&gt;\n"
-#~ "    &lt;caption&gt;Overview panel&lt;/caption&gt;\n"
-#~ "  &lt;/screenshot&gt;\n"
-#~ "  &lt;screenshot&gt;\n"
-#~ "    &lt;image&gt;https://gitlab.gnome.org/GNOME/gnome-software/raw/HEAD/data/metainfo/ss-details.png&lt;/image&gt;\n"
-#~ "    &lt;caption&gt;Details panel&lt;/caption&gt;\n"
-#~ "  &lt;/screenshot&gt;\n"
-#~ "&lt;/screenshots&gt;"
-
-#, no-wrap
-#~ msgid "&lt;project_license&gt;GPL-2.0+ and CC-BY-SA-3.0&lt;/project_license&gt;"
-#~ msgstr "&lt;project_license&gt;GPL-2.0+ and CC-BY-SA-3.0&lt;/project_license&gt;"
-
-#, no-wrap
-#~ msgid "&lt;project_license&gt;GPL-2.0+&lt;/project_license&gt;"
-#~ msgstr "&lt;project_license&gt;GPL-2.0+&lt;/project_license&gt;"
-
-#, no-wrap
-#~ msgid ""
-#~ "\n"
-#~ "&lt;url type=\"bugtracker\"&gt;https://gitlab.gnome.org/GNOME/gnome-software/-/issues&lt;/url&gt;\n"
-#~ "&lt;url type=\"contact\"&gt;https://discourse.gnome.org/tag/gnome-software&lt;/url&gt;\n"
-#~ "&lt;url type=\"contribute\"&gt;https://welcome.gnome.org/app/Software/&lt;/url&gt;\n"
-#~ "&lt;url type=\"donation\"&gt;https://www.gnome.org/donate/&lt;/url&gt;\n"
-#~ "&lt;url type=\"homepage\"&gt;https://apps.gnome.org/Software&lt;/url&gt;\n"
-#~ "&lt;url type=\"translate\"&gt;https://l10n.gnome.org/module/gnome-software/&lt;/url&gt;\n"
-#~ "&lt;url type=\"vcs-browser\"&gt;https://gitlab.gnome.org/GNOME/gnome-software/&lt;/url&gt;"
-#~ msgstr ""
-#~ "\n"
-#~ "&lt;url type=\"bugtracker\"&gt;https://gitlab.gnome.org/GNOME/gnome-software/-/issues&lt;/url&gt;\n"
-#~ "&lt;url type=\"contact\"&gt;https://discourse.gnome.org/tag/gnome-software&lt;/url&gt;\n"
-#~ "&lt;url type=\"contribute\"&gt;https://welcome.gnome.org/app/Software/&lt;/url&gt;\n"
-#~ "&lt;url type=\"donation\"&gt;https://www.gnome.org/donate/&lt;/url&gt;\n"
-#~ "&lt;url type=\"homepage\"&gt;https://apps.gnome.org/Software&lt;/url&gt;\n"
-#~ "&lt;url type=\"translate\"&gt;https://l10n.gnome.org/module/gnome-software/&lt;/url&gt;\n"
-#~ "&lt;url type=\"vcs-browser\"&gt;https://gitlab.gnome.org/GNOME/gnome-software/&lt;/url&gt;"
-
-#, no-wrap
-#~ msgid ""
-#~ "\n"
-#~ "&lt;branding&gt;\n"
-#~ "  &lt;color type=\"primary\" scheme_preference=\"light\"&gt;#ff00ff&lt;/color&gt;\n"
-#~ "  &lt;color type=\"primary\" scheme_preference=\"dark\"&gt;#993d3d&lt;/color&gt;\n"
-#~ "&lt;/branding&gt;"
-#~ msgstr ""
-#~ "\n"
-#~ "&lt;branding&gt;\n"
-#~ "  &lt;color type=\"primary\" scheme_preference=\"light\"&gt;#ff00ff&lt;/color&gt;\n"
-#~ "  &lt;color type=\"primary\" scheme_preference=\"dark\"&gt;#993d3d&lt;/color&gt;\n"
-#~ "&lt;/branding&gt;"
-
-#, no-wrap
-#~ msgid ""
-#~ "\n"
-#~ "&lt;custom&gt;\n"
-#~ "  &lt;value key=\"GnomeSoftware::key-colors\"&gt;[(124, 53, 77), (99, 16, 0)]&lt;/value&gt;\n"
-#~ "&lt;/custom&gt;"
-#~ msgstr ""
-#~ "\n"
-#~ "&lt;custom&gt;\n"
-#~ "  &lt;value key=\"GnomeSoftware::key-colors\"&gt;[(124, 53, 77), (99, 16, 0)]&lt;/value&gt;\n"
-#~ "&lt;/custom&gt;"
+msgstr ""
+"Montriĝos la detalpaĝo de via aplikaĵo. Se vi reiras al la superrigarda paĝo "
+"de <app>Programaro</app>, via aplikaĵo estos la sola en la ‘prezentata’ "
+"karuselo."
