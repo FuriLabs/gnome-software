@@ -30,8 +30,8 @@ override_dh_auto_configure:
 		-Dflatpak=$(if $(filter %-flatpak,$(shell dh_listpackages)),true,false) \
 		-Dgudev=$(if $(filter linux,$(DEB_HOST_ARCH_OS)),true,false) \
 		-Dmalcontent=$(if $(filter %-flatpak,$(shell dh_listpackages)),true,false) \
-		-Dpackagekit=true \
-		-Dpackagekit_autoremove=true \
+		-Dpackagekit=false \
+		-Dpackagekit_autoremove=false \
 		-Drpm_ostree=false \
 		-Dsnap=$(if $(filter %-snap,$(shell dh_listpackages)),true,false) \
 		-Dsysprof=$(if $(filter linux,$(DEB_HOST_ARCH_OS)),enabled,disabled)
