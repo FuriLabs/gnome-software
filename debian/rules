@@ -26,7 +26,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 		-Dapt=true \
 		-Ddefault_featured_apps=true \
-		-Dfwupd=$(if $(filter %-fwupd,$(shell dh_listpackages)),true,false) \
+		-Dfwupd=false \
 		-Dflatpak=$(if $(filter %-flatpak,$(shell dh_listpackages)),true,false) \
 		-Dgudev=$(if $(filter linux,$(DEB_HOST_ARCH_OS)),true,false) \
 		-Dmalcontent=$(if $(filter %-flatpak,$(shell dh_listpackages)),true,false) \
